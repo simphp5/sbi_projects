@@ -6,7 +6,7 @@ from frappe.model.document import Document
 from frappe.utils import add_days, flt, getdate, nowdate
 
 
-class SbiProjectTemplate(Document):
+class SBIProjectTemplate(Document):
 	def validate(self):
 		self.calculate_total_weight()
 		self.validate_weight()

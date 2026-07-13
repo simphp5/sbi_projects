@@ -6,7 +6,7 @@ from frappe.model.document import Document
 from frappe.utils import flt
 
 
-class Boq(Document):
+class BOQ(Document):
 	def validate(self):
 		self.calculate_totals()
 		self.validate_items()

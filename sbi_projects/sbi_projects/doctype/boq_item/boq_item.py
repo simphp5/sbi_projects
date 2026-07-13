@@ -5,5 +5,5 @@ import frappe
 from frappe.model.document import Document
 
 
-class BoqItem(Document):
+class BOQItem(Document):
 	pass
