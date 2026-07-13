@@ -1,0 +1,98 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-07-13 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "stage",
+  "stage_code",
+  "weight",
+  "duration_days",
+  "depends_on_stage",
+  "is_milestone",
+  "assign_to_role",
+  "sb1",
+  "stage_description"
+ ],
+ "fields": [
+  {
+   "fieldname": "stage",
+   "fieldtype": "Link",
+   "label": "Stage",
+   "options": "Project Stage",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "stage_code",
+   "fieldtype": "Data",
+   "label": "Code",
+   "fetch_from": "stage.stage_code",
+   "read_only": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "weight",
+   "fieldtype": "Float",
+   "label": "Weight (%)",
+   "precision": "2",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "duration_days",
+   "fieldtype": "Int",
+   "label": "Duration (Days)",
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "depends_on_stage",
+   "fieldtype": "Link",
+   "label": "Depends On",
+   "options": "Project Stage",
+   "in_list_view": 1,
+   "columns": 2,
+   "description": "Previous stage that must finish first"
+  },
+  {
+   "fieldname": "is_milestone",
+   "fieldtype": "Check",
+   "label": "Milestone",
+   "columns": 1
+  },
+  {
+   "fieldname": "assign_to_role",
+   "fieldtype": "Link",
+   "label": "Assign To Role",
+   "options": "Role"
+  },
+  {
+   "fieldname": "sb1",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "stage_description",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "is_submittable": 0,
+ "links": [],
+ "modified": "2026-07-13 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "SBI Projects",
+ "name": "Project Template Stage",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
