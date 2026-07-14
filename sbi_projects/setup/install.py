@@ -7,6 +7,12 @@ from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 def after_install():
 	add_custom_fields()
 	seed_project_stages()
+	seed_lead_stages()
+	seed_lead_activity_types()
+
+	from sbi_projects.setup.crm_setup import setup_crm
+
+	setup_crm()
 	frappe.db.commit()
 
 
@@ -200,6 +206,58 @@ def add_custom_fields():
 				"in_list_view": 1,
 			},
 		],
+		"Lead": [
+			{
+				"fieldname": "sbi_pipeline_sb",
+				"label": "Sales Pipeline",
+				"fieldtype": "Section Break",
+				"insert_after": "status",
+			},
+			{
+				"fieldname": "sbi_lead_stage",
+				"label": "Lead Stage",
+				"fieldtype": "Link",
+				"options": "Lead Stage",
+				"insert_after": "sbi_pipeline_sb",
+				"in_list_view": 1,
+				"in_standard_filter": 1,
+				"bold": 1,
+			},
+			{
+				"fieldname": "sbi_next_followup",
+				"label": "Next Follow-up",
+				"fieldtype": "Date",
+				"insert_after": "sbi_lead_stage",
+				"read_only": 1,
+				"in_list_view": 1,
+				"description": "Earliest pending next-action date from the activity log",
+			},
+			{
+				"fieldname": "sbi_pipeline_cb",
+				"fieldtype": "Column Break",
+				"insert_after": "sbi_next_followup",
+			},
+			{
+				"fieldname": "sbi_lost_reason",
+				"label": "Lost Reason",
+				"fieldtype": "Small Text",
+				"insert_after": "sbi_pipeline_cb",
+				"depends_on": "eval:doc.sbi_lead_stage",
+			},
+			{
+				"fieldname": "sbi_activity_sb",
+				"label": "Activity Log",
+				"fieldtype": "Section Break",
+				"insert_after": "sbi_lost_reason",
+			},
+			{
+				"fieldname": "sbi_activities",
+				"label": "Activities",
+				"fieldtype": "Table",
+				"options": "Lead Activity",
+				"insert_after": "sbi_activity_sb",
+			},
+		],
 	}
 	create_custom_fields(custom_fields, ignore_validate=True)
 
@@ -233,5 +291,75 @@ def seed_project_stages():
 			"sequence": seq,
 			"default_weight": weight,
 			"default_duration": duration,
+			"is_active": 1,
+		}).insert(ignore_permissions=True)
+
+
+# ------------------------------------------------------------------
+# Lead pipeline seeds  (civil / PEB sales cycle)
+# ------------------------------------------------------------------
+LEAD_STAGES = [
+	# (name, seq, colour, expected_days, is_converted, is_lost)
+	("New Enquiry",             1,  "Grey",   2,  0, 0),
+	("Contacted",               2,  "Blue",   3,  0, 0),
+	("First Meeting",           3,  "Blue",   7,  0, 0),
+	("Site Visit",              4,  "Orange", 7,  0, 0),
+	("Site Survey",             5,  "Orange", 10, 0, 0),
+	("Requirement Finalised",   6,  "Purple", 7,  0, 0),
+	("Drawing / Design Shared", 7,  "Purple", 10, 0, 0),
+	("Budget Estimate Shared",  8,  "Yellow", 7,  0, 0),
+	("Quotation Submitted",     9,  "Yellow", 15, 0, 0),
+	("Negotiation",             10, "Orange", 15, 0, 0),
+	("Won",                     11, "Green",  0,  1, 0),
+	("Lost",                    12, "Red",    0,  0, 1),
+	("On Hold",                 13, "Grey",   0,  0, 0),
+]
+
+
+def seed_lead_stages():
+	for name, seq, colour, days, won, lost in LEAD_STAGES:
+		if frappe.db.exists("Lead Stage", name):
+			continue
+		frappe.get_doc({
+			"doctype": "Lead Stage",
+			"stage_name": name,
+			"sequence": seq,
+			"indicator_color": colour,
+			"expected_days": days,
+			"is_converted": won,
+			"is_lost": lost,
+			"is_active": 1,
+		}).insert(ignore_permissions=True)
+
+
+LEAD_ACTIVITY_TYPES = [
+	# (name, seq, moves_to_stage)
+	("Enquiry Received",        1,  "New Enquiry"),
+	("Call / Email",            2,  "Contacted"),
+	("First Meeting",           3,  "First Meeting"),
+	("Site Visit",              4,  "Site Visit"),
+	("Site Survey / Measurement", 5, "Site Survey"),
+	("Soil Test Report Received", 6, None),
+	("Requirement Confirmed",   7,  "Requirement Finalised"),
+	("GA Drawing Shared",       8,  "Drawing / Design Shared"),
+	("Budget Estimate Sent",    9,  "Budget Estimate Shared"),
+	("Quotation Sent",          10, "Quotation Submitted"),
+	("Negotiation Meeting",     11, "Negotiation"),
+	("Revised Quotation Sent",  12, "Negotiation"),
+	("Work Order Received",     13, "Won"),
+	("Client Declined",         14, "Lost"),
+	("Follow-up",               15, None),
+]
+
+
+def seed_lead_activity_types():
+	for name, seq, moves_to in LEAD_ACTIVITY_TYPES:
+		if frappe.db.exists("Lead Activity Type", name):
+			continue
+		frappe.get_doc({
+			"doctype": "Lead Activity Type",
+			"activity_name": name,
+			"sequence": seq,
+			"moves_to_stage": moves_to,
 			"is_active": 1,
 		}).insert(ignore_permissions=True)

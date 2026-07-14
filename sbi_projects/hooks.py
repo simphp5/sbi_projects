@@ -12,6 +12,7 @@ required_apps = ["erpnext"]
 doctype_js = {
     "Project": "public/js/project.js",
     "Sales Order": "public/js/sales_order.js",
+    "Lead": "public/js/lead.js",
 }
 
 # ------------------------------------------------------------------
@@ -19,12 +20,25 @@ doctype_js = {
 # ------------------------------------------------------------------
 after_install = "sbi_projects.setup.install.after_install"
 
+# Re-run on every deploy so new custom fields / seeds land without a
+# fresh install. Every step is idempotent.
+after_migrate = "sbi_projects.setup.install.after_install"
+
 # ------------------------------------------------------------------
 # Document Events
 # ------------------------------------------------------------------
 doc_events = {
     "Project": {
         "after_insert": "sbi_projects.sbi_projects.project_hooks.build_project_stages",
+    },
+    "Lead": {
+        "validate": "sbi_projects.sbi_projects.lead_hooks.validate_lead",
+    },
+    "Opportunity": {
+        "validate": "sbi_projects.sbi_projects.crm_hooks.pull_enquiry_to_opportunity",
+    },
+    "Quotation": {
+        "validate": "sbi_projects.sbi_projects.crm_hooks.pull_enquiry_to_quotation",
     },
 }
 
@@ -38,5 +52,11 @@ fixtures = [
     },
     {
         "dt": "Project Stage",
+    },
+    {
+        "dt": "Lead Stage",
+    },
+    {
+        "dt": "Lead Activity Type",
     },
 ]

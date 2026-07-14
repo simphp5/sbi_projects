@@ -1,0 +1,120 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-07-14 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "stage_name",
+  "sequence",
+  "indicator_color",
+  "cb1",
+  "is_active",
+  "is_converted",
+  "is_lost",
+  "expected_days",
+  "sb1",
+  "description"
+ ],
+ "fields": [
+  {
+   "fieldname": "stage_name",
+   "fieldtype": "Data",
+   "label": "Stage Name",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "sequence",
+   "fieldtype": "Int",
+   "label": "Sequence",
+   "in_list_view": 1,
+   "description": "Order in the pipeline"
+  },
+  {
+   "fieldname": "indicator_color",
+   "fieldtype": "Select",
+   "label": "Colour",
+   "in_list_view": 1,
+   "options": "Blue\nOrange\nGreen\nRed\nGrey\nPurple\nYellow\nPink",
+   "default": "Blue"
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active",
+   "default": "1"
+  },
+  {
+   "fieldname": "is_converted",
+   "fieldtype": "Check",
+   "label": "Marks Lead as Converted",
+   "description": "Tick for the winning stage"
+  },
+  {
+   "fieldname": "is_lost",
+   "fieldtype": "Check",
+   "label": "Marks Lead as Lost",
+   "description": "Lost Reason becomes mandatory on this stage"
+  },
+  {
+   "fieldname": "expected_days",
+   "fieldtype": "Int",
+   "label": "Expected Days in Stage",
+   "description": "Used to flag stale leads"
+  },
+  {
+   "fieldname": "sb1",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 0,
+ "is_submittable": 0,
+ "links": [],
+ "modified": "2026-07-14 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "SBI Projects",
+ "name": "Lead Stage",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales User",
+   "write": 1,
+   "export": 1,
+   "print": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "autoname": "field:stage_name",
+ "naming_rule": "By fieldname"
+}
