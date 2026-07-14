@@ -143,6 +143,62 @@ def add_custom_fields():
 				"insert_after": "project",
 				"in_standard_filter": 1,
 			},
+			{
+				"fieldname": "sbi_budget_sb",
+				"label": "Stage Budget",
+				"fieldtype": "Section Break",
+				"insert_after": "task_weight",
+				"collapsible": 1,
+			},
+			{
+				"fieldname": "sbi_payment_term",
+				"label": "Payment Term",
+				"fieldtype": "Link",
+				"options": "Payment Term",
+				"insert_after": "sbi_budget_sb",
+				"read_only": 1,
+			},
+			{
+				"fieldname": "sbi_invoice_portion",
+				"label": "Invoice Portion (%)",
+				"fieldtype": "Percent",
+				"insert_after": "sbi_payment_term",
+				"read_only": 1,
+			},
+			{
+				"fieldname": "sbi_budget_cb",
+				"fieldtype": "Column Break",
+				"insert_after": "sbi_invoice_portion",
+			},
+			{
+				"fieldname": "sbi_stage_budget",
+				"label": "Stage Budget",
+				"fieldtype": "Currency",
+				"insert_after": "sbi_budget_cb",
+				"description": "From the Sales Order payment schedule",
+			},
+		],
+		"Payment Term": [
+			{
+				"fieldname": "sbi_stage",
+				"label": "Project Stage",
+				"fieldtype": "Link",
+				"options": "Project Stage",
+				"insert_after": "invoice_portion",
+				"description": "Map this payment milestone to a project stage",
+			},
+		],
+		"Payment Schedule": [
+			{
+				"fieldname": "sbi_stage",
+				"label": "Project Stage",
+				"fieldtype": "Link",
+				"options": "Project Stage",
+				"insert_after": "payment_term",
+				"fetch_from": "payment_term.sbi_stage",
+				"fetch_if_empty": 1,
+				"in_list_view": 1,
+			},
 		],
 	}
 	create_custom_fields(custom_fields, ignore_validate=True)

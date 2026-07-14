@@ -11,6 +11,7 @@ required_apps = ["erpnext"]
 # ------------------------------------------------------------------
 doctype_js = {
     "Project": "public/js/project.js",
+    "Sales Order": "public/js/sales_order.js",
 }
 
 # ------------------------------------------------------------------
@@ -23,7 +24,7 @@ after_install = "sbi_projects.setup.install.after_install"
 # ------------------------------------------------------------------
 doc_events = {
     "Project": {
-        "after_insert": "sbi_projects.sbi_projects.doctype.sbi_project_template.sbi_project_template.create_tasks_from_template",
+        "after_insert": "sbi_projects.sbi_projects.project_hooks.build_project_stages",
     },
 }
 
