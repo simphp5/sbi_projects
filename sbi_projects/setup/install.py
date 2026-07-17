@@ -13,6 +13,10 @@ def after_install():
 	from sbi_projects.setup.crm_setup import setup_crm
 
 	setup_crm()
+
+	from sbi_projects.setup.branding import setup_branding
+
+	setup_branding()
 	frappe.db.commit()
 
 

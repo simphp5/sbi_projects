@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Login — Shiv Bharat Infrastructures</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sbi-red:#BE1E2D;        /* deep brand red  */
+    --sbi-red-bright:#ED1C24; /* button / accent */
+    --sbi-orange:#E53F0C;     /* logo spark      */
+    --ink:#1B1F24;
+    --muted:#6B7280;
+    --paper:#FFFFFF;
+    --panel:#F5F6F8;
+    --line:#E4E7EC;
+    --field:#F4F5F7;
+    --focus:rgba(190,30,45,.18);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    font-family:'Inter',system-ui,-apple-system,sans-serif;
+    color:var(--ink);
+    background:var(--sbi-red);
+    -webkit-font-smoothing:antialiased;
+  }
+  .shell{display:flex;min-height:100vh;width:100%}
+
+  /* ---------- LEFT / BRAND PANEL ---------- */
+  .brand{
+    flex:1 1 56%;
+    position:relative;
+    background:var(--paper);
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    padding:44px 56px 0;
+    overflow:hidden;
+  }
+  /* faint engineering blueprint grid — the signature motif */
+  .brand::before{
+    content:"";position:absolute;inset:0;
+    background-image:
+      linear-gradient(rgba(27,31,36,.035) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(27,31,36,.035) 1px,transparent 1px);
+    background-size:34px 34px;
+    -webkit-mask-image:radial-gradient(120% 90% at 30% 20%,#000 40%,transparent 90%);
+            mask-image:radial-gradient(120% 90% at 30% 20%,#000 40%,transparent 90%);
+    pointer-events:none;
+  }
+  .brand-top{display:flex;align-items:center;gap:14px;position:relative;z-index:2}
+  .brand-top img{height:58px;width:auto;display:block}
+  .brand-mid{position:relative;z-index:2;max-width:560px;margin-top:6vh}
+  .eyebrow{
+    display:inline-flex;align-items:center;gap:8px;
+    font-family:'Poppins';font-weight:600;font-size:12px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--sbi-red);
+    background:rgba(190,30,45,.07);border:1px solid rgba(190,30,45,.16);
+    padding:7px 14px;border-radius:999px;
+  }
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--sbi-orange)}
+  .headline{
+    font-family:'Poppins';font-weight:800;line-height:1.03;
+    font-size:clamp(34px,4vw,56px);margin:22px 0 14px;letter-spacing:-.5px;
+  }
+  .headline .accent{color:var(--sbi-red)}
+  .sub{font-size:16px;line-height:1.6;color:var(--muted);max-width:440px}
+
+  /* line-art PEB portal frame / shed — ties to their business */
+  .peb{position:absolute;right:-40px;bottom:0;width:min(58%,620px);z-index:1;pointer-events:none}
+  .peb svg{width:100%;height:auto;display:block}
+
+  /* ---------- RIGHT / LOGIN PANEL ---------- */
+  .auth{
+    flex:0 0 44%;
+    position:relative;
+    background:
+      radial-gradient(140% 120% at 100% 0%,#D22334 0%,var(--sbi-red) 45%,#9E1826 100%);
+    display:flex;align-items:center;justify-content:center;
+    padding:40px;
+  }
+  .auth::after{ /* subtle diagonal industrial texture */
+    content:"";position:absolute;inset:0;opacity:.10;pointer-events:none;
+    background:repeating-linear-gradient(135deg,#fff 0 2px,transparent 2px 26px);
+    -webkit-mask-image:linear-gradient(180deg,transparent,#000 60%);
+            mask-image:linear-gradient(180deg,transparent,#000 60%);
+  }
+  .card{
+    position:relative;z-index:2;width:100%;max-width:400px;
+    background:var(--paper);border-radius:22px;
+    padding:40px 38px 34px;
+    box-shadow:0 30px 60px -20px rgba(0,0,0,.45),0 2px 0 rgba(255,255,255,.6) inset;
+  }
+  .card-logo{display:flex;justify-content:center;margin-bottom:22px}
+  .card-logo img{height:52px;width:auto}
+  .card h1{
+    font-family:'Poppins';font-weight:700;font-size:26px;text-align:center;
+    margin:0 0 4px;letter-spacing:-.3px;
+  }
+  .card .lede{text-align:center;color:var(--muted);font-size:14px;margin:0 0 26px}
+
+  .field{margin-bottom:16px}
+  .field label{
+    display:block;font-size:12.5px;font-weight:600;color:#495057;
+    margin:0 0 7px;letter-spacing:.01em;
+  }
+  .control{position:relative;display:flex;align-items:center}
+  .control .lead{
+    position:absolute;left:14px;display:flex;color:#9aa0a6;pointer-events:none
+  }
+  .control input{
+    width:100%;height:50px;border:1.5px solid var(--line);background:var(--field);
+    border-radius:12px;padding:0 46px 0 44px;font-size:15px;color:var(--ink);
+    font-family:inherit;transition:border-color .16s,box-shadow .16s,background .16s;
+  }
+  .control input::placeholder{color:#9aa0a6}
+  .control input:focus{
+    outline:none;border-color:var(--sbi-red);background:#fff;
+    box-shadow:0 0 0 4px var(--focus);
+  }
+  .control:focus-within .lead{color:var(--sbi-red)}
+  .toggle{
+    position:absolute;right:12px;border:0;background:transparent;cursor:pointer;
+    color:var(--sbi-red);font-weight:600;font-size:12.5px;font-family:inherit;
+    padding:6px;border-radius:8px;
+  }
+  .toggle:hover{background:rgba(190,30,45,.08)}
+
+  .row{display:flex;justify-content:flex-end;margin:2px 0 20px}
+  .forgot{color:var(--sbi-red);font-size:13px;font-weight:600;text-decoration:none;cursor:pointer}
+  .forgot:hover{text-decoration:underline}
+
+  .btn{
+    width:100%;height:52px;border:0;border-radius:12px;cursor:pointer;
+    font-family:'Poppins';font-weight:600;font-size:15.5px;color:#fff;
+    background:linear-gradient(180deg,var(--sbi-red-bright),var(--sbi-red));
+    box-shadow:0 10px 22px -8px rgba(190,30,45,.7);
+    transition:transform .06s,box-shadow .16s,filter .16s;
+    display:flex;align-items:center;justify-content:center;gap:10px;
+  }
+  .btn:hover{filter:brightness(1.05);box-shadow:0 14px 26px -8px rgba(190,30,45,.8)}
+  .btn:active{transform:translateY(1px)}
+  .btn[disabled]{opacity:.7;cursor:not-allowed}
+  .spinner{width:18px;height:18px;border:2.5px solid rgba(255,255,255,.4);
+    border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .btn.loading .spinner{display:block}
+  .btn.loading .label{display:none}
+
+  .msg{
+    display:none;margin:0 0 18px;padding:11px 14px;border-radius:10px;
+    font-size:13px;line-height:1.45;
+  }
+  .msg.error{display:block;background:#FEECEC;color:#B42318;border:1px solid #F9CFCF}
+  .msg.ok{display:block;background:#ECFDF3;color:#067647;border:1px solid #C7EBD5}
+
+  .card-foot{
+    margin-top:24px;padding-top:16px;border-top:1px solid var(--line);
+    text-align:center;font-size:12px;color:#98A2B3;
+  }
+  .card-foot b{color:var(--sbi-red);font-weight:600}
+
+  /* ---------- RESPONSIVE ---------- */
+  @media (max-width:900px){
+    .shell{flex-direction:column}
+    .brand{flex:none;padding:26px 26px 0;min-height:230px}
+    .brand-mid{margin-top:18px}
+    .headline{font-size:clamp(26px,7vw,36px)}
+    .peb{width:70%;right:-30px;opacity:.9}
+    .auth{flex:none;padding:34px 22px 46px}
+  }
+  @media (max-width:420px){
+    .card{padding:30px 22px 26px}
+    .brand{display:none}
+    .auth{min-height:100vh}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- LEFT: brand -->
+  <section class="brand">
+    <div class="brand-top">
+      <img src="/assets/sbi_projects/images/sbi_logo.png" alt="Shiv Bharat Infrastructures">
+    </div>
+
+    <div class="brand-mid">
+      <span class="eyebrow"><span class="dot"></span>Pre-Engineered Buildings &middot; Civil</span>
+      <div class="headline">A&ndash;Z <span class="accent">PEB Infrastructure</span><br>development, engineered.</div>
+      <p class="sub">Sign in to the Shiv Bharat ERP to manage projects, BOQ, procurement and site operations from a single control room.</p>
+    </div>
+
+    <div class="peb" aria-hidden="true">
+      <svg viewBox="0 0 620 340" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs><style>.ln{stroke:#BE1E2D;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.lt{stroke:#1B1F24;stroke-opacity:.28;stroke-width:1.4}</style></defs>
+        <!-- ground -->
+        <line class="lt" x1="20" y1="318" x2="600" y2="318"/>
+        <!-- portal frame -->
+        <path class="ln" d="M70 318 V150 L310 70 L550 150 V318" opacity=".9"/>
+        <!-- roof slope lines -->
+        <path class="ln" d="M70 150 L310 70 L550 150" opacity=".9"/>
+        <!-- ridge to eaves truss members -->
+        <path class="lt" d="M70 150 L310 118 L550 150 M310 70 L310 150"/>
+        <path class="lt" d="M160 122 L310 150 M460 122 L310 150"/>
+        <!-- purlin columns -->
+        <path class="lt" d="M150 318 V150 M230 318 V126 M390 318 V126 M470 318 V150"/>
+        <!-- side cladding ribs -->
+        <path class="lt" d="M100 318 V172 M120 318 V170 M500 318 V172 M520 318 V170"/>
+        <!-- roll-up door -->
+        <rect class="ln" x="250" y="222" width="120" height="96" rx="3" opacity=".9"/>
+        <path class="lt" d="M250 244 H370 M250 266 H370 M250 288 H370"/>
+        <!-- dimension tick -->
+        <path class="lt" d="M70 336 H550 M70 330 V342 M550 330 V342"/>
+      </svg>
+    </div>
+  </section>
+
+  <!-- RIGHT: login -->
+  <section class="auth">
+    <div class="card">
+      <div class="card-logo"><img src="/assets/sbi_projects/images/sbi_logo.png" alt="SBI"></div>
+      <h1>Welcome back</h1>
+      <p class="lede">Sign in to your Shiv Bharat ERP account</p>
+
+      <div id="msg" class="msg"></div>
+
+      <div class="field">
+        <label for="usr">Email address</label>
+        <div class="control">
+          <span class="lead">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>
+          </span>
+          <input id="usr" type="email" autocomplete="username" placeholder="you@shiv-bharat.com" autofocus>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="pwd">Password</label>
+        <div class="control">
+          <span class="lead">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </span>
+          <input id="pwd" type="password" autocomplete="current-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;">
+          <button type="button" class="toggle" id="toggle">Show</button>
+        </div>
+      </div>
+
+      <div class="row"><a class="forgot" id="forgot">Forgot password?</a></div>
+
+      <button class="btn" id="submit">
+        <span class="label">Sign in</span>
+        <span class="spinner"></span>
+      </button>
+
+      <div class="card-foot">Powered by <b>Shiv Bharat Infrastructures</b> ERP</div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+  var usr=document.getElementById('usr'),
+      pwd=document.getElementById('pwd'),
+      btn=document.getElementById('submit'),
+      msg=document.getElementById('msg'),
+      toggle=document.getElementById('toggle'),
+      forgot=document.getElementById('forgot');
+
+  function show(type,text){ msg.className='msg '+type; msg.textContent=text; }
+  function clear(){ msg.className='msg'; msg.textContent=''; }
+  function loading(on){ btn.classList.toggle('loading',on); btn.disabled=on; }
+
+  toggle.addEventListener('click',function(){
+    var isPw = pwd.type==='password';
+    pwd.type = isPw?'text':'password';
+    toggle.textContent = isPw?'Hide':'Show';
+    pwd.focus();
+  });
+
+  function login(){
+    clear();
+    var u=usr.value.trim(), p=pwd.value;
+    if(!u){ show('error','Enter your email address.'); usr.focus(); return; }
+    if(!p){ show('error','Enter your password.'); pwd.focus(); return; }
+    loading(true);
+
+    var body=new URLSearchParams(); body.append('usr',u); body.append('pwd',p);
+    fetch('/api/method/login',{
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded','Accept':'application/json','X-Frappe-CSRF-Token':(window.frappe&&frappe.csrf_token)||''},
+      body:body.toString(),
+      credentials:'same-origin'
+    }).then(function(r){
+      if(r.ok){
+        show('ok','Signed in. Redirecting…');
+        var next=new URLSearchParams(location.search).get('redirect-to');
+        location.href = next || '/app';
+        return;
+      }
+      return r.json().catch(function(){return{};}).then(function(){
+        loading(false);
+        show('error', r.status===401
+          ? 'Invalid email or password. Please try again.'
+          : 'Unable to sign in right now. Please try again.');
+        pwd.value=''; pwd.focus();
+      });
+    }).catch(function(){
+      loading(false);
+      show('error','Network error — check your connection and try again.');
+    });
+  }
+
+  btn.addEventListener('click',login);
+  [usr,pwd].forEach(function(el){
+    el.addEventListener('keydown',function(e){ if(e.key==='Enter') login(); });
+    el.addEventListener('input',clear);
+  });
+
+  // Forgot password -> Frappe guest-allowed reset endpoint
+  forgot.addEventListener('click',function(){
+    var email=(usr.value.trim())||window.prompt('Enter your account email to reset password:');
+    if(!email) return;
+    clear();
+    var body=new URLSearchParams(); body.append('user',email);
+    fetch('/api/method/frappe.core.doctype.user.user.reset_password',{
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded','Accept':'application/json'},
+      body:body.toString(), credentials:'same-origin'
+    }).then(function(r){
+      if(r.ok) show('ok','If that account exists, a reset link has been emailed to you.');
+      else show('error','Could not start password reset. Contact your administrator.');
+    }).catch(function(){ show('error','Network error while requesting reset.'); });
+  });
+
+  // If a session already exists, skip straight to the app
+  if(window.frappe && frappe.session && frappe.session.user && frappe.session.user!=='Guest'){
+    location.href='/app';
+  }
+})();
+</script>
+</body>
+</html>
