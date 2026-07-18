@@ -1,4 +1,4 @@
-app_name = "sbi_projects"
+﻿app_name = "sbi_projects"
 app_title = "SBI Projects"
 app_publisher = "Velmaska"
 app_description = "Site Management, Project Templates and BOQ for Shiv Bharat Infrastructures"
@@ -9,6 +9,8 @@ required_apps = ["erpnext"]
 # ------------------------------------------------------------------
 # Includes
 # ------------------------------------------------------------------
+app_include_css = "/assets/sbi_projects/css/sbi_branding.css"
+
 doctype_js = {
     "Project": "public/js/project.js",
     "Sales Order": "public/js/sales_order.js",
@@ -63,3 +65,4 @@ fixtures = [
         "dt": "Lead Activity Type",
     },
 ]
+
