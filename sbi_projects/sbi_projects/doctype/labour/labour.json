@@ -1,0 +1,194 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-07-18 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "labour_name",
+  "labour_code",
+  "gender",
+  "date_of_birth",
+  "cb_1",
+  "mobile_no",
+  "aadhaar_last4",
+  "status",
+  "sb_work",
+  "skill",
+  "daily_wage",
+  "contractor",
+  "cb_2",
+  "default_project",
+  "date_of_joining",
+  "sb_face",
+  "photo",
+  "face_enrolled",
+  "cb_3",
+  "face_embedding",
+  "enrolled_on"
+ ],
+ "fields": [
+  {
+   "fieldname": "labour_name",
+   "fieldtype": "Data",
+   "label": "Labour Name",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "labour_code",
+   "fieldtype": "Data",
+   "label": "Labour Code",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "gender",
+   "fieldtype": "Select",
+   "label": "Gender",
+   "options": "\nMale\nFemale\nOther"
+  },
+  {
+   "fieldname": "date_of_birth",
+   "fieldtype": "Date",
+   "label": "Date of Birth"
+  },
+  {
+   "fieldname": "cb_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "mobile_no",
+   "fieldtype": "Data",
+   "label": "Mobile No",
+   "options": "Phone"
+  },
+  {
+   "fieldname": "aadhaar_last4",
+   "fieldtype": "Data",
+   "label": "Aadhaar (last 4)",
+   "length": 4,
+   "description": "Store only the last 4 digits. Never store the full Aadhaar number."
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Active\nInactive",
+   "default": "Active",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "sb_work",
+   "fieldtype": "Section Break",
+   "label": "Work Details"
+  },
+  {
+   "fieldname": "skill",
+   "fieldtype": "Select",
+   "label": "Skill",
+   "options": "\nUnskilled\nSemi-Skilled\nSkilled\nMason\nBar Bender\nWelder\nFitter\nElectrician\nPainter\nHelper"
+  },
+  {
+   "fieldname": "daily_wage",
+   "fieldtype": "Currency",
+   "label": "Daily Wage"
+  },
+  {
+   "fieldname": "contractor",
+   "fieldtype": "Link",
+   "label": "Labour Contractor",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "cb_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "default_project",
+   "fieldtype": "Link",
+   "label": "Default Site (Project)",
+   "options": "Project"
+  },
+  {
+   "fieldname": "date_of_joining",
+   "fieldtype": "Date",
+   "label": "Date of Joining"
+  },
+  {
+   "fieldname": "sb_face",
+   "fieldtype": "Section Break",
+   "label": "Face Enrollment"
+  },
+  {
+   "fieldname": "photo",
+   "fieldtype": "Attach Image",
+   "label": "Photo"
+  },
+  {
+   "fieldname": "face_enrolled",
+   "fieldtype": "Check",
+   "label": "Face Enrolled",
+   "read_only": 1,
+   "default": "0"
+  },
+  {
+   "fieldname": "cb_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "face_embedding",
+   "fieldtype": "Long Text",
+   "label": "Face Embedding",
+   "read_only": 1,
+   "hidden": 1,
+   "description": "128/512-d descriptor captured on-device. Not an image."
+  },
+  {
+   "fieldname": "enrolled_on",
+   "fieldtype": "Datetime",
+   "label": "Enrolled On",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-18 00:00:00.000000",
+ "module": "SBI Projects",
+ "name": "Labour",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1,
+   "submit": 0,
+   "cancel": 0,
+   "amend": 0
+  },
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Projects User",
+   "share": 1,
+   "write": 1,
+   "submit": 0
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1,
+ "autoname": "field:labour_code",
+ "title_field": "labour_name",
+ "search_fields": "labour_name,mobile_no,skill"
+}
