@@ -321,9 +321,17 @@ def seed_assignment_rule():
 
 # ==================================================================
 def setup_crm():
-	seed_lead_sources()
-	seed_payment_terms()
-	seed_terms_and_conditions()
-	add_crm_custom_fields()
-	seed_dashboard()
-	seed_assignment_rule()
+	for step in (
+		seed_lead_sources,
+		seed_payment_terms,
+		seed_terms_and_conditions,
+		add_crm_custom_fields,
+		seed_dashboard,
+		seed_assignment_rule,
+	):
+		try:
+			step()
+			frappe.db.commit()
+		except Exception:
+			frappe.db.rollback()
+			frappe.log_error(frappe.get_traceback(), f"sbi CRM setup: {step.__name__}")

@@ -5,19 +5,28 @@ from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
 
 def after_install():
-	add_custom_fields()
-	seed_project_stages()
-	seed_lead_stages()
-	seed_lead_activity_types()
-
 	from sbi_projects.setup.crm_setup import setup_crm
-
-	setup_crm()
-
 	from sbi_projects.setup.branding import setup_branding
 
-	setup_branding()
-	frappe.db.commit()
+	# Runs on every migrate (after_migrate hook). Each step is isolated so a
+	# failure in one seed is logged to Error Log but never aborts the whole
+	# migrate -- otherwise the entire deploy (including static files like the
+	# login page) gets rolled back.
+	steps = (
+		add_custom_fields,
+		seed_project_stages,
+		seed_lead_stages,
+		seed_lead_activity_types,
+		setup_crm,
+		setup_branding,
+	)
+	for step in steps:
+		try:
+			step()
+			frappe.db.commit()
+		except Exception:
+			frappe.db.rollback()
+			frappe.log_error(frappe.get_traceback(), f"sbi_projects setup: {step.__name__}")
 
 
 # ------------------------------------------------------------------
