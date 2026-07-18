@@ -1,4 +1,4 @@
-﻿app_name = "sbi_projects"
+app_name = "sbi_projects"
 app_title = "SBI Projects"
 app_publisher = "Velmaska"
 app_description = "Site Management, Project Templates and BOQ for Shiv Bharat Infrastructures"
@@ -6,15 +6,9 @@ app_email = "info@velmaska.com"
 app_license = "mit"
 required_apps = ["erpnext"]
 
-app_logo_url = "/assets/sbi_projects/images/sbi_logo.png"
-app_icon = "octicon octicon-tools"
-app_color = "#BE1E2D"
-
 # ------------------------------------------------------------------
 # Includes
 # ------------------------------------------------------------------
-app_include_css = "/assets/sbi_projects/css/sbi_branding.css"
-
 doctype_js = {
     "Project": "public/js/project.js",
     "Sales Order": "public/js/sales_order.js",
@@ -35,7 +29,10 @@ after_migrate = "sbi_projects.setup.install.after_install"
 # ------------------------------------------------------------------
 doc_events = {
     "Project": {
-        "after_insert": "sbi_projects.sbi_projects.project_hooks.build_project_stages",
+        "after_insert": [
+            "sbi_projects.sbi_projects.project_hooks.build_project_stages",
+            "sbi_projects.sbi_projects.project_hooks.create_site_masters",
+        ],
     },
     "Lead": {
         "validate": "sbi_projects.sbi_projects.lead_hooks.validate_lead",
@@ -66,5 +63,3 @@ fixtures = [
         "dt": "Lead Activity Type",
     },
 ]
-
-
