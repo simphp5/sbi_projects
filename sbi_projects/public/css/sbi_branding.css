@@ -1,0 +1,26 @@
+﻿/* Shiv Bharat Infrastructures - navbar branding */
+.navbar-home {
+display: inline-flex !important;
+align-items: center !important;
+}
+
+.navbar-home img {
+height: 36px !important;
+max-height: 36px !important;
+width: auto !important;
+}
+
+.navbar-home::after {
+content: "SHIV BHARAT INFRASTRUCTURES";
+margin-left: 12px;
+font-size: 15px;
+font-weight: 700;
+letter-spacing: .4px;
+color: #BE1E2D;
+white-space: nowrap;
+}
+
+/* hide the text on small screens, keep the logo */
+@media (max-width: 991px) {
+.navbar-home::after { display: none; }
+}
