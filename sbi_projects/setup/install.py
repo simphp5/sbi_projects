@@ -14,9 +14,11 @@ def after_install():
 	# login page) gets rolled back.
 	steps = (
 		add_custom_fields,
+		add_site_custom_fields,
 		seed_project_stages,
 		seed_lead_stages,
 		seed_lead_activity_types,
+		seed_enquiry_types,
 		setup_crm,
 		setup_branding,
 	)
@@ -27,6 +29,55 @@ def after_install():
 		except Exception:
 			frappe.db.rollback()
 			frappe.log_error(frappe.get_traceback(), f"sbi_projects setup: {step.__name__}")
+
+
+# ------------------------------------------------------------------
+def add_site_custom_fields():
+	"""Site Operations fields on Project.
+
+	sbi_storekeeper is required by Site Assignment: when a Site Assignment
+	with role "Storekeeper" is saved, the controller pushes the employee
+	onto this field. Without it the sync is silently skipped.
+	"""
+	create_custom_fields(
+		{
+			"Project": [
+				{
+					"fieldname": "sbi_storekeeper",
+					"label": "Storekeeper",
+					"fieldtype": "Link",
+					"options": "Employee",
+					"insert_after": "sbi_site_incharge",
+				},
+			]
+		},
+		ignore_validate=True,
+	)
+
+
+# ------------------------------------------------------------------
+ENQUIRY_TYPES = [
+	("Industrial Shed",        "Standard PEB industrial shed"),
+	("Warehouse",              "Storage / distribution warehouse"),
+	("Factory Building",       "Manufacturing plant structure"),
+	("Cold Storage",           "Insulated cold storage building"),
+	("Mezzanine Floor",        "Structural steel mezzanine"),
+	("Crane Gantry Structure", "Crane runway and gantry"),
+	("Civil Works",            "Foundation and allied civil works"),
+]
+
+
+def seed_enquiry_types():
+	"""Seven PEB enquiry types. Existing rows are left untouched."""
+	for name, desc in ENQUIRY_TYPES:
+		if frappe.db.exists("Enquiry Type", name):
+			continue
+		frappe.get_doc({
+			"doctype": "Enquiry Type",
+			"enquiry_type_name": name,
+			"description": desc,
+			"is_active": 1,
+		}).insert(ignore_permissions=True)
 
 
 # ------------------------------------------------------------------
