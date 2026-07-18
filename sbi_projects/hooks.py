@@ -6,6 +6,10 @@ app_email = "info@velmaska.com"
 app_license = "mit"
 required_apps = ["erpnext"]
 
+app_logo_url = "/assets/sbi_projects/images/sbi_logo.png"
+app_icon = "octicon octicon-tools"
+app_color = "#BE1E2D"
+
 # ------------------------------------------------------------------
 # Includes
 # ------------------------------------------------------------------
@@ -62,4 +66,5 @@ fixtures = [
         "dt": "Lead Activity Type",
     },
 ]
+
 
