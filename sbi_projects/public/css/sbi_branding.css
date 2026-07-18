@@ -1,26 +1,50 @@
 ﻿/* Shiv Bharat Infrastructures - navbar branding */
+
+/* the img itself is capped at 32px and clipped, so force it directly */
+.navbar-home img,
+header.desktop-navbar img {
+    height: 40px !important;
+    max-height: 40px !important;
+    min-height: 40px !important;
+    width: auto !important;
+    overflow: visible !important;
+}
+
+/* the navbar is fixed at 52px - it must grow or the logo gets clipped */
+header.desktop-navbar,
+.desktop-navbar.navbar {
+    min-height: 62px !important;
+    height: auto !important;
+    max-height: none !important;
+}
+
 .navbar-home {
-display: inline-flex !important;
-align-items: center !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
 }
 
-.navbar-home img {
-height: 36px !important;
-max-height: 36px !important;
-width: auto !important;
-}
-
+/* company name beside the logo */
 .navbar-home::after {
-content: "SHIV BHARAT INFRASTRUCTURES";
-margin-left: 12px;
-font-size: 15px;
-font-weight: 700;
-letter-spacing: .4px;
-color: #BE1E2D;
-white-space: nowrap;
+    content: "SHIV BHARAT INFRASTRUCTURES";
+    margin-left: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: .4px;
+    color: #BE1E2D;
+    white-space: nowrap;
 }
 
-/* hide the text on small screens, keep the logo */
+/* small screens: keep the logo, drop the text */
 @media (max-width: 991px) {
-.navbar-home::after { display: none; }
+    .navbar-home::after { display: none; }
+    .navbar-home img,
+    header.desktop-navbar img {
+        height: 32px !important;
+        max-height: 32px !important;
+        min-height: 32px !important;
+    }
+    header.desktop-navbar { min-height: 52px !important; }
 }
