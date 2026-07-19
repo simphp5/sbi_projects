@@ -1,4 +1,4 @@
-# Copyright (c) 2026, Velmaska and contributors
+﻿# Copyright (c) 2026, Velmaska and contributors
 """Stage generation for Projects.
 
 Two sources, in priority order:
@@ -235,9 +235,7 @@ def _provision_site_masters(doc):
 
     cc = _ensure_site_cost_center(company, abbr, label)
     wh = _ensure_site_warehouse(company, abbr, label)
-
-    _set_if_field_exists(doc, "custom_site_cost_center", cc)
-    _set_if_field_exists(doc, "custom_site_warehouse", wh)
+    _set_if_field_exists(doc, "sbi_site_warehouse", wh)
     if not doc.get("cost_center"):
         _set_if_field_exists(doc, "cost_center", cc)
 
