@@ -44,6 +44,13 @@ def create_stages_from_sales_order(project):
 	prj = frappe.get_doc("Project", project)
 	if not prj.sales_order:
 		frappe.throw(_("This project is not linked to a Sales Order"))
+	if frappe.db.exists("Task", {"project": project}):
+		frappe.msgprint(
+			_("Stages already exist for this project. Delete the existing tasks first if you want to regenerate them."),
+			indicator="orange",
+			alert=True,
+		)
+		return 0
 
 	so = frappe.get_doc("Sales Order", prj.sales_order)
 	if not so.payment_schedule:
@@ -107,6 +114,13 @@ def create_stages_from_template(project):
 	prj = frappe.get_doc("Project", project)
 	if not prj.sbi_project_template:
 		frappe.throw(_("No Project Template selected"))
+	if frappe.db.exists("Task", {"project": project}):
+		frappe.msgprint(
+			_("Stages already exist for this project. Delete the existing tasks first if you want to regenerate them."),
+			indicator="orange",
+			alert=True,
+		)
+		return 0
 
 	template = frappe.get_doc("SBI Project Template", prj.sbi_project_template)
 	start = getdate(prj.expected_start_date or nowdate())
