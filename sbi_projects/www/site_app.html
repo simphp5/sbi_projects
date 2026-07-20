@@ -213,18 +213,9 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
       <label for="enName">Name</label>
       <input id="enName" type="text" autocomplete="off" placeholder="Full name">
       <label for="enGender">Gender</label>
-      <select id="enGender">
-        <option value="Male">Male</option>
-        <option value="Female">Female</option>
-        <option value="Other">Other</option>
-      </select>
+      <select id="enGender"></select>
       <label for="enSkill">Skill</label>
-      <select id="enSkill">
-        <option value="">Not set</option>
-        <option>Mason</option><option>Helper</option><option>Bar Bender</option>
-        <option>Carpenter</option><option>Electrician</option><option>Welder</option>
-        <option>Operator</option><option>Supervisor</option><option>Other</option>
-      </select>
+      <select id="enSkill"><option value="">Not set</option></select>
       <label for="enWage">Wage type</label>
       <select id="enWage"><option value="">Not set</option></select>
       <label for="enRate">Wage rate</label>
@@ -575,6 +566,28 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
     });
   }
 
+  function fillSelect(el, values, blankFirst) {
+    el.innerHTML = "";
+    if (blankFirst) {
+      var b = document.createElement("option");
+      b.value = ""; b.textContent = "Not set";
+      el.appendChild(b);
+    }
+    (values || []).forEach(function (v) {
+      var o = document.createElement("option");
+      o.value = v; o.textContent = v;
+      el.appendChild(o);
+    });
+  }
+
+  function hideField(id) {
+    var el = $(id);
+    if (!el) return;
+    el.classList.add("hidden");
+    var lab = document.querySelector('label[for="' + id + '"]');
+    if (lab) lab.classList.add("hidden");
+  }
+
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
@@ -645,16 +658,13 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
       queueFlush();
       return call("site_api.get_site_roster", { project: state.project });
     }).then(function () {
-      return fetch("/api/method/frappe.client.get_list?doctype=Wage%20Type&fields=[\"name\"]&limit_page_length=0",
-                   { headers: { "X-Frappe-CSRF-Token": CSRF } })
-        .then(function (r) { return r.json(); })
-        .then(function (j) {
-          (j.message || []).forEach(function (w) {
-            var o = document.createElement("option");
-            o.value = w.name; o.textContent = w.name;
-            $("enWage").appendChild(o);
-          });
-        });
+      return call("site_api.get_enroll_options", {}).then(function (o) {
+        fillSelect($("enGender"), o.gender, false);
+        fillSelect($("enSkill"), o.skill, true);
+        fillSelect($("enWage"), o.wage_types, true);
+        $("enSkill").parentNode && (o.has_skill || hideField("enSkill"));
+        if (!o.has_phone) hideField("enPhone");
+      });
     }).catch(function (e) {
       note($("punchNote"), "err",
            "Camera or face models could not start. " + e.message);
