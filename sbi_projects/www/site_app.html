@@ -608,6 +608,15 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
   // ---------- boot ----------
   function boot() {
     var sel = $("siteSelect");
+
+    if (!PROJECTS.length) {
+      $("pickSite").innerHTML =
+        '<h1 style="font-size:26px;margin-bottom:4px">No site assigned</h1>' +
+        '<p class="muted">You are not currently assigned to any open site. ' +
+        'Ask the project manager to add a site assignment for you, then reload this page.</p>';
+      return;
+    }
+
     PROJECTS.forEach(function (p) {
       var o = document.createElement("option");
       o.value = p.name;
