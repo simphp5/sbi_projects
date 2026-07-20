@@ -1,0 +1,16 @@
+{
+ "actions": [], "allow_rename": 0, "creation": "2026-07-20 09:00:00",
+ "doctype": "DocType", "editable_grid": 1, "engine": "InnoDB", "istable": 1,
+ "field_order": ["site_cost_category","amount","reference_type","reference_name","remarks"],
+ "fields": [
+  {"fieldname":"site_cost_category","fieldtype":"Link","label":"Cost Category","options":"Site Cost Category","reqd":1,"in_list_view":1,"columns":3},
+  {"fieldname":"amount","fieldtype":"Currency","label":"Amount","reqd":1,"in_list_view":1,"columns":2},
+  {"fieldname":"reference_type","fieldtype":"Select","label":"Reference","options":"\nEquipment Rent\nHired Vehicle\nOther","in_list_view":1,"columns":2},
+  {"fieldname":"reference_name","fieldtype":"Data","label":"Reference Detail"},
+  {"fieldname":"remarks","fieldtype":"Small Text","label":"Remarks","in_list_view":1,"columns":3}
+ ],
+ "index_web_pages_for_search":1, "links":[],
+ "modified":"2026-07-20 09:00:00", "modified_by":"Administrator",
+ "module":"SBI Projects", "name":"Daily Work Log Cost", "owner":"Administrator",
+ "permissions":[], "sort_field":"modified","sort_order":"DESC","states":[]
+}
