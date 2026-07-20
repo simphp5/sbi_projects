@@ -1,4 +1,4 @@
-﻿{
+{
  "actions": [], "allow_rename": 1, "autoname": "field:category_name",
  "creation": "2026-07-20 08:00:00", "doctype": "DocType", "engine": "InnoDB",
  "field_order": ["category_name","is_active","is_labour_cost","cb_1","expense_account","default_cost_type","description"],

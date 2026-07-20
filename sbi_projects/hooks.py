@@ -1,4 +1,4 @@
-﻿app_name = "sbi_projects"
+app_name = "sbi_projects"
 app_title = "SBI Projects"
 app_publisher = "Velmaska"
 app_description = "Site Management, Project Templates and BOQ for Shiv Bharat Infrastructures"

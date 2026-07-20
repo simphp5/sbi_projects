@@ -1,4 +1,4 @@
-﻿{
+{
  "actions": [], "allow_rename": 0, "autoname": "naming_series:",
  "creation": "2026-07-20 08:00:00", "doctype": "DocType", "engine": "InnoDB",
  "field_order": ["naming_series","labour","labour_name","project","cb_1","log_type","log_datetime","log_date","sb_geo","latitude","longitude","cb_2","distance_from_site","within_geofence","sb_verify","photo","verification_method","cb_3","face_confidence","device_id","sb_note","remarks"],
