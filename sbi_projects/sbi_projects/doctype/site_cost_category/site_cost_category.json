@@ -1,0 +1,25 @@
+﻿{
+ "actions": [], "allow_rename": 1, "autoname": "field:category_name",
+ "creation": "2026-07-20 08:00:00", "doctype": "DocType", "engine": "InnoDB",
+ "field_order": ["category_name","is_active","is_labour_cost","cb_1","expense_account","default_cost_type","description"],
+ "fields": [
+  {"fieldname":"category_name","fieldtype":"Data","label":"Category Name","reqd":1,"unique":1,"in_list_view":1},
+  {"fieldname":"is_active","fieldtype":"Check","label":"Is Active","default":"1","in_list_view":1},
+  {"fieldname":"is_labour_cost","fieldtype":"Check","label":"Is Labour Cost","description":"Tick for manpower categories. Used by wage roll-up."},
+  {"fieldname":"cb_1","fieldtype":"Column Break"},
+  {"fieldname":"expense_account","fieldtype":"Link","label":"Default Expense Account","options":"Account","description":"Used when this category is posted to the general ledger."},
+  {"fieldname":"default_cost_type","fieldtype":"Select","label":"Cost Source","options":"Site Entry\nERPNext Transaction\nBoth","default":"Site Entry","in_list_view":1,"description":"Site Entry: captured in Daily Work Log. ERPNext Transaction: comes from Stock or Purchase documents."},
+  {"fieldname":"description","fieldtype":"Small Text","label":"Description"}
+ ],
+ "index_web_pages_for_search":1, "links":[],
+ "modified":"2026-07-20 08:00:00", "modified_by":"Administrator",
+ "module":"SBI Projects", "name":"Site Cost Category", "naming_rule":"By fieldname",
+ "owner":"Administrator",
+ "permissions":[
+  {"role":"System Manager","read":1,"write":1,"create":1,"delete":1,"report":1,"export":1},
+  {"role":"Projects Manager","read":1,"write":1,"create":1,"report":1,"export":1},
+  {"role":"Projects User","read":1}
+ ],
+ "sort_field":"modified","sort_order":"DESC","states":[],
+ "track_changes":1
+}

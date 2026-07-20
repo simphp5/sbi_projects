@@ -1,0 +1,40 @@
+﻿{
+ "actions": [], "allow_rename": 0, "autoname": "naming_series:",
+ "creation": "2026-07-20 08:00:00", "doctype": "DocType", "engine": "InnoDB",
+ "field_order": ["naming_series","labour","labour_name","project","cb_1","log_type","log_datetime","log_date","sb_geo","latitude","longitude","cb_2","distance_from_site","within_geofence","sb_verify","photo","verification_method","cb_3","face_confidence","device_id","sb_note","remarks"],
+ "fields": [
+  {"fieldname":"naming_series","fieldtype":"Select","label":"Series","options":"LATT-.YYYY.-","default":"LATT-.YYYY.-","reqd":1},
+  {"fieldname":"labour","fieldtype":"Link","label":"Labour","options":"Labour","reqd":1,"in_list_view":1,"in_standard_filter":1},
+  {"fieldname":"labour_name","fieldtype":"Data","label":"Labour Name","fetch_from":"labour.labour_name","read_only":1,"in_list_view":1},
+  {"fieldname":"project","fieldtype":"Link","label":"Site (Project)","options":"Project","reqd":1,"in_standard_filter":1},
+  {"fieldname":"cb_1","fieldtype":"Column Break"},
+  {"fieldname":"log_type","fieldtype":"Select","label":"Log Type","options":"IN\nLUNCH OUT\nLUNCH IN\nTEA OUT\nTEA IN\nOUT","reqd":1,"in_list_view":1,"in_standard_filter":1},
+  {"fieldname":"log_datetime","fieldtype":"Datetime","label":"Log Time","reqd":1,"in_list_view":1},
+  {"fieldname":"log_date","fieldtype":"Date","label":"Log Date","read_only":1,"in_standard_filter":1},
+  {"fieldname":"sb_geo","fieldtype":"Section Break","label":"Location"},
+  {"fieldname":"latitude","fieldtype":"Float","label":"Latitude","precision":"6"},
+  {"fieldname":"longitude","fieldtype":"Float","label":"Longitude","precision":"6"},
+  {"fieldname":"cb_2","fieldtype":"Column Break"},
+  {"fieldname":"distance_from_site","fieldtype":"Float","label":"Distance from Site (m)","precision":"1","read_only":1},
+  {"fieldname":"within_geofence","fieldtype":"Check","label":"Within Geo-fence","read_only":1},
+  {"fieldname":"sb_verify","fieldtype":"Section Break","label":"Verification"},
+  {"fieldname":"photo","fieldtype":"Attach Image","label":"Capture Photo"},
+  {"fieldname":"verification_method","fieldtype":"Select","label":"Verification Method","options":"Face\nManual\nGPS Only","default":"Face","in_list_view":1},
+  {"fieldname":"cb_3","fieldtype":"Column Break"},
+  {"fieldname":"face_confidence","fieldtype":"Float","label":"Face Match Confidence","precision":"3","read_only":1},
+  {"fieldname":"device_id","fieldtype":"Data","label":"Device ID","read_only":1},
+  {"fieldname":"sb_note","fieldtype":"Section Break"},
+  {"fieldname":"remarks","fieldtype":"Small Text","label":"Remarks"}
+ ],
+ "index_web_pages_for_search":1, "links":[],
+ "modified":"2026-07-20 08:00:00", "modified_by":"Administrator",
+ "module":"SBI Projects", "name":"Labour Attendance Log", "naming_rule":"By \"Naming Series\" field",
+ "owner":"Administrator",
+ "permissions":[
+  {"role":"System Manager","read":1,"write":1,"create":1,"delete":1,"report":1,"export":1},
+  {"role":"Projects Manager","read":1,"write":1,"create":1,"delete":1,"report":1,"export":1},
+  {"role":"Projects User","read":1,"write":1,"create":1,"report":1}
+ ],
+ "sort_field":"log_datetime","sort_order":"DESC","states":[],
+ "title_field":"labour_name","track_changes":1
+}
