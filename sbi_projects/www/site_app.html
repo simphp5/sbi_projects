@@ -531,6 +531,12 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
       embedding: state.enrollDescriptor,
       photo: snapshot($("video2"))
     }).then(function (r) {
+      if (r && r.duplicate) {
+        note($("enrollNote"), "warn",
+             "This face is already enrolled as " + r.labour_name +
+             " (" + Math.round(r.score * 100) + "% match). Use the Attendance tab instead.");
+        return;
+      }
       note($("enrollNote"), "ok", r.labour_name + " added. They can punch in now.");
       $("enName").value = ""; $("enPhone").value = ""; $("enRate").value = "";
     }).catch(function (e) {
@@ -561,7 +567,7 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
               ? '<span class="pill on">' + p.last_punch + '</span>'
               : '<span class="pill off">' + (p.last_punch || "NOT IN") + '</span>');
         d.innerHTML = img + '<span class="nm">' + esc(p.labour_name) +
-          '<small>' + esc(p.skill_category || "") + '</small></span>' + pill;
+          '<small>' + esc(p.skill_category || p.sbi_wage_type || "") + '</small></span>' + pill;
         box.appendChild(d);
       });
     }).catch(function (e) {
