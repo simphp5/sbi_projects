@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#111111">
+<link rel="manifest" href="/sbi_site_manifest.json">
+<link rel="apple-touch-icon" href="/assets/sbi_projects/site_app/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Site">
+<meta name="mobile-web-app-capable" content="yes">
 <title>Site Attendance</title>
 <style>
 :root{
@@ -148,6 +154,7 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
 <div class="top">
   <span class="mark"></span>
   <span class="site" id="siteLabel">Choose a site</span>
+  <button id="btnInstall" type="button" class="hidden">Install</button>
   <button id="btnSwitch" type="button">Change</button>
 </div>
 
@@ -648,6 +655,35 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
     });
   }
 
+  // ---------- installable app ----------
+  function setupInstall() {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sbi_sw.js", { scope: "/site_app" })
+        .catch(function () { /* app still works, just without offline cache */ });
+    }
+
+    var deferred = null;
+    window.addEventListener("beforeinstallprompt", function (e) {
+      e.preventDefault();
+      deferred = e;
+      $("btnInstall").classList.remove("hidden");
+    });
+
+    $("btnInstall").onclick = function () {
+      if (!deferred) return;
+      deferred.prompt();
+      deferred.userChoice.then(function () {
+        deferred = null;
+        $("btnInstall").classList.add("hidden");
+      });
+    };
+
+    window.addEventListener("appinstalled", function () {
+      $("btnInstall").classList.add("hidden");
+    });
+  }
+
+  setupInstall();
   boot();
 })();
 </script>
