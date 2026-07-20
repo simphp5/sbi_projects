@@ -30,6 +30,15 @@ after_migrate = "sbi_projects.setup.install.after_install"
 # Document Events
 # ------------------------------------------------------------------
 doc_events = {
+    "Quotation": {
+        "validate": "sbi_projects.sbi_projects.project_hooks.sync_payment_schedule_stage",
+    },
+    "Sales Order": {
+        "validate": "sbi_projects.sbi_projects.project_hooks.sync_payment_schedule_stage",
+    },
+    "Sales Invoice": {
+        "validate": "sbi_projects.sbi_projects.project_hooks.sync_payment_schedule_stage",
+    },
     "Project": {
         "after_insert": [
             "sbi_projects.sbi_projects.project_hooks.build_project_stages",

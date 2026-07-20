@@ -333,3 +333,29 @@ def backfill_site_masters(project=None):
                              message=frappe.get_traceback())
     frappe.db.commit()
     return {"ok": len(ok), "failed": failed}
+
+
+# ---------------------------------------------------------------------------
+# Payment schedule -> stage sync
+#
+# ERPNext builds payment_schedule rows server-side from the Payment Terms
+# Template via get_payment_terms(), which only returns standard fields.  The
+# fetch_from on sbi_stage is a client-side mechanism and does not fire for
+# those generated rows, so we resolve it here on validate.
+# ---------------------------------------------------------------------------
+
+def sync_payment_schedule_stage(doc, method=None):
+    """Fill sbi_stage on each payment_schedule row from its Payment Term."""
+    rows = doc.get("payment_schedule") or []
+    if not rows:
+        return
+
+    cache = {}
+    for row in rows:
+        if not row.get("payment_term") or row.get("sbi_stage"):
+            continue
+        term = row.payment_term
+        if term not in cache:
+            cache[term] = frappe.db.get_value("Payment Term", term, "sbi_stage")
+        if cache[term]:
+            row.sbi_stage = cache[term]
