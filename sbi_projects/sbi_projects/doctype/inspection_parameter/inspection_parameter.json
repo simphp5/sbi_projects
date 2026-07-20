@@ -1,0 +1,28 @@
+{
+ "actions": [], "allow_rename": 1, "autoname": "field:parameter_name",
+ "creation": "2026-07-20 11:00:00", "doctype": "DocType", "engine": "InnoDB",
+ "field_order": ["parameter_name","result_type","uom","is_active","cb_1","applicable_stage","work_category","is_mandatory","tolerance","description"],
+ "fields": [
+  {"fieldname":"parameter_name","fieldtype":"Data","label":"Parameter","reqd":1,"unique":1,"in_list_view":1,"description":"What the inspector checks, e.g. Concrete Cube Strength, Anchor Bolt Alignment, Weld Penetration."},
+  {"fieldname":"result_type","fieldtype":"Select","label":"Result Type","options":"Pass / Fail\nMeasured Value\nText Observation","default":"Pass / Fail","reqd":1,"in_list_view":1},
+  {"fieldname":"uom","fieldtype":"Link","label":"UOM","options":"UOM","depends_on":"eval:doc.result_type=='Measured Value'","in_list_view":1},
+  {"fieldname":"is_active","fieldtype":"Check","label":"Is Active","default":"1"},
+  {"fieldname":"cb_1","fieldtype":"Column Break"},
+  {"fieldname":"applicable_stage","fieldtype":"Link","label":"Applicable Stage","options":"Project Stage","in_standard_filter":1,"description":"Leave blank if this check applies to any stage."},
+  {"fieldname":"work_category","fieldtype":"Select","label":"Work Category","options":"\nCivil\nStructural\nFabrication\nErection\nFinishing\nGeneral","default":"General","in_list_view":1,"in_standard_filter":1},
+  {"fieldname":"is_mandatory","fieldtype":"Check","label":"Mandatory","default":"0","description":"The inspection cannot be submitted while a mandatory parameter is blank."},
+  {"fieldname":"tolerance","fieldtype":"Data","label":"Acceptance Criteria","description":"Free text, shown to the inspector. For example: within 3 mm, or minimum 25 N/sq mm."},
+  {"fieldname":"description","fieldtype":"Small Text","label":"Description"}
+ ],
+ "index_web_pages_for_search":1, "links":[],
+ "modified":"2026-07-20 11:00:00", "modified_by":"Administrator",
+ "module":"SBI Projects", "name":"Inspection Parameter", "naming_rule":"By fieldname",
+ "owner":"Administrator",
+ "permissions":[
+  {"role":"System Manager","read":1,"write":1,"create":1,"delete":1,"report":1,"export":1},
+  {"role":"Projects Manager","read":1,"write":1,"create":1,"report":1,"export":1},
+  {"role":"Projects User","read":1}
+ ],
+ "sort_field":"modified","sort_order":"DESC","states":[],
+ "track_changes":1
+}

@@ -1,0 +1,19 @@
+{
+ "actions": [], "allow_rename": 0, "creation": "2026-07-20 11:00:00",
+ "doctype": "DocType", "editable_grid": 1, "engine": "InnoDB", "istable": 1,
+ "field_order": ["inspection_parameter","result_type","tolerance","result","measured_value","uom","observation","remarks"],
+ "fields": [
+  {"fieldname":"inspection_parameter","fieldtype":"Link","label":"Parameter","options":"Inspection Parameter","reqd":1,"in_list_view":1,"columns":3},
+  {"fieldname":"result_type","fieldtype":"Select","label":"Type","options":"Pass / Fail\nMeasured Value\nText Observation","fetch_from":"inspection_parameter.result_type","read_only":1},
+  {"fieldname":"tolerance","fieldtype":"Data","label":"Criteria","fetch_from":"inspection_parameter.tolerance","read_only":1,"in_list_view":1,"columns":2},
+  {"fieldname":"result","fieldtype":"Select","label":"Result","options":"\nPass\nFail\nNot Applicable","in_list_view":1,"columns":1},
+  {"fieldname":"measured_value","fieldtype":"Float","label":"Value","depends_on":"eval:doc.result_type=='Measured Value'","in_list_view":1,"columns":1},
+  {"fieldname":"uom","fieldtype":"Link","label":"UOM","options":"UOM","fetch_from":"inspection_parameter.uom","read_only":1,"columns":1},
+  {"fieldname":"observation","fieldtype":"Small Text","label":"Observation","depends_on":"eval:doc.result_type=='Text Observation'"},
+  {"fieldname":"remarks","fieldtype":"Small Text","label":"Remarks","in_list_view":1,"columns":2}
+ ],
+ "index_web_pages_for_search":1, "links":[],
+ "modified":"2026-07-20 11:00:00", "modified_by":"Administrator",
+ "module":"SBI Projects", "name":"Site Inspection Parameter", "owner":"Administrator",
+ "permissions":[], "sort_field":"modified","sort_order":"DESC","states":[]
+}
