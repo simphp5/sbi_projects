@@ -30,6 +30,10 @@ after_migrate = "sbi_projects.setup.install.after_install"
 # Document Events
 # ------------------------------------------------------------------
 doc_events = {
+    "Daily Work Log": {
+        "on_update": "sbi_projects.sbi_projects.work_log_hooks.maybe_post_to_gl",
+        "on_update_after_submit": "sbi_projects.sbi_projects.work_log_hooks.maybe_post_to_gl",
+    },
     "Quotation": {
         "validate": "sbi_projects.sbi_projects.project_hooks.sync_payment_schedule_stage",
     },
