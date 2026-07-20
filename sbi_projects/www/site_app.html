@@ -252,7 +252,7 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
 
   var MODELS = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model";
   var CSRF = "{{ csrf_token }}";
-  var PROJECTS = {{ frappe.as_json(projects) }};
+  var PROJECTS = {{ projects_json | safe }};
   var QKEY = "sbi_punch_queue";
 
   var state = {
