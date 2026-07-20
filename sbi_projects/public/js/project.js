@@ -131,3 +131,161 @@ function show_stage_summary(frm) {
 		},
 	});
 }
+
+// ---------------------------------------------------------------------------
+// Stage tree on the Project form.
+//
+// Frappe merges multiple handlers for the same doctype, so this block sits
+// alongside whatever else this file already defines for Project.
+// ---------------------------------------------------------------------------
+
+frappe.ui.form.on("Project", {
+	refresh(frm) {
+		if (frm.is_new()) return;
+		sbi_render_stage_tree(frm);
+	},
+});
+
+function sbi_render_stage_tree(frm) {
+	const wrapper = frm.get_field("sbi_stages_html");
+	if (!wrapper || !wrapper.$wrapper) return;
+
+	wrapper.$wrapper.html('<div class="text-muted" style="padding:12px">Loading stagesâ€¦</div>');
+
+	frappe.call({
+		method: "sbi_projects.sbi_projects.stage_tree.get_stage_tree",
+		args: { project: frm.doc.name },
+		callback(r) {
+			const data = (r && r.message) || { stages: [], totals: {} };
+			wrapper.$wrapper.html(sbi_stage_html(data, frm.doc.name));
+			sbi_bind_stage_actions(wrapper.$wrapper, frm);
+		},
+		error() {
+			wrapper.$wrapper.html(
+				'<div class="text-muted" style="padding:12px">Stages could not be loaded.</div>'
+			);
+		},
+	});
+}
+
+function sbi_money(v) {
+	return format_currency(flt(v));
+}
+
+function sbi_stage_html(data, project) {
+	const stages = data.stages || [];
+	if (!stages.length) {
+		return `
+			<div style="border:1px solid var(--border-color);padding:22px;text-align:center">
+				<div style="font-weight:600;margin-bottom:6px">No stages yet</div>
+				<div class="text-muted" style="margin-bottom:14px">
+					Link a submitted sales order, then use Create &rsaquo; Stages from Sales Order.
+				</div>
+				<button class="btn btn-sm btn-default sbi-refresh-stages">Refresh</button>
+			</div>`;
+	}
+
+	const byParent = {};
+	stages.forEach((t) => {
+		const key = t.parent_task || "__root__";
+		(byParent[key] = byParent[key] || []).push(t);
+	});
+
+	const t = data.totals || {};
+	const varClass = flt(t.variance) < 0 ? "sbi-over" : "sbi-under";
+
+	let html = `
+		<style>
+			.sbi-stages{border:1px solid var(--border-color);border-radius:4px;overflow:hidden}
+			.sbi-stages-head{display:flex;gap:18px;align-items:baseline;padding:10px 14px;
+				background:var(--fg-color);border-bottom:1px solid var(--border-color)}
+			.sbi-stages-head b{font-size:13px}
+			.sbi-stages-head span{font-size:12px;color:var(--text-muted)}
+			.sbi-row{display:flex;align-items:center;gap:10px;padding:9px 14px;
+				border-bottom:1px solid var(--border-color);font-size:13px}
+			.sbi-row:last-child{border-bottom:0}
+			.sbi-row.sbi-child{background:var(--subtle-fg);padding-left:40px}
+			.sbi-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+			.sbi-name a{color:var(--text-color);font-weight:600}
+			.sbi-row.sbi-child .sbi-name a{font-weight:400}
+			.sbi-meta{font-size:11px;color:var(--text-muted);font-weight:400}
+			.sbi-bar{width:74px;height:6px;background:var(--border-color);border-radius:3px;
+				overflow:hidden;flex:0 0 auto}
+			.sbi-bar i{display:block;height:100%;background:var(--text-color)}
+			.sbi-pct{width:38px;text-align:right;font-variant-numeric:tabular-nums;
+				font-size:12px;color:var(--text-muted);flex:0 0 auto}
+			.sbi-money{width:112px;text-align:right;font-variant-numeric:tabular-nums;flex:0 0 auto}
+			.sbi-over{color:#be1e2d}
+			.sbi-under{color:#0f6b3f}
+			.sbi-logs{flex:0 0 auto}
+			.sbi-foot{display:flex;gap:8px;padding:10px 14px;background:var(--fg-color);
+				border-top:1px solid var(--border-color)}
+			@media (max-width:900px){.sbi-bar,.sbi-pct{display:none}}
+		</style>
+		<div class="sbi-stages">
+			<div class="sbi-stages-head">
+				<b>${stages.length} stage${stages.length === 1 ? "" : "s"}</b>
+				<span>Budget ${sbi_money(t.budget)}</span>
+				<span>Actual ${sbi_money(t.actual)}</span>
+				<span class="${varClass}">Variance ${sbi_money(t.variance)}</span>
+				<span style="margin-left:auto">${t.logs || 0} work log${t.logs === 1 ? "" : "s"}</span>
+			</div>`;
+
+	const row = (task, isChild) => {
+		const pct = Math.round(flt(task.progress));
+		const vClass = flt(task.variance) < 0 ? "sbi-over" : "";
+		const due = task.exp_end_date
+			? frappe.datetime.str_to_user(task.exp_end_date)
+			: "";
+		const meta = [task.status, due].filter(Boolean).join(" Â· ");
+		return `
+			<div class="sbi-row ${isChild ? "sbi-child" : ""}">
+				<span class="sbi-name">
+					<a href="/app/task/${encodeURIComponent(task.name)}">${frappe.utils.escape_html(task.subject || task.name)}</a>
+					<span class="sbi-meta">&nbsp;${frappe.utils.escape_html(meta)}</span>
+				</span>
+				<span class="sbi-bar"><i style="width:${Math.min(pct, 100)}%"></i></span>
+				<span class="sbi-pct">${pct}%</span>
+				<span class="sbi-money">${sbi_money(task.budget)}</span>
+				<span class="sbi-money ${vClass}">${sbi_money(task.actual)}</span>
+				<span class="sbi-logs">
+					<button class="btn btn-xs btn-default sbi-add-log" data-task="${task.name}">
+						+ Log${task.log_count ? " (" + task.log_count + ")" : ""}
+					</button>
+				</span>
+			</div>`;
+	};
+
+	(byParent["__root__"] || []).forEach((stage) => {
+		html += row(stage, false);
+		(byParent[stage.name] || []).forEach((child) => {
+			html += row(child, true);
+		});
+	});
+
+	html += `
+			<div class="sbi-foot">
+				<button class="btn btn-xs btn-default sbi-refresh-stages">Refresh</button>
+				<button class="btn btn-xs btn-default sbi-open-tasks">Open in task tree</button>
+			</div>
+		</div>`;
+
+	return html;
+}
+
+function sbi_bind_stage_actions($wrapper, frm) {
+	$wrapper.find(".sbi-refresh-stages").on("click", () => sbi_render_stage_tree(frm));
+
+	$wrapper.find(".sbi-open-tasks").on("click", () => {
+		frappe.set_route("Tree", "Task", { project: frm.doc.name });
+	});
+
+	$wrapper.find(".sbi-add-log").on("click", function () {
+		const task = $(this).attr("data-task");
+		frappe.new_doc("Daily Work Log", {
+			project: frm.doc.name,
+			task: task,
+			log_date: frappe.datetime.get_today(),
+		});
+	});
+}
