@@ -1,0 +1,37 @@
+{
+ "actions": [], "allow_rename": 1, "autoname": "field:wage_type_name",
+ "creation": "2026-07-20 10:00:00", "doctype": "DocType", "engine": "InnoDB",
+ "field_order": ["wage_type_name","party_type","is_active","cb_1","payment_frequency","rate_basis","default_rate","sb_pay","default_payment_mode","allow_cash","cb_2","allow_bank","requires_bank_details","sb_acc","site_cost_category","expense_account","cb_3","payable_account","description"],
+ "fields": [
+  {"fieldname":"wage_type_name","fieldtype":"Data","label":"Wage Type","reqd":1,"unique":1,"in_list_view":1},
+  {"fieldname":"party_type","fieldtype":"Select","label":"Applies To","options":"Labour\nSubcontractor\nVendor","default":"Labour","reqd":1,"in_list_view":1,"in_standard_filter":1},
+  {"fieldname":"is_active","fieldtype":"Check","label":"Is Active","default":"1","in_list_view":1},
+  {"fieldname":"cb_1","fieldtype":"Column Break"},
+  {"fieldname":"payment_frequency","fieldtype":"Select","label":"Payment Frequency","options":"Daily\nWeekly\nFortnightly\nMonthly\nOn Completion","reqd":1,"in_list_view":1,"in_standard_filter":1},
+  {"fieldname":"rate_basis","fieldtype":"Select","label":"Rate Basis","options":"Per Day\nPer Hour\nPer Unit of Work\nLump Sum\nAs per Work Order","default":"Per Day","reqd":1},
+  {"fieldname":"default_rate","fieldtype":"Currency","label":"Default Rate","description":"Starting rate when enrolling. Can be overridden per person."},
+  {"fieldname":"sb_pay","fieldtype":"Section Break","label":"Payment Mode"},
+  {"fieldname":"default_payment_mode","fieldtype":"Link","label":"Default Payment Mode","options":"Mode of Payment"},
+  {"fieldname":"allow_cash","fieldtype":"Check","label":"Allow Cash Payment","default":"1"},
+  {"fieldname":"cb_2","fieldtype":"Column Break"},
+  {"fieldname":"allow_bank","fieldtype":"Check","label":"Allow Bank Transfer","default":"1"},
+  {"fieldname":"requires_bank_details","fieldtype":"Check","label":"Bank Details Mandatory","description":"Blocks enrollment unless bank account is recorded."},
+  {"fieldname":"sb_acc","fieldtype":"Section Break","label":"Accounting"},
+  {"fieldname":"site_cost_category","fieldtype":"Link","label":"Cost Category","options":"Site Cost Category","description":"Which site cost bucket this wage rolls up into."},
+  {"fieldname":"expense_account","fieldtype":"Link","label":"Expense Account","options":"Account"},
+  {"fieldname":"cb_3","fieldtype":"Column Break"},
+  {"fieldname":"payable_account","fieldtype":"Link","label":"Payable Account","options":"Account","description":"Credited when work is approved, debited when the wage is paid."},
+  {"fieldname":"description","fieldtype":"Small Text","label":"Description"}
+ ],
+ "index_web_pages_for_search":1, "links":[],
+ "modified":"2026-07-20 10:00:00", "modified_by":"Administrator",
+ "module":"SBI Projects", "name":"Wage Type", "naming_rule":"By fieldname",
+ "owner":"Administrator",
+ "permissions":[
+  {"role":"System Manager","read":1,"write":1,"create":1,"delete":1,"report":1,"export":1},
+  {"role":"Projects Manager","read":1,"write":1,"create":1,"report":1,"export":1},
+  {"role":"Projects User","read":1}
+ ],
+ "sort_field":"modified","sort_order":"DESC","states":[],
+ "track_changes":1
+}

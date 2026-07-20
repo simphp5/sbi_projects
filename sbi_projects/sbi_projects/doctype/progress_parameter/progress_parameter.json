@@ -1,0 +1,25 @@
+{
+ "actions": [], "allow_rename": 1, "autoname": "field:parameter_name",
+ "creation": "2026-07-20 10:00:00", "doctype": "DocType", "engine": "InnoDB",
+ "field_order": ["parameter_name","uom","is_active","cb_1","applicable_stage","work_category","description"],
+ "fields": [
+  {"fieldname":"parameter_name","fieldtype":"Data","label":"Parameter","reqd":1,"unique":1,"in_list_view":1,"description":"What is being measured, e.g. Wall Completed, Concrete Poured, Bolts Torqued."},
+  {"fieldname":"uom","fieldtype":"Link","label":"UOM","options":"UOM","reqd":1,"in_list_view":1,"in_standard_filter":1},
+  {"fieldname":"is_active","fieldtype":"Check","label":"Is Active","default":"1","in_list_view":1},
+  {"fieldname":"cb_1","fieldtype":"Column Break"},
+  {"fieldname":"applicable_stage","fieldtype":"Link","label":"Applicable Stage","options":"Project Stage","in_standard_filter":1,"description":"Leave blank if this parameter applies to any stage."},
+  {"fieldname":"work_category","fieldtype":"Select","label":"Work Category","options":"\nCivil\nStructural\nFabrication\nErection\nFinishing\nGeneral","default":"General","in_list_view":1,"in_standard_filter":1},
+  {"fieldname":"description","fieldtype":"Small Text","label":"Description"}
+ ],
+ "index_web_pages_for_search":1, "links":[],
+ "modified":"2026-07-20 10:00:00", "modified_by":"Administrator",
+ "module":"SBI Projects", "name":"Progress Parameter", "naming_rule":"By fieldname",
+ "owner":"Administrator",
+ "permissions":[
+  {"role":"System Manager","read":1,"write":1,"create":1,"delete":1,"report":1,"export":1},
+  {"role":"Projects Manager","read":1,"write":1,"create":1,"report":1,"export":1},
+  {"role":"Projects User","read":1}
+ ],
+ "sort_field":"modified","sort_order":"DESC","states":[],
+ "track_changes":1
+}

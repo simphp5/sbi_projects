@@ -1,0 +1,18 @@
+{
+ "actions": [], "allow_rename": 0, "creation": "2026-07-20 10:00:00",
+ "doctype": "DocType", "editable_grid": 1, "engine": "InnoDB", "istable": 1,
+ "field_order": ["progress_parameter","uom","qty_today","cumulative_qty","target_qty","percent_of_target","remarks"],
+ "fields": [
+  {"fieldname":"progress_parameter","fieldtype":"Link","label":"Parameter","options":"Progress Parameter","reqd":1,"in_list_view":1,"columns":3},
+  {"fieldname":"uom","fieldtype":"Link","label":"UOM","options":"UOM","fetch_from":"progress_parameter.uom","read_only":1,"in_list_view":1,"columns":1},
+  {"fieldname":"qty_today","fieldtype":"Float","label":"Qty Today","reqd":1,"in_list_view":1,"columns":2},
+  {"fieldname":"cumulative_qty","fieldtype":"Float","label":"Cumulative","read_only":1,"in_list_view":1,"columns":2,"description":"Total for this parameter on this task, including today."},
+  {"fieldname":"target_qty","fieldtype":"Float","label":"Target","read_only":1,"columns":1},
+  {"fieldname":"percent_of_target","fieldtype":"Percent","label":"% of Target","read_only":1,"in_list_view":1,"columns":1},
+  {"fieldname":"remarks","fieldtype":"Small Text","label":"Remarks"}
+ ],
+ "index_web_pages_for_search":1, "links":[],
+ "modified":"2026-07-20 10:00:00", "modified_by":"Administrator",
+ "module":"SBI Projects", "name":"Daily Work Log Progress", "owner":"Administrator",
+ "permissions":[], "sort_field":"modified","sort_order":"DESC","states":[]
+}
