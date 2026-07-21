@@ -289,3 +289,44 @@ function sbi_bind_stage_actions($wrapper, frm) {
 		});
 	});
 }
+
+// ---------------------------------------------------------------------------
+// Show net / GST / grand total as a clear summary on Quotation and Sales Order,
+// so it is obvious the payment plan is on the net figure.
+// ---------------------------------------------------------------------------
+
+["Quotation", "Sales Order"].forEach(function (dt) {
+	frappe.ui.form.on(dt, {
+		refresh(frm) {
+			sbi_render_totals(frm);
+		},
+		net_total(frm) { sbi_render_totals(frm); },
+		grand_total(frm) { sbi_render_totals(frm); },
+	});
+});
+
+function sbi_render_totals(frm) {
+	const f = frm.get_field("sbi_totals_html");
+	if (!f || !f.$wrapper) return;
+
+	const net = flt(frm.doc.net_total);
+	const tax = flt(frm.doc.total_taxes_and_charges);
+	const grand = flt(frm.doc.grand_total) || flt(frm.doc.rounded_total);
+	if (!net && !grand) { f.$wrapper.html(""); return; }
+
+	f.$wrapper.html(`
+		<div style="border:1px solid var(--border-color);border-radius:4px;overflow:hidden;max-width:360px">
+			<div style="display:flex;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border-color)">
+				<span class="text-muted">Net total (payment plan basis)</span>
+				<b style="font-variant-numeric:tabular-nums">${format_currency(net)}</b>
+			</div>
+			<div style="display:flex;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border-color)">
+				<span class="text-muted">GST</span>
+				<span style="font-variant-numeric:tabular-nums">${format_currency(tax)}</span>
+			</div>
+			<div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--fg-color)">
+				<span>Grand total</span>
+				<b style="font-variant-numeric:tabular-nums">${format_currency(grand)}</b>
+			</div>
+		</div>`);
+}
