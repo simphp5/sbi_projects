@@ -55,10 +55,16 @@ def log_counts(project):
 	"""How many daily work logs exist per task."""
 	if not frappe.db.exists("DocType", "Daily Work Log"):
 		return {}
-	rows = frappe.get_all(
-		"Daily Work Log",
-		filters={"project": project},
-		fields=["task", "count(name) as n"],
-		group_by="task",
-	)
-	return {r.task: r.n for r in rows if r.task}
+	# Count logs per task without a raw SQL string in the field list, which
+	# newer Frappe rejects.  A grouped count via the query builder is portable.
+	from frappe.query_builder.functions import Count
+
+	dwl = frappe.qb.DocType("Daily Work Log")
+	rows = (
+		frappe.qb.from_(dwl)
+		.select(dwl.task, Count(dwl.name).as_("n"))
+		.where(dwl.project == project)
+		.where(dwl.task.isnotnull())
+		.groupby(dwl.task)
+	).run(as_dict=True)
+	return {r["task"]: r["n"] for r in rows if r.get("task")}
