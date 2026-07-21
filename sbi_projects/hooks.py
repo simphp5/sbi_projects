@@ -29,36 +29,17 @@ after_migrate = "sbi_projects.setup.install.after_install"
 # ------------------------------------------------------------------
 # Document Events
 # ------------------------------------------------------------------
-doc_events = {
-    "Daily Work Log": {
-        "on_update": "sbi_projects.sbi_projects.work_log_hooks.maybe_post_to_gl",
-        "on_update_after_submit": "sbi_projects.sbi_projects.work_log_hooks.maybe_post_to_gl",
-    },
-    "Quotation": {
-        "validate": "sbi_projects.sbi_projects.project_hooks.sync_payment_schedule_stage",
-    },
-    "Sales Order": {
-        "validate": "sbi_projects.sbi_projects.project_hooks.sync_payment_schedule_stage",
-    },
-    "Sales Invoice": {
-        "validate": "sbi_projects.sbi_projects.project_hooks.sync_payment_schedule_stage",
-    },
-    "Project": {
-        "after_insert": [
-            "sbi_projects.sbi_projects.project_hooks.build_project_stages",
-            "sbi_projects.sbi_projects.project_hooks.create_site_masters",
-        ],
-    },
-    "Lead": {
-        "validate": "sbi_projects.sbi_projects.lead_hooks.validate_lead",
-    },
-    "Opportunity": {
-        "validate": "sbi_projects.sbi_projects.crm_hooks.pull_enquiry_to_opportunity",
-    },
-    "Quotation": {
-        "validate": "sbi_projects.sbi_projects.crm_hooks.pull_enquiry_to_quotation",
-    },
-}
+doc_events = {   'Daily Work Log': {   'on_update': 'sbi_projects.sbi_projects.work_log_hooks.maybe_post_to_gl',
+                          'on_update_after_submit': 'sbi_projects.sbi_projects.work_log_hooks.maybe_post_to_gl'},
+    'Quotation': {'validate': 'sbi_projects.sbi_projects.crm_hooks.pull_enquiry_to_quotation'},
+    'Sales Order': {   'validate': 'sbi_projects.sbi_projects.project_hooks.sync_payment_schedule_stage'},
+    'Sales Invoice': {   'validate': 'sbi_projects.sbi_projects.project_hooks.sync_payment_schedule_stage'},
+    'Project': {   'after_insert': [   'sbi_projects.sbi_projects.project_hooks.build_project_stages',
+                                       'sbi_projects.sbi_projects.project_hooks.create_site_masters',
+                                       'sbi_projects.sbi_projects.so_fetch.build_stages_if_new'],
+                   'validate': 'sbi_projects.sbi_projects.so_fetch.sync_from_sales_order'},
+    'Lead': {'validate': 'sbi_projects.sbi_projects.lead_hooks.validate_lead'},
+    'Opportunity': {'validate': 'sbi_projects.sbi_projects.crm_hooks.pull_enquiry_to_opportunity'}}
 
 # ------------------------------------------------------------------
 # Fixtures  (exported masters + custom fields travel with git)
