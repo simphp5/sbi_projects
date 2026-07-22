@@ -136,6 +136,9 @@ function show_stage_summary(frm) {
 
 
 // ---------------------------------------------------------------------------
+
+
+// ---------------------------------------------------------------------------
 // Stage tree + owner budget panel on the Project form.
 //
 // The stage tree shows budget, progress and actual per stage.  The +Log button
