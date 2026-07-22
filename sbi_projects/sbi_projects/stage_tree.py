@@ -144,3 +144,53 @@ def save_project_budget(project, updates):
 
 	frappe.db.commit()
 	return {"saved": saved}
+
+
+@frappe.whitelist()
+def add_budget_account(project, category_name, amount=0):
+	"""Create a new expense account under Project Direct Costs and budget it.
+
+	Lets the owner add a cost head like "Fuel Cost" from the budget panel.
+	The account is created once under the construction-costs group; a budget
+	row for this project is then created or updated.
+	"""
+	category_name = (category_name or "").strip()
+	if not category_name:
+		frappe.throw("Enter a name for the budget head.")
+
+	company = frappe.db.get_value("Project", project, "company") \
+		or frappe.defaults.get_user_default("company")
+	abbr = frappe.db.get_value("Company", company, "abbr")
+
+	full = category_name + " - " + abbr
+	if not frappe.db.exists("Account", full):
+		# find the construction-costs group, fall back to Direct Expenses
+		parent = frappe.db.get_value(
+			"Account",
+			{"company": company, "account_name": "Project Direct Costs", "is_group": 1},
+			"name",
+		)
+		if not parent:
+			parent = frappe.db.get_value(
+				"Account",
+				{"company": company, "account_name": "Direct Expenses", "is_group": 1},
+				"name",
+			)
+		if not parent:
+			frappe.throw("Could not find an expense group to add the account under.")
+
+		acc = frappe.get_doc({
+			"doctype": "Account",
+			"account_name": category_name,
+			"parent_account": parent,
+			"company": company,
+			"root_type": "Expense",
+			"is_group": 0,
+		})
+		acc.insert(ignore_permissions=True)
+		full = acc.name
+
+	# now create/update the budget row
+	save_project_budget(project, [{"account": full, "amount": flt(amount)}])
+	frappe.db.commit()
+	return {"account": full}

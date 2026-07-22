@@ -142,6 +142,9 @@ function show_stage_summary(frm) {
 
 
 // ---------------------------------------------------------------------------
+
+
+// ---------------------------------------------------------------------------
 // Stage tree + owner budget panel on the Project form.
 //
 // The stage tree shows budget, progress and actual per stage.  The +Log button
@@ -317,12 +320,38 @@ function sbi_budget_html(data) {
 		<div style="padding:10px 14px;background:var(--fg-color);border-top:1px solid var(--border-color)">
 			<button class="btn btn-xs btn-primary sbi-save-budget">Save budget</button>
 			<button class="btn btn-xs btn-default sbi-refresh-budget" style="margin-left:6px">Refresh</button>
+			<button class="btn btn-xs btn-default sbi-add-account" style="margin-left:6px">+ Add cost head</button>
 		</div>
 	</div>`;
 }
 
 function sbi_bind_budget($w, frm) {
 	$w.find(".sbi-refresh-budget").on("click", () => sbi_render_budget_panel(frm));
+	$w.find(".sbi-add-account").on("click", function () {
+		const d = new frappe.ui.Dialog({
+			title: "Add a cost head",
+			fields: [
+				{ fieldname: "category_name", fieldtype: "Data", label: "Cost head name", reqd: 1,
+				  description: "For example: Fuel Cost, Crane Charges, Site Security" },
+				{ fieldname: "amount", fieldtype: "Currency", label: "Budget amount" },
+			],
+			primary_action_label: "Add",
+			primary_action(v) {
+				frappe.call({
+					method: "sbi_projects.sbi_projects.stage_tree.add_budget_account",
+					args: { project: frm.doc.name, category_name: v.category_name, amount: v.amount || 0 },
+					freeze: true,
+					callback() {
+						d.hide();
+						frappe.show_alert({ message: "Cost head added", indicator: "green" });
+						sbi_render_budget_panel(frm);
+					},
+				});
+			},
+		});
+		d.show();
+	});
+
 	$w.find(".sbi-save-budget").on("click", function () {
 		const updates = [];
 		$w.find(".sbi-bamt").each(function () {
