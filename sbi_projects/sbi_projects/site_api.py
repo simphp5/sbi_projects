@@ -607,3 +607,24 @@ def get_petty_cash_categories():
 	if not frappe.db.exists("DocType", "Site Cost Category"):
 		return []
 	return frappe.get_all("Site Cost Category", fields=["name"], order_by="name", pluck="name")
+
+
+@frappe.whitelist()
+def get_site_fence(project):
+	"""The geo-fence centre and radius for a project, for the app's on-site check."""
+	if not project:
+		return {}
+	d = frappe.db.get_value(
+		"Project", project,
+		["sbi_site_latitude", "sbi_site_longitude", "sbi_geofence_radius"],
+		as_dict=True,
+	) or {}
+	lat = d.get("sbi_site_latitude")
+	lng = d.get("sbi_site_longitude")
+	if not lat or not lng:
+		return {}
+	return {
+		"latitude": float(lat),
+		"longitude": float(lng),
+		"radius": int(d.get("sbi_geofence_radius") or 200),
+	}

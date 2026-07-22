@@ -162,6 +162,7 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
   <div class="top">
     <span class="mark"></span>
     <span class="site" id="siteLabel">Choose a site</span>
+    <button id="btnInstall" type="button" class="hidden">Install</button>
     <button id="btnHome" type="button" class="hidden">Menu</button>
     <button id="btnLogout" type="button">Sign out</button>
   </div>
@@ -211,6 +212,7 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
         </ol>
       </div>
       <div class="punches" id="punches"></div>
+      <div class="note" id="gpsNote" data-tone="">Checking your locationâ€¦</div>
       <div class="note" id="punchNote" data-tone="">Hold the phone steady and look at the camera.</div>
     </section>
 
@@ -329,6 +331,7 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
   function call(method, args){
     return fetch("/api/method/sbi_projects.sbi_projects."+method,{
       method:"POST",
+      credentials:"same-origin",
       headers:{"Content-Type":"application/json","X-Frappe-CSRF-Token":CSRF},
       body:JSON.stringify(args||{})
     }).then(function(r){
@@ -343,6 +346,29 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
     });
   }
   function note(el,tone,text){el.classList.remove("hidden");el.setAttribute("data-tone",tone);el.textContent=text;}
+
+  // -------- feedback: sound + vibration --------
+  var audioCtx=null;
+  function beep(kind){
+    try{
+      if(!audioCtx){audioCtx=new (window.AudioContext||window.webkitAudioContext)();}
+      var o=audioCtx.createOscillator(), g=audioCtx.createGain();
+      o.connect(g); g.connect(audioCtx.destination);
+      // ok = two rising notes, warn = one low, err = low buzz
+      var freqs = kind==="ok"?[660,880]:kind==="warn"?[440]:[220];
+      var t=audioCtx.currentTime;
+      freqs.forEach(function(f,i){
+        o.frequency.setValueAtTime(f, t+i*0.12);
+      });
+      g.gain.setValueAtTime(0.0001,t);
+      g.gain.exponentialRampToValueAtTime(0.3,t+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+freqs.length*0.12+0.05);
+      o.start(t); o.stop(t+freqs.length*0.12+0.08);
+    }catch(e){}
+    if(navigator.vibrate){
+      navigator.vibrate(kind==="ok"?[60,40,60]:kind==="warn"?[120]:[200,80,200]);
+    }
+  }
 
   // -------- login --------
   function doLogin(){
@@ -375,7 +401,7 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
   function watchGps(){
     if(!navigator.geolocation)return;
     navigator.geolocation.watchPosition(
-      function(p){S.gps={lat:p.coords.latitude,lng:p.coords.longitude};},
+      function(p){S.gps={lat:p.coords.latitude,lng:p.coords.longitude};paintGps();},
       function(){S.gps=null;},
       {enableHighAccuracy:true,maximumAge:15000,timeout:12000});
   }
@@ -409,6 +435,28 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
     c.width=480;c.height=Math.round(480*(videoEl.videoHeight||480)/(videoEl.videoWidth||640));
     c.getContext("2d").drawImage(videoEl,0,0,c.width,c.height);
     return c.toDataURL("image/jpeg",0.75);
+  }
+
+  // -------- gps geofence status --------
+  var siteFence=null;  // {lat,lng,radius} for the current project
+  function loadFence(){
+    return call("site_api.get_site_fence",{project:S.project}).then(function(f){
+      siteFence=f&&f.latitude?f:null; paintGps();
+    }).catch(function(){siteFence=null;});
+  }
+  function haversine(a,b,c,d){
+    var R=6371000,toR=Math.PI/180;
+    var dLat=(c-a)*toR,dLng=(d-b)*toR;
+    var s=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(a*toR)*Math.cos(c*toR)*Math.sin(dLng/2)*Math.sin(dLng/2);
+    return R*2*Math.atan2(Math.sqrt(s),Math.sqrt(1-s));
+  }
+  function paintGps(){
+    var el=$("gpsNote"); if(!el)return;
+    if(!siteFence){note(el,"","Site boundary not set. Attendance is recorded without a location check.");return;}
+    if(!S.gps){note(el,"warn","Waiting for your locationâ€¦");return;}
+    var d=haversine(siteFence.latitude,siteFence.longitude,S.gps.lat,S.gps.lng);
+    if(d<=siteFence.radius){note(el,"ok","You are on site ("+Math.round(d)+" m from centre).");}
+    else{note(el,"warn","You are "+Math.round(d)+" m away â€” outside the site boundary.");}
   }
 
   // -------- attendance loop --------
@@ -463,6 +511,7 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
       var extra=r.within_geofence?"":"  Outside the site by "+Math.round(r.distance_from_site)+" m.";
       note($("punchNote"),r.within_geofence?"ok":"warn",
         r.labour_name+" - "+r.log_type+" at "+String(r.time).slice(11,16)+"."+extra);
+      beep(r.within_geofence?"ok":"warn");
       return refreshDay(r.labour);
     }).catch(function(e){
       if(!navigator.onLine){queuePush(payload);note($("punchNote"),"warn","No network. Saved on this device.");}
@@ -496,7 +545,9 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
       S.enrollDescriptor=Array.prototype.slice.call(res.descriptor);
       var img=snapshot($("video2"));
       $("frozen2").src=img;$("frozen2").classList.remove("hidden");$("video2").classList.add("hidden");
-      enFrozen=true;$("btnFreeze2").textContent="Retake";$("who2").textContent="Photo captured";
+      $("stage2").setAttribute("data-face","yes");   // keep the green ring on the frozen shot
+      enFrozen=true;$("btnFreeze2").textContent="Retake";$("who2").textContent="âœ“ Face captured";
+      beep("ok");
       note($("enrollNote"),"ok","Face captured. Now fill in the name and add the worker.");
     });
   }
@@ -656,7 +707,7 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
     if(which==="daily"){loadStagesInto($("dlStage"));}
     if(which==="enroll"){startCamera($("video2"),S.facing2,"en2").catch(function(){});}
     else{stopCamera("en2");}
-    if(which==="attend"){startCamera($("video"),S.facing,"att").catch(function(){});}
+    if(which==="attend"){startCamera($("video"),S.facing,"att").catch(function(){});loadFence();}
     else{stopCamera("att");}
     if(which!=="enroll"){resetEnroll();}
   }
@@ -754,6 +805,13 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
     if("serviceWorker" in navigator){
       navigator.serviceWorker.register("/sbi_sw.js",{scope:"/site_app"}).catch(function(){});
     }
+    var deferred=null;
+    window.addEventListener("beforeinstallprompt",function(e){
+      e.preventDefault();deferred=e;$("btnInstall").classList.remove("hidden");});
+    $("btnInstall").onclick=function(){
+      if(!deferred)return;deferred.prompt();
+      deferred.userChoice.then(function(){deferred=null;$("btnInstall").classList.add("hidden");});};
+    window.addEventListener("appinstalled",function(){$("btnInstall").classList.add("hidden");});
   }
 
   boot();

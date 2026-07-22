@@ -3,7 +3,7 @@
  * OCR bundle are cached on first use.  Attendance and entries always go to the
  * network; the page queues punches locally if that fails.
  */
-var CACHE = "sbi-site-v2";
+var CACHE = "sbi-site-v3";
 var SHELL = [
   "/site_app",
   "/assets/sbi_projects/site_app/icon-192.png",
