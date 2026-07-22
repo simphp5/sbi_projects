@@ -1,4 +1,4 @@
-# Copyright (c) 2026, Velmaska and contributors
+﻿# Copyright (c) 2026, Velmaska and contributors
 
 import io
 from collections import defaultdict
@@ -116,6 +116,21 @@ def process_import(docname):
     doc.db_set("log", "\n".join(log))
     frappe.db.commit()
     return dict(status="ok", po=po_name, log="\n".join(log))
+
+
+# ======================================================================
+# File reading
+# ======================================================================
+def _get_file_bytes(file_url):
+    """Return the raw bytes of an attached file, private or public."""
+    from frappe.utils.file_manager import get_file
+
+    # get_file resolves both /private/files/ and /files/ URLs and returns
+    # (filename, content). content is bytes for binary files like xlsx.
+    _name, content = get_file(file_url)
+    if isinstance(content, str):
+        content = content.encode("latin-1")
+    return content
 
 
 # ======================================================================
