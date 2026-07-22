@@ -49,8 +49,11 @@ def process_import(docname):
 
     company = doc.company
     abbr = frappe.get_cached_value("Company", company, "abbr")
-    target = _project_warehouse(doc.project, abbr) or f"Stores - {abbr}"
-    log.append(f"Receiving warehouse: {target}")
+    target = doc.target_warehouse or _project_warehouse(doc.project, abbr) or f"Stores - {abbr}"
+    cost_center = frappe.db.get_value("Project", doc.project, "cost_center") if doc.project else None
+    if not cost_center:
+        cost_center = frappe.db.get_value("Company", company, "cost_center")
+    log.append(f"Receiving warehouse: {target} | Cost center: {cost_center}")
 
     _ensure_item_group(FAB_GROUP)
 
@@ -70,7 +73,7 @@ def process_import(docname):
                 item_defaults=[dict(company=company, default_warehouse=target)],
             ))
         # 2. one draft PO for this category
-        po_name = _create_category_po(doc, c, data, target, company)
+        po_name = _create_category_po(doc, c, data, target, company, cost_center)
         if po_name:
             made += 1
             doc.append("created_pos", dict(
@@ -99,7 +102,7 @@ def process_import(docname):
 # ======================================================================
 # PO per category (section lines). Supplier optional -> ignore_mandatory.
 # ======================================================================
-def _create_category_po(doc, cat, data, target, company):
+def _create_category_po(doc, cat, data, target, company, cost_center):
     po = frappe.new_doc("Purchase Order")
     if doc.supplier:
         po.supplier = doc.supplier
@@ -122,6 +125,7 @@ def _create_category_po(doc, cat, data, target, company):
             rate=0,
             schedule_date=add_days(nowdate(), 30),
             warehouse=target,
+            cost_center=cost_center,
             project=doc.project,
         ))
     try:
@@ -173,8 +177,20 @@ def _ensure_po_customisations():
                  "read_only": 1, "hidden": 1, "print_hide": 1},
             ]
         }, ignore_validate=True)
+    else:
+        # move the category field to the right column if it was created earlier on the left
+        if frappe.db.get_value("Custom Field", "Purchase Order-sbi_fab_category", "insert_after") != "company":
+            frappe.db.set_value("Custom Field", "Purchase Order-sbi_fab_category", "insert_after", "company")
+            frappe.clear_cache(doctype="Purchase Order")
 
-    if not frappe.db.exists("Print Format", "Fabrication PO"):
+    # upsert the print format so the latest design always applies
+    if frappe.db.exists("Print Format", "Fabrication PO"):
+        pf = frappe.get_doc("Print Format", "Fabrication PO")
+        pf.html = _PO_PRINT_HTML
+        pf.print_format_type = "Jinja"
+        pf.standard = "No"
+        pf.save(ignore_permissions=True)
+    else:
         frappe.get_doc({
             "doctype": "Print Format", "name": "Fabrication PO",
             "doc_type": "Purchase Order", "module": "SBI Projects",
@@ -183,34 +199,114 @@ def _ensure_po_customisations():
         }).insert(ignore_permissions=True)
 
 
-_PO_PRINT_HTML = """{{ doc.company }}
-<div style="float:right;background:#BE1E2D;color:#fff;padding:6px 12px;border-radius:6px;font-weight:700;font-size:13px">{{ doc.sbi_fab_category or "Fabrication" }}</div><h2 style="margin:4px 0">Purchase Order {{ doc.name }}</h2>
-<p><b>Category:</b> {{ doc.sbi_fab_category or "" }} &nbsp;|&nbsp;
-<b>Supplier:</b> {{ doc.supplier_name or doc.supplier or "(to be selected)" }} &nbsp;|&nbsp;
-<b>Project:</b> {{ doc.project or "" }} &nbsp;|&nbsp; <b>Date:</b> {{ doc.transaction_date }}</p>
-<table style="border-collapse:collapse;width:100%;font-size:11px">
-<tr>
-<th style="border:1px solid #bbb;padding:4px">#</th>
-<th style="border:1px solid #bbb;padding:4px">Item</th>
-<th style="border:1px solid #bbb;padding:4px">Qty (Kg)</th>
-<th style="border:1px solid #bbb;padding:4px">Rate/Kg</th>
-<th style="border:1px solid #bbb;padding:4px">Amount</th>
-</tr>
-{% for r in doc.items %}
-<tr>
-<td style="border:1px solid #ccc;padding:3px">{{ loop.index }}</td>
-<td style="border:1px solid #ccc;padding:3px">{{ r.item_name }}</td>
-<td style="border:1px solid #ccc;padding:3px;text-align:right">{{ "{:,.2f}".format(r.qty) }}</td>
-<td style="border:1px solid #ccc;padding:3px;text-align:right">{{ "{:,.2f}".format(r.rate) }}</td>
-<td style="border:1px solid #ccc;padding:3px;text-align:right">{{ "{:,.0f}".format(r.amount) }}</td>
-</tr>
-{% endfor %}
-<tr>
-<td colspan="4" style="border:1px solid #bbb;padding:4px;text-align:right"><b>Total</b></td>
-<td style="border:1px solid #bbb;padding:4px;text-align:right"><b>{{ "{:,.0f}".format(doc.total) }}</b></td>
-</tr>
-</table>
-{{ doc.sbi_fab_annexure or "" }}
+_PO_PRINT_HTML = """
+<div style="font-family:'Helvetica Neue',Arial,sans-serif;color:#1a1a1a;font-size:12px">
+
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;
+              border-bottom:3px solid #BE1E2D;padding-bottom:10px;margin-bottom:14px">
+    <div>
+      <div style="font-size:20px;font-weight:800;color:#BE1E2D;letter-spacing:.3px">
+        SHIV BHARAT INFRASTRUCTURES</div>
+      <div style="font-size:10px;color:#666;margin-top:2px">
+        Pre-Engineered Buildings &amp; Civil Construction</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:16px;font-weight:700">PURCHASE ORDER</div>
+      <div style="font-size:12px;color:#BE1E2D;font-weight:600">{{ doc.name }}</div>
+      <div style="font-size:10px;color:#888;margin-top:2px">
+        {% if doc.docstatus == 0 %}DRAFT{% elif doc.docstatus == 1 %}SUBMITTED{% else %}CANCELLED{% endif %}</div>
+    </div>
+  </div>
+
+  <table style="width:100%;font-size:11px;margin-bottom:14px">
+    <tr>
+      <td style="width:50%;vertical-align:top;padding-right:12px">
+        <div style="color:#888;font-size:10px;text-transform:uppercase">Supplier</div>
+        <div style="font-weight:700;font-size:13px">{{ doc.supplier_name or doc.supplier or "â€” to be selected â€”" }}</div>
+        {% if doc.address_display %}<div style="color:#555;margin-top:2px">{{ doc.address_display }}</div>{% endif %}
+      </td>
+      <td style="width:25%;vertical-align:top">
+        <div style="color:#888;font-size:10px;text-transform:uppercase">Fabrication Category</div>
+        <div style="font-weight:700;color:#BE1E2D">{{ doc.sbi_fab_category or "â€”" }}</div>
+        <div style="color:#888;font-size:10px;text-transform:uppercase;margin-top:6px">Project / Site</div>
+        <div>{{ doc.project or "â€”" }}</div>
+      </td>
+      <td style="width:25%;vertical-align:top">
+        <div style="color:#888;font-size:10px;text-transform:uppercase">Order Date</div>
+        <div>{{ frappe.format(doc.transaction_date, {"fieldtype": "Date"}) }}</div>
+        <div style="color:#888;font-size:10px;text-transform:uppercase;margin-top:6px">Required By</div>
+        <div>{{ frappe.format(doc.schedule_date, {"fieldtype": "Date"}) }}</div>
+      </td>
+    </tr>
+  </table>
+
+  <table style="width:100%;border-collapse:collapse;font-size:11px">
+    <thead>
+      <tr style="background:#1F3864;color:#fff">
+        <th style="padding:7px 6px;text-align:center;width:32px">#</th>
+        <th style="padding:7px 6px;text-align:left">Item / Section</th>
+        <th style="padding:7px 6px;text-align:right;width:90px">Qty (Kg)</th>
+        <th style="padding:7px 6px;text-align:right;width:80px">Rate/Kg</th>
+        <th style="padding:7px 6px;text-align:right;width:100px">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in doc.items %}
+      <tr style="{% if loop.index is odd %}background:#F7F9FC{% endif %}">
+        <td style="padding:6px;text-align:center;border-bottom:1px solid #e5e5e5">{{ loop.index }}</td>
+        <td style="padding:6px;border-bottom:1px solid #e5e5e5">{{ r.item_name }}</td>
+        <td style="padding:6px;text-align:right;border-bottom:1px solid #e5e5e5">{{ "{:,.2f}".format(r.qty) }}</td>
+        <td style="padding:6px;text-align:right;border-bottom:1px solid #e5e5e5">{{ "{:,.2f}".format(r.rate) }}</td>
+        <td style="padding:6px;text-align:right;border-bottom:1px solid #e5e5e5">{{ "{:,.2f}".format(r.amount) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr style="background:#f0f2f5;font-weight:700">
+        <td colspan="2" style="padding:7px 6px;text-align:right">TOTAL</td>
+        <td style="padding:7px 6px;text-align:right">{{ "{:,.2f}".format(doc.total_qty) }}</td>
+        <td></td>
+        <td style="padding:7px 6px;text-align:right">{{ doc.get_formatted("total") }}</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  {% if doc.taxes %}
+  <table style="width:45%;margin-left:55%;margin-top:8px;font-size:11px;border-collapse:collapse">
+    {% for t in doc.taxes %}
+    <tr>
+      <td style="padding:3px 6px;color:#555">{{ t.description }}</td>
+      <td style="padding:3px 6px;text-align:right">{{ t.get_formatted("tax_amount") }}</td>
+    </tr>
+    {% endfor %}
+    <tr style="border-top:2px solid #BE1E2D;font-weight:800">
+      <td style="padding:6px;color:#BE1E2D">GRAND TOTAL</td>
+      <td style="padding:6px;text-align:right;color:#BE1E2D">{{ doc.get_formatted("grand_total") }}</td>
+    </tr>
+  </table>
+  {% else %}
+  <table style="width:45%;margin-left:55%;margin-top:8px;font-size:11px;border-collapse:collapse">
+    <tr style="border-top:2px solid #BE1E2D;font-weight:800">
+      <td style="padding:6px;color:#BE1E2D">GRAND TOTAL</td>
+      <td style="padding:6px;text-align:right;color:#BE1E2D">{{ doc.get_formatted("grand_total") }}</td>
+    </tr>
+  </table>
+  {% endif %}
+
+  <div style="clear:both;margin-top:20px;font-size:10px;color:#777;border-top:1px solid #ddd;padding-top:8px">
+    <b>Note:</b> Detailed section list, cutting reference and technical annexure for
+    <b>{{ doc.sbi_fab_category or "this category" }}</b> are provided as a separate attachment
+    (Excel &amp; PDF) with this order. Rates are per kilogram of fabricated steel delivered to site.
+  </div>
+
+  <table style="width:100%;margin-top:26px;font-size:11px">
+    <tr>
+      <td style="width:50%;padding-top:30px">_______________________________<br><span style="color:#888">Prepared By</span></td>
+      <td style="width:50%;padding-top:30px;text-align:right">_______________________________<br><span style="color:#888">Authorised Signatory</span></td>
+    </tr>
+  </table>
+
+</div>
 """
 
 

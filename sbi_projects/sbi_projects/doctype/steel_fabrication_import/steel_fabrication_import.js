@@ -1,6 +1,23 @@
-﻿// Copyright (c) 2026, Velmaska and contributors
+// Copyright (c) 2026, Velmaska and contributors
 
 frappe.ui.form.on("Steel Fabrication Import", {
+	project(frm) {
+		if (!frm.doc.project) return;
+		// fetch the project's site warehouse and prefill the receiving warehouse
+		frappe.db.get_value("Project", frm.doc.project, ["project_name", "cost_center"]).then((r) => {
+			const pname = r.message && r.message.project_name;
+			if (!pname) return;
+			frappe.db.get_value("Company", frm.doc.company || frappe.defaults.get_user_default("Company"), "abbr").then((c) => {
+				const abbr = c.message && c.message.abbr;
+				if (!abbr) return;
+				const wh = `${pname} - ${abbr}`;
+				frappe.db.exists("Warehouse", wh).then((exists) => {
+					if (exists) frm.set_value("target_warehouse", wh);
+				});
+			});
+		});
+	},
+
 	refresh(frm) {
 		frm.disable_save = false;
 
