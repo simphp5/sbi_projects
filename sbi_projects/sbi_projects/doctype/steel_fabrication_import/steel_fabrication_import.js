@@ -1,4 +1,4 @@
-// Copyright (c) 2026, Velmaska and contributors
+﻿// Copyright (c) 2026, Velmaska and contributors
 
 frappe.ui.form.on("Steel Fabrication Import", {
 	refresh(frm) {
@@ -6,21 +6,20 @@ frappe.ui.form.on("Steel Fabrication Import", {
 
 		if (frm.is_new()) {
 			frm.dashboard.set_headline(
-				__("Fill Job No, Company, Supplier and attach the Tekla Steel BOM, then Save and click Process.")
+				__("Enter PO No, Project, Company, Supplier; attach the Tekla Steel BOM; Save, then Process BOM.")
 			);
 			return;
 		}
 
-		// Process button (primary action)
 		frm.add_custom_button(__("Process BOM"), () => {
 			if (!frm.doc.bom_file) {
 				frappe.msgprint(__("Attach the Steel BOM file first."));
 				return;
 			}
 			frappe.confirm(
-				__("Generate Items, BOMs, Subcontracting BOMs{0} for {1}?", [
+				__("Generate category items{0} and the annexure for {1}?", [
 					frm.doc.supplier ? __(" and a draft PO") : "",
-					frm.doc.job_no,
+					frm.doc.po_no,
 				]),
 				() => run_process(frm)
 			);
@@ -34,12 +33,10 @@ frappe.ui.form.on("Steel Fabrication Import", {
 
 		if (frm.doc.status === "Processed") {
 			frm.dashboard.set_headline(
-				__("Processed: {0} MT | {1} RM | {2} FG | {3} bolts.{4}", [
+				__("Processed: {0} MT across {1} categories.{2} Next: fill Rate/kg, submit PO, then GRN at site.", [
 					frm.doc.total_weight_mt,
-					frm.doc.rm_count,
-					frm.doc.fg_count,
-					frm.doc.bolt_nos,
-					frm.doc.created_po ? __(" Draft PO: {0} (fill rate).", [frm.doc.created_po]) : "",
+					frm.doc.category_count,
+					frm.doc.created_po ? __(" Draft PO: {0}.", [frm.doc.created_po]) : "",
 				])
 			);
 		}
@@ -47,7 +44,7 @@ frappe.ui.form.on("Steel Fabrication Import", {
 });
 
 function run_process(frm) {
-	frappe.dom.freeze(__("Processing Steel BOM — creating items, BOMs, PO..."));
+	frappe.dom.freeze(__("Processing - creating category items, PO and annexure..."));
 	frappe.call({
 		method: "sbi_projects.sbi_projects.doctype.steel_fabrication_import.steel_fabrication_import.process_import",
 		args: { docname: frm.doc.name },
@@ -55,7 +52,7 @@ function run_process(frm) {
 			frappe.dom.unfreeze();
 			frm.reload_doc();
 			if (r.message && r.message.status === "ok") {
-				frappe.show_alert({ message: __("Done — data generated."), indicator: "green" });
+				frappe.show_alert({ message: __("Done - data generated."), indicator: "green" });
 			}
 		},
 		error() {

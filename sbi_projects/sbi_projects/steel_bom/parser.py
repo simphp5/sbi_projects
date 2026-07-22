@@ -1,4 +1,4 @@
-# Copyright (c) 2026, Velmaska and contributors
+﻿# Copyright (c) 2026, Velmaska and contributors
 """Tekla Steel BOM (xlsx) parser for SBI subcontracting.
 
 Pure-python, no Frappe dependency, so it can be unit-tested standalone.
@@ -194,3 +194,78 @@ def parse_workbook(wb, job="JOB", phase="P1", wastage=0.0):
     return dict(rm=rm, categories=categories, cutting=cutting,
                 shipping=shipping, bolt=bolt, totals=totals,
                 job=job, phase=phase)
+
+
+# ======================================================================
+# SUMMARY-SHEET CATEGORIES  (for category-priced purchase POs)
+# ======================================================================
+# Groups raw sections into the 9 material families shown on the SUMMARY
+# sheet, plus bolts. Each becomes one PO line priced per kg.
+
+SUMMARY_FAMILIES = [
+    ("PLATE",      "Plate Sections",       "FAB-PLATE"),
+    ("COLDFORM",   "Cold Form Sections",   "FAB-COLDFORM"),
+    ("HOTROLLED",  "Hot Rolled Sections",  "FAB-HOTROLLED"),
+    ("TUBE",       "Circular Tubes",       "FAB-TUBE"),
+    ("ANGLE",      "Angle Sections",       "FAB-ANGLE"),
+    ("SAGROD",     "Sag Rods",             "FAB-SAGROD"),
+    ("RODBRACE",   "Rod Bracings",         "FAB-RODBRACE"),
+    ("CHEQUERED",  "Chequered Plate",      "FAB-CHEQUERED"),
+    ("BOLTS",      "Bolts (bought-out)",   "FAB-BOLTS"),
+]
+_FAMILY_LABEL = {k: (label, code) for k, label, code in SUMMARY_FAMILIES}
+
+
+def _family_of(section):
+    s = str(section).strip().upper()
+    if s.startswith("CPL"):
+        return "CHEQUERED"
+    if s.startswith("PL"):
+        return "PLATE"
+    if re.match(r"^\d+[ZC]", s):
+        return "COLDFORM"
+    if s.startswith(("TS", "CHS")):
+        return "TUBE"
+    if s == "ROD12":
+        return "SAGROD"
+    if s == "ROD24":
+        return "RODBRACE"
+    if s.startswith(("L", "ISA")):
+        return "ANGLE"
+    if s.startswith(("ISMB", "ISMC")):
+        return "HOTROLLED"
+    return "HOTROLLED"
+
+
+def summary_categories(data, include_bolts=True):
+    """Group parsed RM into the SUMMARY families. Returns ordered list of
+    dicts: key, label, item_code, weight_kg, sections=[{section,grade,kg}]."""
+    from collections import defaultdict
+    buckets = defaultdict(lambda: {"kg": 0.0, "sections": []})
+    for r in data["rm"]:
+        fam = _family_of(r["section"])
+        buckets[fam]["kg"] += r["weight_kg"]
+        buckets[fam]["sections"].append(
+            {"section": r["section"], "grade": r["grade"], "kg": r["weight_kg"]})
+
+    if include_bolts:
+        bolt_kg = data["totals"]["bolt_kg"]
+        bolt_nos = data["totals"]["bolt_nos"]
+        if bolt_kg:
+            buckets["BOLTS"]["kg"] = bolt_kg
+            buckets["BOLTS"]["sections"] = [
+                {"section": b["code"], "grade": b.get("remark", ""),
+                 "kg": round(b["tot_wt"], 2), "nos": int(b["qty"])}
+                for b in data["bolt"]]
+
+    out = []
+    for key, label, code in SUMMARY_FAMILIES:
+        if key not in buckets:
+            continue
+        b = buckets[key]
+        b["sections"].sort(key=lambda x: -x["kg"])
+        out.append({
+            "key": key, "label": label, "item_code": code,
+            "weight_kg": round(b["kg"], 2), "sections": b["sections"],
+        })
+    return out

@@ -1,20 +1,18 @@
-{
+﻿{
  "actions": [],
  "allow_rename": 1,
  "creation": "2026-07-16 00:00:00.000000",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "job_no",
-  "phase",
+  "po_no",
   "project",
   "cb_1",
   "company",
   "supplier",
-  "supplier_warehouse",
-  "accepted_warehouse",
+  "target_warehouse",
   "sb_options",
-  "model",
+  "include_bolts",
   "wastage_percent",
   "cb_2",
   "bom_file",
@@ -25,38 +23,150 @@
   "created_po",
   "cb_3",
   "total_weight_mt",
-  "rm_count",
-  "fg_count",
+  "category_count",
   "bolt_nos",
   "sb_log",
   "log"
  ],
  "fields": [
-  {"fieldname": "job_no", "fieldtype": "Data", "label": "Job No", "reqd": 1, "in_list_view": 1},
-  {"fieldname": "phase", "fieldtype": "Data", "label": "Phase", "default": "P1"},
-  {"fieldname": "project", "fieldtype": "Link", "label": "Project", "options": "Project"},
-  {"fieldname": "cb_1", "fieldtype": "Column Break"},
-  {"fieldname": "company", "fieldtype": "Link", "label": "Company", "options": "Company", "reqd": 1},
-  {"fieldname": "supplier", "fieldtype": "Link", "label": "Supplier (Fabricator)", "options": "Supplier"},
-  {"fieldname": "supplier_warehouse", "fieldtype": "Link", "label": "Supplier Warehouse", "options": "Warehouse", "description": "Where steel sits with the fabricator. Auto-created as 'Fabricator A' if blank."},
-  {"fieldname": "accepted_warehouse", "fieldtype": "Link", "label": "Accepted Warehouse", "options": "Warehouse", "description": "Where fabricated members are received / raw steel issued from."},
-  {"fieldname": "sb_options", "fieldtype": "Section Break", "label": "Import Options"},
-  {"fieldname": "model", "fieldtype": "Select", "label": "FG Model", "options": "Model A - 3 Consolidated FG\nModel B - Per-Member FG", "default": "Model A - 3 Consolidated FG", "reqd": 1, "description": "A = simple (3 FG, 3 rates). B = precise (one FG per member type)."},
-  {"fieldname": "wastage_percent", "fieldtype": "Percent", "label": "Wastage %", "default": 0, "description": "Tekla weights are net cut-length; keep 0 unless told otherwise."},
-  {"fieldname": "cb_2", "fieldtype": "Column Break"},
-  {"fieldname": "bom_file", "fieldtype": "Attach", "label": "Steel BOM File (xlsx)", "reqd": 1, "description": "Raw Tekla Steel BOM export (ASSM / SECD / SHIPG / BOLT / SUMMARY)."},
-  {"fieldname": "sb_run", "fieldtype": "Section Break", "label": "Process"},
-  {"fieldname": "process_button_html", "fieldtype": "HTML", "label": " "},
-  {"fieldname": "sb_results", "fieldtype": "Section Break", "label": "Results"},
-  {"fieldname": "status", "fieldtype": "Select", "label": "Status", "options": "Draft\nProcessed\nError", "default": "Draft", "read_only": 1, "in_list_view": 1},
-  {"fieldname": "created_po", "fieldtype": "Link", "label": "Created Draft PO", "options": "Purchase Order", "read_only": 1},
-  {"fieldname": "cb_3", "fieldtype": "Column Break"},
-  {"fieldname": "total_weight_mt", "fieldtype": "Float", "label": "Total Weight (MT)", "read_only": 1, "precision": "3"},
-  {"fieldname": "rm_count", "fieldtype": "Int", "label": "RM Items", "read_only": 1},
-  {"fieldname": "fg_count", "fieldtype": "Int", "label": "FG Items", "read_only": 1},
-  {"fieldname": "bolt_nos", "fieldtype": "Int", "label": "Bolt Nos", "read_only": 1},
-  {"fieldname": "sb_log", "fieldtype": "Section Break", "label": "Run Log"},
-  {"fieldname": "log", "fieldtype": "Code", "label": "Log", "read_only": 1, "options": "Text"}
+  {
+   "fieldname": "po_no",
+   "fieldtype": "Data",
+   "label": "PO No / Reference",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "Your PO reference for this fabrication order."
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project (Site)",
+   "options": "Project",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "Material is received against this site's warehouse via GRN."
+  },
+  {
+   "fieldname": "cb_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "supplier",
+   "fieldtype": "Link",
+   "label": "Supplier (Fabricator)",
+   "options": "Supplier",
+   "description": "Fabricator who supplies the fabricated steel."
+  },
+  {
+   "fieldname": "target_warehouse",
+   "fieldtype": "Link",
+   "label": "Receiving Warehouse",
+   "options": "Warehouse",
+   "description": "Site warehouse where fabricated material is received (GRN). Defaults to the project's warehouse."
+  },
+  {
+   "fieldname": "sb_options",
+   "fieldtype": "Section Break",
+   "label": "Import Options"
+  },
+  {
+   "fieldname": "include_bolts",
+   "fieldtype": "Check",
+   "label": "Include Bolts as a category",
+   "default": "1",
+   "description": "Adds a Bolts line (bought-out hardware, priced by weight)."
+  },
+  {
+   "fieldname": "wastage_percent",
+   "fieldtype": "Percent",
+   "label": "Wastage %",
+   "default": 0,
+   "description": "Tekla weights are net cut-length; keep 0 unless told otherwise."
+  },
+  {
+   "fieldname": "cb_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "bom_file",
+   "fieldtype": "Attach",
+   "label": "Steel BOM File (xlsx)",
+   "reqd": 1,
+   "description": "Raw Tekla Steel BOM export (ASSM / SECD / SHIPG / BOLT / SUMMARY)."
+  },
+  {
+   "fieldname": "sb_run",
+   "fieldtype": "Section Break",
+   "label": "Process"
+  },
+  {
+   "fieldname": "process_button_html",
+   "fieldtype": "HTML",
+   "label": " "
+  },
+  {
+   "fieldname": "sb_results",
+   "fieldtype": "Section Break",
+   "label": "Results"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Draft\nProcessed\nError",
+   "default": "Draft",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "created_po",
+   "fieldtype": "Link",
+   "label": "Created Draft PO",
+   "options": "Purchase Order",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_weight_mt",
+   "fieldtype": "Float",
+   "label": "Total Weight (MT)",
+   "read_only": 1,
+   "precision": "3"
+  },
+  {
+   "fieldname": "category_count",
+   "fieldtype": "Int",
+   "label": "Categories",
+   "read_only": 1
+  },
+  {
+   "fieldname": "bolt_nos",
+   "fieldtype": "Int",
+   "label": "Bolt Nos",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_log",
+   "fieldtype": "Section Break",
+   "label": "Run Log"
+  },
+  {
+   "fieldname": "log",
+   "fieldtype": "Code",
+   "label": "Log",
+   "read_only": 1,
+   "options": "Text"
+  }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
@@ -64,11 +174,31 @@
  "module": "SBI Projects",
  "name": "Steel Fabrication Import",
  "naming_rule": "Expression",
- "autoname": "format:SFI-{job_no}-{phase}",
+ "autoname": "format:SFI-{po_no}",
  "owner": "Administrator",
  "permissions": [
-  {"create": 1, "delete": 1, "email": 1, "print": 1, "read": 1, "report": 1, "role": "System Manager", "share": 1, "write": 1},
-  {"create": 1, "delete": 1, "email": 1, "print": 1, "read": 1, "report": 1, "role": "Purchase Manager", "share": 1, "write": 1}
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Purchase Manager",
+   "share": 1,
+   "write": 1
+  }
  ],
  "sort_field": "modified",
  "sort_order": "DESC",

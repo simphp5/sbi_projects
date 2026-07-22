@@ -1,20 +1,15 @@
 ﻿# Copyright (c) 2026, Velmaska and contributors
 
 import io
-from collections import defaultdict
 
 import frappe
 from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt, nowdate, add_days
 
-from sbi_projects.sbi_projects.steel_bom.parser import (
-    parse_workbook, rm_code, SERVICE_ITEMS, GRADE_SPEC,
-)
+from sbi_projects.sbi_projects.steel_bom.parser import parse_workbook, summary_categories
 
-RM_GROUP = "Raw Material - Steel"
-FG_GROUP = "Finished Goods - PEB"
-SVC_GROUP = "Services"
+FAB_GROUP = "Fabricated Steel"
 
 
 class SteelFabricationImport(Document):
@@ -24,93 +19,78 @@ class SteelFabricationImport(Document):
 
 
 # ======================================================================
-# Whitelisted entry point (called from the client "Process" button)
+# Whitelisted entry point (client "Process BOM" button)
 # ======================================================================
 @frappe.whitelist()
 def process_import(docname):
     doc = frappe.get_doc("Steel Fabrication Import", docname)
     log = []
 
-    def note(msg):
-        log.append(msg)
-
     try:
         import openpyxl
     except Exception:
         frappe.throw(_("openpyxl is not available on this bench."))
 
-    # ---- read the attached workbook ----
     if not doc.bom_file:
         frappe.throw(_("Attach the Steel BOM file first."))
     content = _get_file_bytes(doc.bom_file)
     wb = openpyxl.load_workbook(io.BytesIO(content), data_only=True)
 
-    data = parse_workbook(wb, job=doc.job_no, phase=doc.phase or "P1",
-                          wastage=flt(doc.wastage_percent))
-    t = data["totals"]
-    note(f"Parsed: {t['assemblies']} assemblies, {t['rm_items']} RM, "
-         f"{t['fg_categories']} categories, {t['structural_kg']} kg.")
+    data = parse_workbook(wb, job=doc.po_no, phase="", wastage=flt(doc.wastage_percent))
+    cats = summary_categories(data, include_bolts=bool(doc.include_bolts))
+    total_kg = sum(c["weight_kg"] for c in cats)
+    log.append(f"Parsed {data['totals']['assemblies']} assemblies -> "
+               f"{len(cats)} categories, {total_kg:,.2f} kg.")
 
     company = doc.company
     abbr = frappe.get_cached_value("Company", company, "abbr")
-    store = f"Stores - {abbr}"
-    accepted = doc.accepted_warehouse or store
 
-    # ---- 1. item groups ----
-    for g in (RM_GROUP, FG_GROUP, SVC_GROUP):
-        _ensure_item_group(g)
+    # receiving warehouse: explicit -> project's -> Stores
+    target = doc.target_warehouse
+    if not target and doc.project:
+        target = frappe.db.get_value("Project", doc.project, "cost_center")  # placeholder check
+        target = _project_warehouse(doc.project, abbr)
+    if not target:
+        target = f"Stores - {abbr}"
+    log.append(f"Receiving warehouse: {target}")
 
-    # ---- 2. supplier warehouse ----
-    sup_wh = doc.supplier_warehouse
-    if not sup_wh:
-        sup_wh = _ensure_warehouse("Fabricator A", company, abbr)
-        doc.db_set("supplier_warehouse", sup_wh)
-    note(f"Supplier warehouse: {sup_wh}")
+    # 1. item group
+    _ensure_item_group(FAB_GROUP)
 
-    # ---- 3. raw materials ----
-    for r in data["rm"]:
+    # 2. category items (generic, reusable, stock, purchased by Kg)
+    for c in cats:
         _ensure_item(dict(
-            item_code=r["code"], item_name=f"{r['section']} - {r['grade']}",
-            item_group=RM_GROUP, stock_uom="Kg", is_stock_item=1,
-            is_purchase_item=1, gst_hsn_code="7308",
-            item_defaults=[dict(company=company, default_warehouse=store)]))
-    note(f"RM items ok: {len(data['rm'])}")
+            item_code=c["item_code"],
+            item_name=f"Fabricated - {c['label']}",
+            item_group=FAB_GROUP, stock_uom="Kg",
+            is_stock_item=1, is_purchase_item=1, is_sales_item=0,
+            gst_hsn_code="7308",
+            item_defaults=[dict(company=company, default_warehouse=target)],
+        ))
+    log.append(f"Category items ready: {len(cats)}")
 
-    # ---- 4. service items ----
-    for key, (code, name) in SERVICE_ITEMS.items():
-        _ensure_item(dict(
-            item_code=code, item_name=name, item_group=SVC_GROUP,
-            stock_uom="MT", is_stock_item=0, is_purchase_item=1,
-            is_sales_item=0, gst_hsn_code="998873"))
-
-    # ---- 5/6/7. FG + BOM + Subcontracting BOM (per chosen model) ----
-    fg_defs = _build_fg_definitions(data, doc.model)
-    made = 0
-    for fg in fg_defs:
-        _ensure_item(dict(
-            item_code=fg["code"], item_name=fg["name"], item_group=FG_GROUP,
-            stock_uom="Kg", is_stock_item=1, is_sub_contracted_item=1,
-            is_purchase_item=0, gst_hsn_code="7308",
-            item_defaults=[dict(company=company, default_warehouse=store)]))
-        bom_name = _ensure_bom(fg["code"], fg["bom"], company)
-        _ensure_subcontracting_bom(fg["code"], fg["service_code"], bom_name, company)
-        made += 1
-    note(f"FG + BOM + Subcontracting BOM ok: {made}")
-
-    # ---- 8. draft subcontracting PO (rate empty) ----
+    # 3. draft Purchase Order (standard purchase, NOT subcontracted)
     po_name = None
     if doc.supplier:
-        po_name = _create_draft_po(doc, fg_defs, sup_wh, accepted, company)
-        note(f"Draft PO created: {po_name} (rate blank - fill in ERPNext).")
+        po_name = _create_draft_po(doc, cats, target, company)
+        log.append(f"Draft PO created: {po_name} (fill Rate/kg in ERPNext).")
+        log.append("Flow: PO -> Purchase Receipt (GRN) at site -> Purchase Invoice.")
     else:
-        note("Supplier not set - skipped PO. Set Supplier and re-run to get a draft PO.")
+        log.append("Supplier not set - masters created, PO skipped. "
+                   "Set Supplier and press Process BOM again.")
 
-    # ---- persist results ----
+    # 4. attach annexure workbook to the import doc (and PO if created)
+    try:
+        _attach_annexure(doc, data, cats, po_name)
+        log.append("Annexure attached (category detail + cutting + shipping + bolts).")
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), f"Annexure failed: {doc.name}")
+        log.append("Annexure generation failed (see Error Log).")
+
     doc.db_set("status", "Processed")
-    doc.db_set("total_weight_mt", round(t["structural_kg"] / 1000.0, 3))
-    doc.db_set("rm_count", len(data["rm"]))
-    doc.db_set("fg_count", len(fg_defs))
-    doc.db_set("bolt_nos", t["bolt_nos"])
+    doc.db_set("total_weight_mt", round(total_kg / 1000.0, 3))
+    doc.db_set("category_count", len(cats))
+    doc.db_set("bolt_nos", data["totals"]["bolt_nos"])
     if po_name:
         doc.db_set("created_po", po_name)
     doc.db_set("log", "\n".join(log))
@@ -122,11 +102,7 @@ def process_import(docname):
 # File reading
 # ======================================================================
 def _get_file_bytes(file_url):
-    """Return the raw bytes of an attached file, private or public."""
     from frappe.utils.file_manager import get_file
-
-    # get_file resolves both /private/files/ and /files/ URLs and returns
-    # (filename, content). content is bytes for binary files like xlsx.
     _name, content = get_file(file_url)
     if isinstance(content, str):
         content = content.encode("latin-1")
@@ -134,49 +110,62 @@ def _get_file_bytes(file_url):
 
 
 # ======================================================================
-# FG / BOM builders
+# PO
 # ======================================================================
-def _build_fg_definitions(data, model):
-    """Return list of FG dicts: code, name, service_code, service_key,
-    weight_kg, bom=[{rm_code, qty}] (per 1000 kg FG)."""
-    job, phase = data["job"], data["phase"]
-    prefix = f"FG-{job}-{phase}-"
-    is_a = model.startswith("Model A")
+def _create_draft_po(doc, cats, target, company):
+    po = frappe.new_doc("Purchase Order")
+    po.supplier = doc.supplier
+    po.company = company
+    po.transaction_date = nowdate()
+    po.schedule_date = add_days(nowdate(), 30)
+    po.is_subcontracted = 0
+    if doc.project:
+        po.project = doc.project
+    for c in cats:
+        secs = ", ".join(s["section"] for s in c["sections"][:8])
+        if len(c["sections"]) > 8:
+            secs += ", ..."
+        po.append("items", dict(
+            item_code=c["item_code"],
+            item_name=f"Fabricated - {c['label']}",
+            description=f"{c['label']} - sections: {secs}. See annexure {doc.po_no}.",
+            qty=flt(c["weight_kg"]),
+            uom="Kg",
+            stock_uom="Kg",
+            conversion_factor=1,
+            rate=0,
+            schedule_date=add_days(nowdate(), 30),
+            warehouse=target,
+            project=doc.project or None,
+        ))
+    po.insert(ignore_permissions=True)  # stays Draft
+    return po.name
 
-    if is_a:
-        # aggregate categories into 3 service buckets
-        buckets = defaultdict(lambda: dict(weight=0.0, rm=defaultdict(float)))
-        for c in data["categories"]:
-            b = buckets[c["service"]]
-            b["weight"] += c["weight_kg"]
-            for line in c["bom"]:
-                b["rm"][line["rm_code"]] += line["net_kg"]
-        out = []
-        for key, (svc_code, svc_name) in SERVICE_ITEMS.items():
-            if key not in buckets:
-                continue
-            b = buckets[key]
-            w = b["weight"] or 1
-            out.append(dict(
-                code=f"{prefix}{key}",
-                name=f"{svc_name.split(' - ')[-1]} - {job} {phase}",
-                service_code=svc_code, service_key=key,
-                weight_kg=round(b["weight"], 2),
-                bom=[dict(rm_code=rc, qty=round(kg / w * 1000, 3))
-                     for rc, kg in sorted(b["rm"].items(), key=lambda x: -x[1])]))
-        return out
 
-    # Model B: one FG per category
-    out = []
-    for c in data["categories"]:
-        code = prefix + c["category"].replace("_", "-")
-        out.append(dict(
-            code=code,
-            name=f"{c['category'].replace('_', ' ').title()} - {job} {phase}",
-            service_code=SERVICE_ITEMS[c["service"]][0], service_key=c["service"],
-            weight_kg=c["weight_kg"],
-            bom=[dict(rm_code=b["rm_code"], qty=b["qty_per_mt"]) for b in c["bom"]]))
-    return out
+# ======================================================================
+# Annexure workbook
+# ======================================================================
+def _attach_annexure(doc, data, cats, po_name):
+    from sbi_projects.sbi_projects.steel_bom.annexure import build_annexure
+
+    content = build_annexure(data, cats, po_no=doc.po_no)
+    fname = f"Annexure-{doc.po_no}.xlsx"
+
+    _fresh_file(fname, "Steel Fabrication Import", doc.name, content)
+    if po_name:
+        _fresh_file(fname, "Purchase Order", po_name, content)
+
+
+def _fresh_file(fname, dt, dn, content):
+    for old in frappe.get_all("File", filters={
+        "attached_to_doctype": dt, "attached_to_name": dn, "file_name": fname
+    }, pluck="name"):
+        frappe.delete_doc("File", old, ignore_permissions=True, force=True)
+    frappe.get_doc({
+        "doctype": "File", "file_name": fname,
+        "attached_to_doctype": dt, "attached_to_name": dn,
+        "is_private": 1, "content": content,
+    }).insert(ignore_permissions=True)
 
 
 # ======================================================================
@@ -188,14 +177,6 @@ def _ensure_item_group(name):
                             parent_item_group="All Item Groups", is_group=0)).insert()
 
 
-def _ensure_warehouse(wh_name, company, abbr):
-    full = f"{wh_name} - {abbr}"
-    if not frappe.db.exists("Warehouse", full):
-        frappe.get_doc(dict(doctype="Warehouse", warehouse_name=wh_name,
-                            company=company, is_group=0)).insert()
-    return full
-
-
 def _ensure_item(payload):
     if frappe.db.exists("Item", payload["item_code"]):
         return payload["item_code"]
@@ -204,50 +185,7 @@ def _ensure_item(payload):
     return payload["item_code"]
 
 
-def _ensure_bom(item_code, bom_lines, company):
-    existing = frappe.get_all("BOM", filters={"item": item_code, "is_active": 1},
-                              limit=1, pluck="name")
-    if existing:
-        return existing[0]
-    bom = frappe.get_doc(dict(
-        doctype="BOM", item=item_code, company=company, quantity=1000, uom="Kg",
-        is_active=1, is_default=1, with_operations=0, rm_cost_as_per="Valuation Rate",
-        items=[dict(item_code=l["rm_code"], qty=l["qty"], uom="Kg",
-                    stock_uom="Kg", conversion_factor=1) for l in bom_lines]))
-    bom.insert()
-    bom.submit()
-    return bom.name
-
-
-def _ensure_subcontracting_bom(fg_code, service_code, bom_name, company):
-    if frappe.db.exists("Subcontracting BOM", {"finished_good": fg_code}):
-        return
-    sc = frappe.get_doc(dict(
-        doctype="Subcontracting BOM", finished_good=fg_code, finished_good_qty=1000,
-        finished_good_uom="Kg", service_item=service_code, service_item_qty=1,
-        service_item_uom="MT", bom=bom_name, company=company, is_active=1))
-    sc.insert()
-    sc.submit()
-
-
-def _create_draft_po(doc, fg_defs, sup_wh, accepted, company):
-    po = frappe.new_doc("Purchase Order")
-    po.supplier = doc.supplier
-    po.company = company
-    po.transaction_date = nowdate()
-    po.schedule_date = add_days(nowdate(), 30)
-    po.is_subcontracted = 1
-    po.supplier_warehouse = sup_wh
-    for fg in fg_defs:
-        service_mt = round(flt(fg["weight_kg"]) / 1000.0, 3)
-        po.append("items", dict(
-            item_code=fg["service_code"],
-            fg_item=fg["code"],
-            fg_item_qty=flt(fg["weight_kg"]),
-            qty=service_mt,
-            rate=0,
-            schedule_date=add_days(nowdate(), 30),
-            warehouse=accepted,
-        ))
-    po.insert(ignore_permissions=True)  # stays in Draft (docstatus 0)
-    return po.name
+def _project_warehouse(project, abbr):
+    name = frappe.db.get_value("Project", project, "project_name")
+    wh = f"{name} - {abbr}"
+    return wh if frappe.db.exists("Warehouse", wh) else None
