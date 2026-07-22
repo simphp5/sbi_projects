@@ -68,3 +68,79 @@ def log_counts(project):
 		.groupby(dwl.task)
 	).run(as_dict=True)
 	return {r["task"]: r["n"] for r in rows if r.get("task")}
+
+
+# ---------------------------------------------------------------------------
+# Owner budget panel -- read and save the planned amount per account.
+# ---------------------------------------------------------------------------
+
+@frappe.whitelist()
+def get_project_budget(project):
+	"""Budget rows for a project, plus the contract net for reference."""
+	if not project:
+		return {"rows": [], "net": 0}
+
+	so = frappe.db.get_value("Project", project, "sales_order")
+	net = flt(frappe.db.get_value("Sales Order", so, "net_total")) if so else 0
+
+	rows = frappe.get_all(
+		"Budget",
+		filters={"project": project},
+		fields=["name", "account", "budget_amount"],
+		order_by="account",
+	)
+	for r in rows:
+		r["account_name"] = frappe.db.get_value("Account", r["account"], "account_name") or r["account"]
+
+	return {"rows": rows, "net": net}
+
+
+@frappe.whitelist()
+def save_project_budget(project, updates):
+	"""Update budget amounts per account for a project.
+
+	updates is a JSON list of {account, amount}.  A row with an amount is
+	created if it does not exist yet, so the owner can allocate to any account.
+	"""
+	import json
+
+	if isinstance(updates, str):
+		updates = json.loads(updates)
+
+	company = frappe.db.get_value("Project", project, "company") \
+		or frappe.defaults.get_user_default("company")
+	fy = frappe.db.get_value("Fiscal Year", {"disabled": 0}, "name")
+
+	saved = 0
+	for u in updates:
+		account = u.get("account")
+		amount = flt(u.get("amount"))
+		if not account:
+			continue
+
+		existing = frappe.db.get_value(
+			"Budget",
+			{"project": project, "account": account, "from_fiscal_year": fy},
+			"name",
+		)
+		if existing:
+			frappe.db.set_value("Budget", existing, "budget_amount", amount)
+		elif amount:
+			doc = frappe.get_doc({
+				"doctype": "Budget",
+				"budget_against": "Project",
+				"project": project,
+				"company": company,
+				"account": account,
+				"from_fiscal_year": fy,
+				"to_fiscal_year": fy,
+				"distribution_frequency": "Monthly",
+				"budget_amount": amount,
+				"action_if_annual_budget_exceeded": "Warn",
+				"action_if_accumulated_monthly_budget_exceeded": "Warn",
+			})
+			doc.insert(ignore_permissions=True)
+		saved += 1
+
+	frappe.db.commit()
+	return {"saved": saved}
