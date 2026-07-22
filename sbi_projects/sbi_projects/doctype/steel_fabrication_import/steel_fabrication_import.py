@@ -1,4 +1,4 @@
-﻿# Copyright (c) 2026, Velmaska and contributors
+# Copyright (c) 2026, Velmaska and contributors
 
 import io
 import re
@@ -9,7 +9,8 @@ from frappe.model.document import Document
 from frappe.utils import flt, nowdate, add_days
 
 from sbi_projects.sbi_projects.steel_bom.parser import parse_workbook, summary_categories
-from sbi_projects.sbi_projects.steel_bom.annexure import build_annexure, build_annexure_html
+from sbi_projects.sbi_projects.steel_bom.annexure import (
+    build_annexure, build_annexure_html, build_annexure_pdf)
 
 FAB_GROUP = "Fabricated Steel"
 
@@ -107,6 +108,7 @@ def _create_category_po(doc, cat, data, target, company):
     po.schedule_date = add_days(nowdate(), 30)
     po.is_subcontracted = 0
     po.project = doc.project
+    po.title = cat["label"]
     po.sbi_fab_category = cat["label"]
     po.sbi_fab_annexure = build_annexure_html(cat, data, po_no=doc.name)
 
@@ -128,12 +130,19 @@ def _create_category_po(doc, cat, data, target, company):
         frappe.log_error(frappe.get_traceback(), f"PO create failed: {cat['label']}")
         return None
 
-    # attach this category's slim annexure to the PO
+    # attach this category's annexure to the PO, Excel + PDF (both filtered
+    # to just this category, since each category may go to a different supplier)
+    tag = cat["item_code"].replace("FAB-", "")
     try:
-        content_x = build_annexure(data, [cat], po_no=doc.name)
-        _fresh_file(f"Annexure-{cat['item_code']}.xlsx", "Purchase Order", po.name, content_x)
+        xls = build_annexure(data, [cat], po_no=doc.name)
+        _fresh_file(f"Annexure-{tag}.xlsx", "Purchase Order", po.name, xls)
     except Exception:
-        frappe.log_error(frappe.get_traceback(), f"PO annexure failed: {po.name}")
+        frappe.log_error(frappe.get_traceback(), f"PO Excel annexure failed: {po.name}")
+    try:
+        pdf = build_annexure_pdf(cat, data, po_no=doc.name)
+        _fresh_file(f"Annexure-{tag}.pdf", "Purchase Order", po.name, pdf)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), f"PO PDF annexure failed: {po.name}")
     return po.name
 
 
@@ -158,7 +167,7 @@ def _ensure_po_customisations():
         create_custom_fields({
             "Purchase Order": [
                 {"fieldname": "sbi_fab_category", "label": "Fabrication Category",
-                 "fieldtype": "Data", "insert_after": "project", "read_only": 1},
+                 "fieldtype": "Data", "insert_after": "company", "read_only": 1, "bold": 1, "in_list_view": 1},
                 {"fieldname": "sbi_fab_annexure", "label": "Fabrication Annexure",
                  "fieldtype": "Long Text", "insert_after": "sbi_fab_category",
                  "read_only": 1, "hidden": 1, "print_hide": 1},
@@ -175,7 +184,7 @@ def _ensure_po_customisations():
 
 
 _PO_PRINT_HTML = """{{ doc.company }}
-<h2 style="margin:4px 0">Purchase Order {{ doc.name }}</h2>
+<div style="float:right;background:#BE1E2D;color:#fff;padding:6px 12px;border-radius:6px;font-weight:700;font-size:13px">{{ doc.sbi_fab_category or "Fabrication" }}</div><h2 style="margin:4px 0">Purchase Order {{ doc.name }}</h2>
 <p><b>Category:</b> {{ doc.sbi_fab_category or "" }} &nbsp;|&nbsp;
 <b>Supplier:</b> {{ doc.supplier_name or doc.supplier or "(to be selected)" }} &nbsp;|&nbsp;
 <b>Project:</b> {{ doc.project or "" }} &nbsp;|&nbsp; <b>Date:</b> {{ doc.transaction_date }}</p>
