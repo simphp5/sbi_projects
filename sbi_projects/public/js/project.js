@@ -365,3 +365,92 @@ function sbi_bind_budget($w, frm) {
 		});
 	});
 }
+
+// ---------------------------------------------------------------------------
+// Site geo-fence on the Project form.
+//
+// The owner (or site in-charge) stands at the site and taps "Capture site
+// location" to set the centre, then sets a radius.  Attendance still records
+// from anywhere, but each punch is marked in or out of the fence with the
+// distance, so the office can see who punched from off site.
+// ---------------------------------------------------------------------------
+
+frappe.ui.form.on("Project", {
+	refresh(frm) {
+		if (frm.is_new()) return;
+		sbi_render_geofence(frm);
+	},
+});
+
+function sbi_render_geofence(frm) {
+	const wrapper = frm.get_field("sbi_geofence_html");
+	if (!wrapper || !wrapper.$wrapper) return;
+
+	const lat = frm.doc.sbi_site_latitude;
+	const lng = frm.doc.sbi_site_longitude;
+	const radius = frm.doc.sbi_geofence_radius || 200;
+	const isSet = lat && lng;
+
+	wrapper.$wrapper.html(`
+		<div style="border:1px solid var(--border-color);border-radius:4px;overflow:hidden">
+			<div style="padding:12px 14px;background:var(--fg-color);border-bottom:1px solid var(--border-color)">
+				<div style="font-weight:700;margin-bottom:2px">
+					${isSet ? "Site boundary is set" : "Site boundary not set yet"}
+				</div>
+				<div class="text-muted" style="font-size:13px">
+					${isSet
+						? `Centre ${flt(lat).toFixed(6)}, ${flt(lng).toFixed(6)} Â· radius ${radius} m`
+						: "Until you set this, attendance is recorded from anywhere without a distance check."}
+				</div>
+			</div>
+			<div style="padding:12px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+				<button class="btn btn-sm btn-primary sbi-capture-loc" type="button">Capture site location</button>
+				<button class="btn btn-sm btn-default sbi-open-map" type="button" ${isSet ? "" : "disabled"}>View on map</button>
+				<span class="text-muted" style="font-size:12px;margin-left:auto" id="sbi-geo-status"></span>
+			</div>
+		</div>`);
+
+	wrapper.$wrapper.find(".sbi-capture-loc").on("click", () => sbi_capture_location(frm));
+	wrapper.$wrapper.find(".sbi-open-map").on("click", () => {
+		if (lat && lng) window.open(`https://www.google.com/maps?q=${lat},${lng}`, "_blank");
+	});
+}
+
+function sbi_capture_location(frm) {
+	const status = document.getElementById("sbi-geo-status");
+	if (!navigator.geolocation) {
+		if (status) status.textContent = "This device has no location support.";
+		return;
+	}
+	if (status) status.textContent = "Getting your locationâ€¦";
+
+	navigator.geolocation.getCurrentPosition(
+		(pos) => {
+			const lat = pos.coords.latitude;
+			const lng = pos.coords.longitude;
+			const acc = Math.round(pos.coords.accuracy || 0);
+
+			frappe.confirm(
+				`Set the site centre to your current location?<br>
+				 <b>${lat.toFixed(6)}, ${lng.toFixed(6)}</b><br>
+				 <span class="text-muted">GPS accuracy about ${acc} m. Stand near the middle of the site for the best result.</span>`,
+				() => {
+					frm.set_value("sbi_site_latitude", String(lat));
+					frm.set_value("sbi_site_longitude", String(lng));
+					if (!frm.doc.sbi_geofence_radius) {
+						frm.set_value("sbi_geofence_radius", 200);
+					}
+					frm.save().then(() => {
+						frappe.show_alert({ message: "Site location saved", indicator: "green" });
+						sbi_render_geofence(frm);
+					});
+				}
+			);
+			if (status) status.textContent = "";
+		},
+		(err) => {
+			if (status) status.textContent = "Could not get location: " + err.message;
+		},
+		{ enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+	);
+}

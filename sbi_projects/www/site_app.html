@@ -185,10 +185,10 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
         <div style="margin-left:auto;text-align:right"><b id="hsDate" style="font-size:15px">â€”</b><span class="muted">Today</span></div>
       </div>
       <div class="home-grid">
-        <button class="tile" data-go="attend"><span class="ic">â—‰</span>Attendance</button>
-        <button class="tile" data-go="daily"><span class="ic">âœŽ</span>Daily entry</button>
-        <button class="tile" data-accent="brand" data-go="enroll"><span class="ic">ï¼‹</span>Add worker</button>
-        <button class="tile" data-go="today"><span class="ic">â‰¡</span>Who's in</button>
+        <button class="tile" data-go="attend"><span class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg></span>Attendance</button>
+        <button class="tile" data-go="daily"><span class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16M6 16l9-9 3 3-9 9H6v-3z"/></svg></span>Daily entry</button>
+        <button class="tile" data-accent="brand" data-go="enroll"><span class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="4"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5M18 8v6M21 11h-6"/></svg></span>Add worker</button>
+        <button class="tile" data-go="today"><span class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg></span>Who's in</button>
       </div>
     </section>
 
@@ -361,7 +361,14 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
     });
   }
   function doLogout(){
-    fetch("/api/method/logout").then(function(){location.reload();});
+    fetch("/api/method/logout", {
+      method: "GET",
+      headers: { "X-Frappe-CSRF-Token": CSRF }
+    }).then(function(){
+      // clear any local site memory so next user starts fresh
+      localStorage.removeItem("sbi_site");
+      location.href = "/site_app";
+    }).catch(function(){ location.href = "/site_app"; });
   }
 
   // -------- gps --------
