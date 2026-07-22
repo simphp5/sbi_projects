@@ -1,14 +1,24 @@
-﻿{
- "actions": [], "allow_rename": 1, "creation": "2026-07-22 00:00:00",
- "doctype": "DocType", "editable_grid": 1, "engine": "InnoDB", "istable": 1,
- "field_order": ["category","purchase_order","section_count","weight_kg"],
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-07-22 00:00:00",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "istable": 1,
+ "field_order": ["category", "purchase_order", "section_count", "weight_kg"],
  "fields": [
-  {"fieldname":"category","fieldtype":"Data","label":"Category","in_list_view":1,"columns":3,"read_only":1},
-  {"fieldname":"purchase_order","fieldtype":"Link","label":"Purchase Order","options":"Purchase Order","in_list_view":1,"columns":3,"read_only":1},
-  {"fieldname":"section_count","fieldtype":"Int","label":"Lines","in_list_view":1,"columns":2,"read_only":1},
-  {"fieldname":"weight_kg","fieldtype":"Float","label":"Weight (Kg)","in_list_view":1,"columns":3,"read_only":1,"precision":"2"}
+  {"fieldname": "category", "fieldtype": "Data", "label": "Category", "in_list_view": 1, "columns": 3, "read_only": 1},
+  {"fieldname": "purchase_order", "fieldtype": "Link", "label": "Purchase Order", "options": "Purchase Order", "in_list_view": 1, "columns": 3, "read_only": 1},
+  {"fieldname": "section_count", "fieldtype": "Int", "label": "Lines", "in_list_view": 1, "columns": 2, "read_only": 1},
+  {"fieldname": "weight_kg", "fieldtype": "Float", "label": "Weight (Kg)", "in_list_view": 1, "columns": 3, "read_only": 1, "precision": "2"}
  ],
- "links": [], "modified": "2026-07-22 00:00:00", "module": "SBI Projects",
- "name": "Steel Fabrication PO Row", "owner": "Administrator",
- "permissions": [], "sort_field": "modified", "sort_order": "DESC"
+ "links": [],
+ "modified": "2026-07-22 00:00:00",
+ "module": "SBI Projects",
+ "name": "Steel Fabrication PO Row",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC"
 }
