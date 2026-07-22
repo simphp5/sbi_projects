@@ -1,4 +1,4 @@
-﻿# Copyright (c) 2026, Velmaska and contributors
+# Copyright (c) 2026, Velmaska and contributors
 """Builds the PO annexure workbook for a fabrication purchase order.
 
 One workbook, several linked sheets, so a fabricator can trace a PO
@@ -183,7 +183,7 @@ def build_annexure_html(cat, data, po_no="PO"):
 
     return f"""
 <div style="margin-top:14px">
-  <h4 style="color:#BE1E2D;margin:8px 0 4px">Annexure â€” {label} (PO Ref {po_no})</h4>
+  <h4 style="color:#BE1E2D;margin:8px 0 4px">Annexure — {label} (PO Ref {po_no})</h4>
   <table style="{style}">
     <tr><th style="{th}">Section</th><th style="{th}">Grade / Spec</th>
         <th style="{th}">Weight (Kg)</th><th style="{th}">Nos</th></tr>

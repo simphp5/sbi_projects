@@ -1,4 +1,4 @@
-﻿# Copyright (c) 2026, Velmaska and contributors
+# Copyright (c) 2026, Velmaska and contributors
 
 import io
 import re

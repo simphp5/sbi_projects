@@ -1,14 +1,16 @@
-﻿{
+{
  "actions": [],
  "allow_rename": 1,
  "creation": "2026-07-16 00:00:00.000000",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "po_no",
   "project",
   "cb_1",
   "company",
   "supplier",
+  "target_warehouse",
   "sb_options",
   "include_bolts",
   "wastage_percent",
@@ -18,16 +20,23 @@
   "process_button_html",
   "sb_results",
   "status",
-  "po_count",
+  "created_po",
   "cb_3",
   "total_weight_mt",
+  "category_count",
   "bolt_nos",
-  "sb_pos",
-  "created_pos",
   "sb_log",
   "log"
  ],
  "fields": [
+  {
+   "fieldname": "po_no",
+   "fieldtype": "Data",
+   "label": "PO No / Reference",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "Your PO reference for this fabrication order."
+  },
   {
    "fieldname": "project",
    "fieldtype": "Link",
@@ -35,7 +44,7 @@
    "options": "Project",
    "reqd": 1,
    "in_list_view": 1,
-   "description": "Used in the document name and set on every generated PO. Material is received here via GRN."
+   "description": "Material is received against this site's warehouse via GRN."
   },
   {
    "fieldname": "cb_1",
@@ -51,9 +60,16 @@
   {
    "fieldname": "supplier",
    "fieldtype": "Link",
-   "label": "Supplier (optional)",
+   "label": "Supplier (Fabricator)",
    "options": "Supplier",
-   "description": "Leave blank to set the fabricator on each PO later. If set, applied to all POs."
+   "description": "Fabricator who supplies the fabricated steel."
+  },
+  {
+   "fieldname": "target_warehouse",
+   "fieldtype": "Link",
+   "label": "Receiving Warehouse",
+   "options": "Warehouse",
+   "description": "Site warehouse where fabricated material is received (GRN). Defaults to the project's warehouse."
   },
   {
    "fieldname": "sb_options",
@@ -64,7 +80,8 @@
    "fieldname": "include_bolts",
    "fieldtype": "Check",
    "label": "Include Bolts as a category",
-   "default": "1"
+   "default": "1",
+   "description": "Adds a Bolts line (bought-out hardware, priced by weight)."
   },
   {
    "fieldname": "wastage_percent",
@@ -109,9 +126,10 @@
    "in_list_view": 1
   },
   {
-   "fieldname": "po_count",
-   "fieldtype": "Int",
-   "label": "POs Created",
+   "fieldname": "created_po",
+   "fieldtype": "Link",
+   "label": "Created Draft PO",
+   "options": "Purchase Order",
    "read_only": 1
   },
   {
@@ -126,21 +144,15 @@
    "precision": "3"
   },
   {
-   "fieldname": "bolt_nos",
+   "fieldname": "category_count",
    "fieldtype": "Int",
-   "label": "Bolt Nos",
+   "label": "Categories",
    "read_only": 1
   },
   {
-   "fieldname": "sb_pos",
-   "fieldtype": "Section Break",
-   "label": "Generated Purchase Orders"
-  },
-  {
-   "fieldname": "created_pos",
-   "fieldtype": "Table",
-   "label": "Created POs",
-   "options": "Steel Fabrication PO Row",
+   "fieldname": "bolt_nos",
+   "fieldtype": "Int",
+   "label": "Bolt Nos",
    "read_only": 1
   },
   {
@@ -162,7 +174,7 @@
  "module": "SBI Projects",
  "name": "Steel Fabrication Import",
  "naming_rule": "Expression",
- "autoname": "format:SC-26-27-{project}-.####",
+ "autoname": "format:SFI-{po_no}",
  "owner": "Administrator",
  "permissions": [
   {

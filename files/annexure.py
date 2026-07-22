@@ -1,4 +1,4 @@
-﻿# Copyright (c) 2026, Velmaska and contributors
+# Copyright (c) 2026, Velmaska and contributors
 """Builds the PO annexure workbook for a fabrication purchase order.
 
 One workbook, several linked sheets, so a fabricator can trace a PO
@@ -141,60 +141,3 @@ def build_annexure(data, cats, po_no="PO"):
     buf = io.BytesIO()
     wb.save(buf)
     return buf.getvalue()
-
-
-# ======================================================================
-# HTML annexure  (rendered inside the PO print format)
-# ======================================================================
-def build_annexure_html(cat, data, po_no="PO"):
-    """Return an HTML block: this category's sections + the cut lengths /
-    assemblies that use them. Stored on the PO and shown when printed."""
-    label = cat["label"]
-
-    # sections in this category
-    secs = "".join(
-        f"<tr><td>{s['section']}</td><td>{s.get('grade','')}</td>"
-        f"<td style='text-align:right'>{s['kg']:,.2f}</td>"
-        f"<td style='text-align:right'>{s.get('nos','') or ''}</td></tr>"
-        for s in cat["sections"]
-    )
-
-    # cutting lines whose profile normalises into this category's sections
-    section_set = {str(s["section"]).upper() for s in cat["sections"]}
-
-    def _matches(profile):
-        p = str(profile).upper()
-        return any(p.startswith(sec) or sec in p for sec in section_set)
-
-    cut_rows = [c for c in data.get("cutting", []) if _matches(c["profile"])][:60]
-    cuts = "".join(
-        f"<tr><td>{c['part']}</td><td>{c['profile']}</td>"
-        f"<td style='text-align:right'>{(c['length'] or 0):,.0f}</td>"
-        f"<td>{str(c.get('member','')).replace('_',' ').title()}</td></tr>"
-        for c in cut_rows
-    )
-    cut_note = "" if len(cut_rows) < 60 else "<p style='font-size:10px'>Showing first 60 cutting lines; full list in the attached annexure.</p>"
-
-    style = (
-        "border-collapse:collapse;width:100%;font-size:11px;margin:6px 0;"
-    )
-    th = "background:#1F4E78;color:#fff;padding:4px 6px;text-align:left;border:1px solid #bbb;"
-    td = "padding:3px 6px;border:1px solid #ccc;"
-
-    return f"""
-<div style="margin-top:14px">
-  <h4 style="color:#BE1E2D;margin:8px 0 4px">Annexure â€” {label} (PO Ref {po_no})</h4>
-  <table style="{style}">
-    <tr><th style="{th}">Section</th><th style="{th}">Grade / Spec</th>
-        <th style="{th}">Weight (Kg)</th><th style="{th}">Nos</th></tr>
-    {secs.replace('<td>', f'<td style="{td}">')}
-  </table>
-  <h5 style="margin:10px 0 4px">Cutting reference (part / section / cut length mm / member)</h5>
-  <table style="{style}">
-    <tr><th style="{th}">Part Mark</th><th style="{th}">Section</th>
-        <th style="{th}">Cut Length</th><th style="{th}">Member</th></tr>
-    {cuts.replace('<td>', f'<td style="{td}">')}
-  </table>
-  {cut_note}
-</div>
-"""

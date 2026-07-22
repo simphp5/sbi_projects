@@ -6,7 +6,7 @@ frappe.ui.form.on("Steel Fabrication Import", {
 
 		if (frm.is_new()) {
 			frm.dashboard.set_headline(
-				__("Enter PO No, Project, Company, Supplier; attach the Tekla Steel BOM; Save, then Process BOM.")
+				__("Select Project + Company, attach the Tekla Steel BOM, Save, then Process BOM. One draft PO is created per material category.")
 			);
 			return;
 		}
@@ -17,26 +17,16 @@ frappe.ui.form.on("Steel Fabrication Import", {
 				return;
 			}
 			frappe.confirm(
-				__("Generate category items{0} and the annexure for {1}?", [
-					frm.doc.supplier ? __(" and a draft PO") : "",
-					frm.doc.po_no,
-				]),
+				__("Generate one draft PO per category for {0}?", [frm.doc.name]),
 				() => run_process(frm)
 			);
 		}).addClass("btn-primary");
 
-		if (frm.doc.created_po) {
-			frm.add_custom_button(__("Open Draft PO"), () => {
-				frappe.set_route("Form", "Purchase Order", frm.doc.created_po);
-			});
-		}
-
 		if (frm.doc.status === "Processed") {
 			frm.dashboard.set_headline(
-				__("Processed: {0} MT across {1} categories.{2} Next: fill Rate/kg, submit PO, then GRN at site.", [
+				__("Processed: {0} MT, {1} POs created. Open each PO, set Supplier + Rate/kg, then print with the 'Fabrication PO' format for the annexure.", [
 					frm.doc.total_weight_mt,
-					frm.doc.category_count,
-					frm.doc.created_po ? __(" Draft PO: {0}.", [frm.doc.created_po]) : "",
+					frm.doc.po_count,
 				])
 			);
 		}
@@ -44,7 +34,7 @@ frappe.ui.form.on("Steel Fabrication Import", {
 });
 
 function run_process(frm) {
-	frappe.dom.freeze(__("Processing - creating category items, PO and annexure..."));
+	frappe.dom.freeze(__("Processing - creating items, per-category POs and annexures..."));
 	frappe.call({
 		method: "sbi_projects.sbi_projects.doctype.steel_fabrication_import.steel_fabrication_import.process_import",
 		args: { docname: frm.doc.name },
@@ -52,7 +42,10 @@ function run_process(frm) {
 			frappe.dom.unfreeze();
 			frm.reload_doc();
 			if (r.message && r.message.status === "ok") {
-				frappe.show_alert({ message: __("Done - data generated."), indicator: "green" });
+				frappe.show_alert({
+					message: __("Done - {0} POs created.", [r.message.po_count]),
+					indicator: "green",
+				});
 			}
 		},
 		error() {
