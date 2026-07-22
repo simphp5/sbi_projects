@@ -411,3 +411,199 @@ def _check_site_access(project):
 	if not allowed & set(frappe.get_roles()):
 		frappe.throw(_("You are not allowed to record site attendance."),
 		             frappe.PermissionError)
+
+
+# ======================================================================
+# Site management endpoints (Batch 2b)
+# Cost figures are never returned here -- the site app must not show
+# budgets, sale values or variance to site staff.
+# ======================================================================
+
+import base64
+from frappe.utils import now_datetime, today, flt, getdate
+
+
+def _can_see_full_aadhaar():
+	"""Owner / HR / managers see the full number and images; site staff do not."""
+	allowed = {"System Manager", "HR Manager", "HR User",
+	           "Projects Manager", "Site Cost Approver", "Administrator"}
+	return bool(allowed & set(frappe.get_roles()))
+
+
+# ----------------------------------------------------------------------
+# Aadhaar capture
+# ----------------------------------------------------------------------
+
+@frappe.whitelist()
+def save_aadhaar(labour, aadhaar_number=None, front_image=None, back_image=None):
+	"""Store Aadhaar details for a worker.
+
+	Site staff may capture (so a new worker can be enrolled on site), but the
+	full number and images are permlevel-1 fields that only owner/HR can read
+	back.  We store the last four digits at permlevel 0 so site staff can still
+	confirm identity without exposing the whole number.
+	"""
+	if not frappe.db.exists("Labour", labour):
+		frappe.throw("Worker not found.")
+
+	num = "".join(ch for ch in (aadhaar_number or "") if ch.isdigit())
+	if num and len(num) != 12:
+		frappe.throw("An Aadhaar number must be 12 digits.")
+
+	meta = frappe.get_meta("Labour")
+	updates = {}
+
+	if num:
+		if meta.has_field("aadhaar_number"):
+			updates["aadhaar_number"] = num
+		if meta.has_field("aadhaar_last4"):
+			updates["aadhaar_last4"] = num[-4:]
+
+	if front_image and meta.has_field("aadhaar_front"):
+		updates["aadhaar_front"] = _save_photo(front_image, "Labour", labour,
+		                                        labour + "-aadhaar-front.jpg")
+	if back_image and meta.has_field("aadhaar_back"):
+		updates["aadhaar_back"] = _save_photo(back_image, "Labour", labour,
+		                                       labour + "-aadhaar-back.jpg")
+
+	if updates:
+		# bypass permlevel for the write; the caller is allowed to capture even
+		# though they will not be able to read the value back afterwards.
+		frappe.db.set_value("Labour", labour, updates, update_modified=True)
+		frappe.db.commit()
+
+	return {"saved": True, "last4": num[-4:] if num else None}
+
+
+@frappe.whitelist()
+def get_aadhaar_status(labour):
+	"""What the current user is allowed to see about a worker's Aadhaar."""
+	if not frappe.db.exists("Labour", labour):
+		return {}
+
+	meta = frappe.get_meta("Labour")
+	last4 = frappe.db.get_value("Labour", labour, "aadhaar_last4") \
+		if meta.has_field("aadhaar_last4") else None
+
+	out = {"last4": last4, "has_front": False, "has_back": False, "full": None}
+	if meta.has_field("aadhaar_front"):
+		out["has_front"] = bool(frappe.db.get_value("Labour", labour, "aadhaar_front"))
+	if meta.has_field("aadhaar_back"):
+		out["has_back"] = bool(frappe.db.get_value("Labour", labour, "aadhaar_back"))
+
+	if _can_see_full_aadhaar() and meta.has_field("aadhaar_number"):
+		out["full"] = frappe.db.get_value("Labour", labour, "aadhaar_number")
+
+	return out
+
+
+# ----------------------------------------------------------------------
+# Daily work log from the app -- progress, holiday, remarks
+# ----------------------------------------------------------------------
+
+@frappe.whitelist()
+def get_app_menu(project):
+	"""Site-facing summary for the app home: today's counts, no cost figures."""
+	_check_site_access(project)
+	roster = get_site_roster(project)
+	present = sum(1 for r in roster if r.get("last_punch") and r["last_punch"] != "OUT")
+
+	return {
+		"project": project,
+		"project_name": frappe.db.get_value("Project", project, "project_name") or project,
+		"headcount": len(roster),
+		"present": present,
+		"today": frappe.utils.formatdate(today(), "dd MMM yyyy"),
+		"stages": _open_stages(project),
+	}
+
+
+def _open_stages(project):
+	"""Stage names only -- the app never shows stage budgets."""
+	tasks = frappe.get_all(
+		"Task",
+		filters={"project": project, "is_group": 1},
+		fields=["name", "subject", "status"],
+		order_by="lft asc" if frappe.get_meta("Task").has_field("lft") else "creation asc",
+	)
+	return [{"task": t.name, "subject": t.subject, "status": t.status} for t in tasks]
+
+
+@frappe.whitelist()
+def submit_daily_log(project, task=None, log_date=None, is_holiday=0,
+                     remarks=None, progress_rows=None, petty_cash=None):
+	"""Create a Daily Work Log from the app.
+
+	Accepts progress rows and petty-cash rows.  No cost totals are returned to
+	the caller; the owner reviews and approves on the desk.
+	"""
+	import json
+	_check_site_access(project)
+
+	log_date = log_date or today()
+
+	existing = frappe.db.exists("Daily Work Log",
+		{"project": project, "task": task, "log_date": log_date})
+	if existing:
+		doc = frappe.get_doc("Daily Work Log", existing)
+	else:
+		doc = frappe.new_doc("Daily Work Log")
+		doc.project = project
+		if task and doc.meta.has_field("task"):
+			doc.task = task
+		if doc.meta.has_field("log_date"):
+			doc.log_date = log_date
+
+	if doc.meta.has_field("sbi_is_holiday"):
+		doc.sbi_is_holiday = int(is_holiday or 0)
+	if remarks and doc.meta.has_field("remarks"):
+		doc.remarks = remarks
+	elif remarks and doc.meta.has_field("sbi_remarks"):
+		doc.sbi_remarks = remarks
+
+	# progress rows
+	if progress_rows and doc.meta.has_field("sbi_progress_rows"):
+		rows = json.loads(progress_rows) if isinstance(progress_rows, str) else progress_rows
+		doc.set("sbi_progress_rows", [])
+		for r in rows:
+			doc.append("sbi_progress_rows", {
+				"progress_parameter": r.get("parameter"),
+				"quantity": flt(r.get("quantity")),
+				"remarks": r.get("remarks"),
+			})
+
+	# petty cash rows -> other-cost table
+	if petty_cash and doc.meta.has_field("sbi_costs"):
+		rows = json.loads(petty_cash) if isinstance(petty_cash, str) else petty_cash
+		for r in rows:
+			doc.append("sbi_costs", {
+				"site_cost_category": r.get("category"),
+				"description": r.get("description"),
+				"amount": flt(r.get("amount")),
+			})
+
+	doc.flags.ignore_permissions = True
+	doc.save()
+	frappe.db.commit()
+
+	return {"name": doc.name, "saved": True}
+
+
+@frappe.whitelist()
+def get_progress_parameters():
+	"""Active progress parameters for the app dropdown."""
+	if not frappe.db.exists("DocType", "Progress Parameter"):
+		return []
+	filters = {}
+	if frappe.get_meta("Progress Parameter").has_field("is_active"):
+		filters["is_active"] = 1
+	return frappe.get_all("Progress Parameter", filters=filters,
+	                      fields=["name", "parameter_name", "uom"], order_by="parameter_name")
+
+
+@frappe.whitelist()
+def get_petty_cash_categories():
+	"""Cost categories a site can spend petty cash against (labels only)."""
+	if not frappe.db.exists("DocType", "Site Cost Category"):
+		return []
+	return frappe.get_all("Site Cost Category", fields=["name"], order_by="name", pluck="name")

@@ -8,187 +8,199 @@
 <link rel="apple-touch-icon" href="/assets/sbi_projects/site_app/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<meta name="apple-mobile-web-app-title" content="Site">
+<meta name="apple-mobile-web-app-title" content="SBI Site">
 <meta name="mobile-web-app-capable" content="yes">
-<title>Site Attendance</title>
+<title>SBI Site</title>
 <style>
 :root{
-  --ink:#111111;
-  --ink-soft:#5a5a5a;
-  --paper:#f2f0ec;
-  --card:#ffffff;
-  --rule:#d6d2cb;
-  --brand:#be1e2d;
-  --brand-dark:#8f1622;
-  --go:#0f6b3f;
-  --wait:#a86a00;
-  --stop:#7a1010;
-  --tap:72px;
+  --ink:#111;--ink-soft:#5a5a5a;--paper:#f2f0ec;--card:#fff;--rule:#d6d2cb;
+  --brand:#be1e2d;--brand-dark:#8f1622;--go:#0f6b3f;--wait:#a86a00;--stop:#7a1010;--tap:72px;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%}
-body{
-  background:var(--paper);color:var(--ink);
-  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-  font-size:17px;line-height:1.35;
-  padding-bottom:env(safe-area-inset-bottom);
-}
-h1,h2,h3{margin:0;font-weight:800;letter-spacing:-0.02em}
+body{background:var(--paper);color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:17px;line-height:1.35;
+  padding-bottom:env(safe-area-inset-bottom)}
+h1,h2,h3{margin:0;font-weight:800;letter-spacing:-.02em}
 .num{font-variant-numeric:tabular-nums}
+.hidden{display:none !important}
+.muted{color:var(--ink-soft);font-size:14px}
 
-/* ---------- shell ---------- */
-.top{
-  position:sticky;top:0;z-index:20;
-  background:var(--ink);color:#fff;
-  padding:10px 14px;display:flex;align-items:center;gap:12px;
-}
+.top{position:sticky;top:0;z-index:20;background:var(--ink);color:#fff;
+  padding:10px 14px;display:flex;align-items:center;gap:12px}
 .top .mark{width:10px;height:26px;background:var(--brand);flex:0 0 auto}
-.top .site{font-weight:800;font-size:15px;letter-spacing:0.01em;flex:1;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.top button{
-  background:transparent;border:1px solid #444;color:#fff;
-  padding:8px 12px;font-size:14px;font-weight:700;border-radius:2px;
-}
+.top .site{font-weight:800;font-size:15px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.top button{background:transparent;border:1px solid #444;color:#fff;padding:8px 12px;
+  font-size:14px;font-weight:700;border-radius:2px}
 .wrap{max-width:760px;margin:0 auto;padding:14px}
 
-/* ---------- tabs ---------- */
-.tabs{display:flex;gap:0;border-bottom:2px solid var(--ink);margin-bottom:14px}
-.tabs button{
-  flex:1;background:transparent;border:0;border-bottom:4px solid transparent;
-  padding:14px 6px;font-size:15px;font-weight:800;color:var(--ink-soft);
-  margin-bottom:-2px;
-}
+/* login */
+.login-shell{min-height:100dvh;display:flex;flex-direction:column;justify-content:center;
+  align-items:center;padding:24px;background:var(--ink)}
+.login-card{width:100%;max-width:380px;background:var(--card);border-radius:4px;padding:26px 22px}
+.login-logo{display:flex;justify-content:center;margin-bottom:8px}
+.login-logo img{height:64px}
+.login-card h1{text-align:center;font-size:22px;margin-bottom:2px}
+.login-card p{text-align:center;color:var(--ink-soft);font-size:14px;margin:0 0 18px}
+label{display:block;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ink-soft);margin:14px 0 5px}
+input,select{width:100%;min-height:54px;padding:12px;font-size:17px;font-family:inherit;
+  border:2px solid var(--rule);background:var(--card);color:var(--ink);border-radius:0}
+input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);outline-offset:1px}
+.primary{width:100%;min-height:var(--tap);margin-top:18px;background:var(--brand);
+  border:2px solid var(--brand);color:#fff;font-size:19px;font-weight:800;letter-spacing:.02em}
+.primary:active{background:var(--brand-dark)}
+.primary:disabled{opacity:.4}
+
+/* home menu */
+.home-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
+.tile{min-height:120px;border:2px solid var(--ink);background:var(--card);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  font-size:16px;font-weight:800;color:var(--ink);padding:14px;text-align:center}
+.tile:active{transform:translateY(1px)}
+.tile .ic{font-size:30px;line-height:1}
+.tile[data-accent="brand"]{border-color:var(--brand);color:var(--brand)}
+.home-summary{display:flex;gap:14px;margin-top:14px;padding:12px 14px;border:1px solid var(--rule);
+  background:var(--card);font-size:14px}
+.home-summary b{font-size:20px;display:block;font-variant-numeric:tabular-nums}
+
+/* tabs */
+.tabs{display:flex;border-bottom:2px solid var(--ink);margin-bottom:14px}
+.tabs button{flex:1;background:transparent;border:0;border-bottom:4px solid transparent;
+  padding:14px 6px;font-size:15px;font-weight:800;color:var(--ink-soft);margin-bottom:-2px}
 .tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--brand)}
 
-/* ---------- camera ---------- */
+/* camera */
 .stage{position:relative;background:#000;border:2px solid var(--ink);aspect-ratio:4/3;overflow:hidden}
-.stage video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+.stage video,.stage img.frozen{width:100%;height:100%;object-fit:cover}
+.stage video.mirror{transform:scaleX(-1)}
 .stage canvas{display:none}
-.reticle{
-  position:absolute;inset:14% 22%;border:3px solid rgba(255,255,255,.55);
-  border-radius:50%/42%;pointer-events:none;transition:border-color .18s
-}
+.reticle{position:absolute;inset:14% 22%;border:3px solid rgba(255,255,255,.55);
+  border-radius:50%/42%;pointer-events:none;transition:border-color .18s}
 .stage[data-face="yes"] .reticle{border-color:#39d98a}
-.badge{
-  position:absolute;left:0;bottom:0;right:0;padding:10px 12px;
-  background:rgba(0,0,0,.72);color:#fff;font-weight:700;font-size:15px;
-  display:flex;justify-content:space-between;gap:10px
-}
+.cam-tools{position:absolute;top:8px;right:8px;display:flex;gap:6px}
+.cam-tools button{background:rgba(0,0,0,.6);color:#fff;border:0;padding:8px 10px;
+  font-size:13px;font-weight:700;border-radius:2px}
+.badge{position:absolute;left:0;bottom:0;right:0;padding:10px 12px;background:rgba(0,0,0,.72);
+  color:#fff;font-weight:700;font-size:15px;display:flex;justify-content:space-between;gap:10px}
 .badge .who{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .badge .score{opacity:.75;font-size:13px}
 
-/* ---------- day track: the signature element ---------- */
+/* day track */
 .track{margin:16px 0 6px;border:2px solid var(--ink);background:var(--card)}
-.track h3{font-size:12px;letter-spacing:.14em;text-transform:uppercase;
-  padding:9px 12px;border-bottom:1px solid var(--rule);color:var(--ink-soft)}
+.track h3{font-size:12px;letter-spacing:.14em;text-transform:uppercase;padding:9px 12px;
+  border-bottom:1px solid var(--rule);color:var(--ink-soft)}
 .track ol{list-style:none;margin:0;padding:0;display:flex}
-.track li{
-  flex:1;padding:11px 6px;text-align:center;border-right:1px solid var(--rule);
-  font-size:11px;font-weight:800;letter-spacing:.06em;color:#b3aea6;
-}
+.track li{flex:1;padding:11px 6px;text-align:center;border-right:1px solid var(--rule);
+  font-size:11px;font-weight:800;letter-spacing:.06em;color:#b3aea6}
 .track li:last-child{border-right:0}
-.track li b{display:block;font-size:15px;letter-spacing:0;margin-top:3px;
-  font-variant-numeric:tabular-nums}
+.track li b{display:block;font-size:15px;letter-spacing:0;margin-top:3px;font-variant-numeric:tabular-nums}
 .track li[data-done="1"]{color:var(--ink);background:#eceae5}
 .track li[data-now="1"]{background:var(--ink);color:#fff}
 
-/* ---------- punch buttons ---------- */
+/* punches */
 .punches{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
-.punch{
-  min-height:var(--tap);border:2px solid var(--ink);background:var(--card);
+.punch{min-height:var(--tap);border:2px solid var(--ink);background:var(--card);
   font-size:19px;font-weight:800;letter-spacing:.02em;color:var(--ink);
-  display:flex;align-items:center;justify-content:center;gap:10px;padding:12px;
-}
+  display:flex;align-items:center;justify-content:center;gap:10px;padding:12px}
 .punch:active{transform:translateY(1px)}
 .punch[data-kind="in"]{background:var(--go);border-color:var(--go);color:#fff}
 .punch[data-kind="out"]{background:var(--stop);border-color:var(--stop);color:#fff}
 .punch[data-kind="break"]{background:var(--card);color:var(--wait);border-color:var(--wait)}
 .punch:disabled{opacity:.32}
-.punch.wide{grid-column:1 / -1}
+.punch.wide{grid-column:1/-1}
 
-/* ---------- forms ---------- */
-label{display:block;font-size:12px;font-weight:800;letter-spacing:.1em;
-  text-transform:uppercase;color:var(--ink-soft);margin:14px 0 5px}
-input,select{
-  width:100%;min-height:54px;padding:12px;font-size:17px;font-family:inherit;
-  border:2px solid var(--rule);background:var(--card);color:var(--ink);border-radius:0
-}
-input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);outline-offset:1px}
-.primary{
-  width:100%;min-height:var(--tap);margin-top:18px;
-  background:var(--brand);border:2px solid var(--brand);color:#fff;
-  font-size:19px;font-weight:800;letter-spacing:.02em
-}
-.primary:active{background:var(--brand-dark)}
-.primary:disabled{opacity:.4}
+/* notes / status */
+.note{padding:12px;border-left:5px solid var(--ink);background:var(--card);margin-top:14px;font-size:15px}
+.note[data-tone="ok"]{border-left-color:var(--go)}
+.note[data-tone="warn"]{border-left-color:var(--wait)}
+.note[data-tone="err"]{border-left-color:var(--brand)}
+.queue{position:fixed;left:0;right:0;bottom:0;background:var(--wait);color:#fff;
+  padding:9px 14px;font-weight:700;font-size:14px;text-align:center}
 
-/* ---------- roster ---------- */
-.roster{margin-top:6px;border:2px solid var(--ink);background:var(--card)}
-.person{display:flex;align-items:center;gap:12px;padding:11px 12px;
-  border-bottom:1px solid var(--rule)}
-.person:last-child{border-bottom:0}
-.avatar{width:44px;height:44px;flex:0 0 auto;background:#ddd8d0;border:1px solid var(--rule);
-  object-fit:cover}
-.person .nm{flex:1;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis}
-.person .nm small{display:block;font-weight:500;color:var(--ink-soft);font-size:13px}
+/* rows / entry */
+.entry-row{display:flex;gap:8px;align-items:flex-end;margin-top:10px}
+.entry-row > div{flex:1}
+.entry-row .rm{flex:0 0 auto;min-height:54px;width:54px;border:2px solid var(--rule);
+  background:var(--card);font-size:22px;color:var(--brand)}
+.addbtn{margin-top:10px;width:100%;min-height:54px;border:2px dashed var(--rule);
+  background:transparent;font-size:15px;font-weight:700;color:var(--ink-soft)}
 .pill{font-size:11px;font-weight:800;letter-spacing:.08em;padding:5px 8px;border:1px solid}
 .pill.on{color:var(--go);border-color:var(--go)}
 .pill.off{color:var(--ink-soft);border-color:var(--rule)}
 .pill.new{color:var(--brand);border-color:var(--brand)}
-
-/* ---------- status ---------- */
-.note{padding:12px;border-left:5px solid var(--ink);background:var(--card);
-  margin-top:14px;font-size:15px}
-.note[data-tone="ok"]{border-left-color:var(--go)}
-.note[data-tone="warn"]{border-left-color:var(--wait)}
-.note[data-tone="err"]{border-left-color:var(--brand)}
-.muted{color:var(--ink-soft);font-size:14px}
-.hidden{display:none !important}
-.queue{position:fixed;left:0;right:0;bottom:0;background:var(--wait);color:#fff;
-  padding:9px 14px;font-weight:700;font-size:14px;text-align:center}
+.roster{margin-top:6px;border:2px solid var(--ink);background:var(--card)}
+.person{display:flex;align-items:center;gap:12px;padding:11px 12px;border-bottom:1px solid var(--rule)}
+.person:last-child{border-bottom:0}
+.avatar{width:44px;height:44px;flex:0 0 auto;background:#ddd8d0;border:1px solid var(--rule);object-fit:cover}
+.person .nm{flex:1;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.person .nm small{display:block;font-weight:500;color:var(--ink-soft);font-size:13px}
+.chk{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:16px;font-weight:700}
+.chk input{width:26px;height:26px;min-height:0}
 @media (prefers-reduced-motion:reduce){*{transition:none !important}}
 </style>
 </head>
 <body>
 
-<div class="top">
-  <span class="mark"></span>
-  <span class="site" id="siteLabel">Choose a site</span>
-  <button id="btnInstall" type="button" class="hidden">Install</button>
-  <button id="btnSwitch" type="button">Change</button>
-</div>
+<!-- ============ LOGIN ============ -->
+<section id="loginScreen" class="login-shell">
+  <div class="login-card">
+    <div class="login-logo"><img src="/assets/sbi_projects/site_app/sbi-logo-full.png" alt="Shiv Bharat Infrastructures"></div>
+    <h1>Site sign in</h1>
+    <p>Enter the login your office gave you.</p>
+    <label for="lgUser">Username</label>
+    <input id="lgUser" type="text" autocomplete="username" autocapitalize="off" placeholder="name@shiv-bharat.com">
+    <label for="lgPass">Password</label>
+    <input id="lgPass" type="password" autocomplete="current-password" placeholder="Password">
+    <button class="primary" id="btnLogin" type="button">Sign in</button>
+    <div class="note hidden" id="loginNote" data-tone="err"></div>
+  </div>
+</section>
 
-<div class="wrap">
+<!-- ============ APP SHELL ============ -->
+<div id="appShell" class="hidden">
+  <div class="top">
+    <span class="mark"></span>
+    <span class="site" id="siteLabel">Choose a site</span>
+    <button id="btnHome" type="button" class="hidden">Menu</button>
+    <button id="btnLogout" type="button">Sign out</button>
+  </div>
 
-  <!-- site chooser -->
-  <section id="pickSite">
-    <h1 style="font-size:26px;margin-bottom:4px">Site attendance</h1>
-    <p class="muted">Pick the site you are working at today.</p>
-    <label for="siteSelect">Site</label>
-    <select id="siteSelect"></select>
-    <button class="primary" id="btnStart" type="button">Start</button>
-  </section>
+  <div class="wrap">
 
-  <!-- main -->
-  <section id="main" class="hidden">
-    <div class="tabs" role="tablist">
-      <button id="tabPunch"  role="tab" aria-selected="true"  type="button">Attendance</button>
-      <button id="tabEnroll" role="tab" aria-selected="false" type="button">Add person</button>
-      <button id="tabList"   role="tab" aria-selected="false" type="button">Today</button>
-    </div>
+    <!-- site chooser -->
+    <section id="pickSite">
+      <h1 style="font-size:24px;margin-bottom:4px">Choose your site</h1>
+      <p class="muted">Pick the site you are working at today.</p>
+      <label for="siteSelect">Site</label>
+      <select id="siteSelect"></select>
+      <button class="primary" id="btnStart" type="button">Continue</button>
+    </section>
 
-    <!-- punch -->
-    <div id="panePunch">
+    <!-- HOME MENU -->
+    <section id="homeScreen" class="hidden">
+      <div class="home-summary">
+        <div><b id="hsPresent" class="num">0</b><span class="muted">On site now</span></div>
+        <div><b id="hsHead" class="num">0</b><span class="muted">Enrolled</span></div>
+        <div style="margin-left:auto;text-align:right"><b id="hsDate" style="font-size:15px">â€”</b><span class="muted">Today</span></div>
+      </div>
+      <div class="home-grid">
+        <button class="tile" data-go="attend"><span class="ic">â—‰</span>Attendance</button>
+        <button class="tile" data-go="daily"><span class="ic">âœŽ</span>Daily entry</button>
+        <button class="tile" data-accent="brand" data-go="enroll"><span class="ic">ï¼‹</span>Add worker</button>
+        <button class="tile" data-go="today"><span class="ic">â‰¡</span>Who's in</button>
+      </div>
+    </section>
+
+    <!-- ATTENDANCE -->
+    <section id="attendScreen" class="hidden">
       <div class="stage" id="stage" data-face="no">
-        <video id="video" playsinline muted autoplay></video>
+        <video id="video" playsinline muted autoplay class="mirror"></video>
         <div class="reticle"></div>
-        <div class="badge">
-          <span class="who" id="who">Looking for a face</span>
-          <span class="score" id="score"></span>
-        </div>
+        <div class="cam-tools"><button id="btnFlip" type="button">Flip</button></div>
+        <div class="badge"><span class="who" id="who">Looking for a face</span><span class="score" id="score"></span></div>
       </div>
       <canvas id="canvas"></canvas>
-
       <div class="track" id="track">
         <h3>Today</h3>
         <ol>
@@ -198,19 +210,23 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
           <li data-step="OUT">Out<b>--:--</b></li>
         </ol>
       </div>
-
       <div class="punches" id="punches"></div>
       <div class="note" id="punchNote" data-tone="">Hold the phone steady and look at the camera.</div>
-    </div>
+    </section>
 
-    <!-- enroll -->
-    <div id="paneEnroll" class="hidden">
+    <!-- ENROLL + AADHAAR -->
+    <section id="enrollScreen" class="hidden">
       <div class="stage" id="stage2" data-face="no">
-        <video id="video2" playsinline muted autoplay></video>
+        <video id="video2" playsinline muted autoplay class="mirror"></video>
+        <img id="frozen2" class="frozen hidden" alt="">
         <div class="reticle"></div>
-        <div class="badge"><span class="who" id="who2">Looking for a face</span></div>
+        <div class="cam-tools">
+          <button id="btnFlip2" type="button">Flip</button>
+          <button id="btnFreeze2" type="button">Freeze</button>
+        </div>
+        <div class="badge"><span class="who" id="who2">Face the camera</span></div>
       </div>
-      <label for="enName">Name</label>
+      <label for="enName">Worker name</label>
       <input id="enName" type="text" autocomplete="off" placeholder="Full name">
       <label for="enGender">Gender</label>
       <select id="enGender"></select>
@@ -221,494 +237,518 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
       <label for="enRate">Wage rate</label>
       <input id="enRate" type="number" inputmode="decimal" placeholder="0">
       <label for="enPhone">Phone</label>
-      <input id="enPhone" type="tel" inputmode="tel" autocomplete="off" placeholder="Optional">
-      <button class="primary" id="btnEnroll" type="button">Add to site</button>
-      <div class="note" id="enrollNote" data-tone="">Face the camera, then fill in the name.</div>
-    </div>
+      <input id="enPhone" type="tel" inputmode="tel" placeholder="Optional">
+      <button class="primary" id="btnEnroll" type="button">Add worker</button>
+      <div class="note" id="enrollNote" data-tone="">Freeze a clear face photo, then fill in the name.</div>
 
-    <!-- roster -->
-    <div id="paneList" class="hidden">
+      <!-- Aadhaar capture, appears after a worker is added -->
+      <section id="aadhaarBlock" class="hidden" style="margin-top:20px;border-top:2px solid var(--ink);padding-top:16px">
+        <h2 style="font-size:18px;margin-bottom:4px">Aadhaar for <span id="aaName">worker</span></h2>
+        <p class="muted">For salary and records. Capture the front and back of the card.</p>
+        <div class="entry-row">
+          <div>
+            <label>Front</label>
+            <div class="stage" style="aspect-ratio:16/10">
+              <video id="aaVideo" playsinline muted autoplay></video>
+              <img id="aaFrozen" class="frozen hidden" alt="">
+              <div class="cam-tools"><button id="aaFreeze" type="button">Capture</button></div>
+            </div>
+          </div>
+        </div>
+        <div id="aaBackWrap" class="hidden">
+          <label style="margin-top:14px">Back</label>
+          <div class="stage" style="aspect-ratio:16/10">
+            <video id="aaVideoB" playsinline muted autoplay></video>
+            <img id="aaFrozenB" class="frozen hidden" alt="">
+            <div class="cam-tools"><button id="aaFreezeB" type="button">Capture</button></div>
+          </div>
+        </div>
+        <label for="aaNumber" style="margin-top:14px">Aadhaar number</label>
+        <input id="aaNumber" type="text" inputmode="numeric" maxlength="14" placeholder="Reads from the photo, correct if needed">
+        <div class="muted" id="aaOcrNote" style="margin-top:4px"></div>
+        <button class="primary" id="btnSaveAadhaar" type="button">Save Aadhaar</button>
+        <div class="note" id="aadhaarNote" data-tone="">Capture the front; the number is read for you to check.</div>
+      </section>
+    </section>
+
+    <!-- DAILY ENTRY -->
+    <section id="dailyScreen" class="hidden">
+      <label for="dlStage">Stage</label>
+      <select id="dlStage"></select>
+
+      <label class="chk" style="margin-top:16px">
+        <input type="checkbox" id="dlHoliday"> No work today (holiday / rain)
+      </label>
+
+      <div id="dlWorkBlock">
+        <h3 style="margin-top:18px;font-size:15px">Work done</h3>
+        <div id="progressRows"></div>
+        <button class="addbtn" id="btnAddProgress" type="button">+ Add work item</button>
+
+        <h3 style="margin-top:20px;font-size:15px">Petty cash spent</h3>
+        <div id="cashRows"></div>
+        <button class="addbtn" id="btnAddCash" type="button">+ Add petty cash</button>
+      </div>
+
+      <label for="dlRemarks" style="margin-top:18px">Remarks</label>
+      <input id="dlRemarks" type="text" placeholder="Anything to note (optional)">
+
+      <button class="primary" id="btnSaveDaily" type="button">Save today's entry</button>
+      <div class="note" id="dailyNote" data-tone="">Pick the stage, then record work and any petty cash.</div>
+    </section>
+
+    <!-- TODAY / ROSTER -->
+    <section id="todayScreen" class="hidden">
       <div class="roster" id="roster"></div>
       <button class="primary" id="btnRefresh" type="button">Refresh</button>
-    </div>
-  </section>
+    </section>
+
+  </div>
+  <div class="queue hidden" id="queueBar"></div>
 </div>
-
-<div class="queue hidden" id="queueBar"></div>
-
 <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
 (function () {
   "use strict";
-
   var MODELS = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model";
   var CSRF = "{{ csrf_token }}";
   var PROJECTS = {{ projects_json | safe }};
   var QKEY = "sbi_punch_queue";
 
-  var state = {
-    project: null, ready: false, descriptor: null,
-    labour: null, labourName: null, allowed: [], busy: false, gps: null
+  var S = {
+    project:null, ready:false, busy:false, gps:null,
+    descriptor:null, labour:null, labourName:null, allowed:[],
+    enrollDescriptor:null, newLabour:null,
+    facing:"user", facing2:"user",
+    aaFront:null, aaBack:null, aaStep:"front"
   };
+  var $ = function(id){return document.getElementById(id);};
 
-  var $ = function (id) { return document.getElementById(id); };
-
-  // ---------- server ----------
-  function call(method, args) {
-    return fetch("/api/method/sbi_projects.sbi_projects." + method, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Frappe-CSRF-Token": CSRF },
-      body: JSON.stringify(args || {})
-    }).then(function (r) {
-      return r.json().then(function (j) {
-        if (!r.ok) {
-          var msg = (j && (j._server_messages || j.exception || j.message)) || ("HTTP " + r.status);
-          try { msg = JSON.parse(msg)[0]; msg = JSON.parse(msg).message || msg; } catch (e) {}
-          throw new Error(String(msg));
+  // -------- server call --------
+  function call(method, args){
+    return fetch("/api/method/sbi_projects.sbi_projects."+method,{
+      method:"POST",
+      headers:{"Content-Type":"application/json","X-Frappe-CSRF-Token":CSRF},
+      body:JSON.stringify(args||{})
+    }).then(function(r){
+      return r.json().then(function(j){
+        if(!r.ok){
+          var m=(j&&(j._server_messages||j.exception||j.message))||("HTTP "+r.status);
+          try{m=JSON.parse(m)[0];m=JSON.parse(m).message||m;}catch(e){}
+          throw new Error(String(m));
         }
         return j.message;
       });
     });
   }
+  function note(el,tone,text){el.classList.remove("hidden");el.setAttribute("data-tone",tone);el.textContent=text;}
 
-  function note(el, tone, text) {
-    el.setAttribute("data-tone", tone);
-    el.textContent = text;
-  }
-
-  // ---------- gps ----------
-  function watchGps() {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.watchPosition(
-      function (p) { state.gps = { lat: p.coords.latitude, lng: p.coords.longitude }; },
-      function () { state.gps = null; },
-      { enableHighAccuracy: true, maximumAge: 15000, timeout: 12000 }
-    );
-  }
-
-  // ---------- camera ----------
-  function startCamera(videoEl) {
-    return navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
-      audio: false
-    }).then(function (stream) {
-      videoEl.srcObject = stream;
-      return videoEl.play();
+  // -------- login --------
+  function doLogin(){
+    var u=$("lgUser").value.trim(), p=$("lgPass").value;
+    if(!u||!p){note($("loginNote"),"err","Enter your username and password.");return;}
+    $("btnLogin").disabled=true;
+    fetch("/api/method/login",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({usr:u,pwd:p})
+    }).then(function(r){
+      if(r.ok){location.reload();}       // session set; reload to get server context + projects
+      else{throw new Error("Wrong username or password.");}
+    }).catch(function(e){
+      note($("loginNote"),"err",e.message);
+      $("btnLogin").disabled=false;
     });
   }
+  function doLogout(){
+    fetch("/api/method/logout").then(function(){location.reload();});
+  }
 
-  function loadModels() {
+  // -------- gps --------
+  function watchGps(){
+    if(!navigator.geolocation)return;
+    navigator.geolocation.watchPosition(
+      function(p){S.gps={lat:p.coords.latitude,lng:p.coords.longitude};},
+      function(){S.gps=null;},
+      {enableHighAccuracy:true,maximumAge:15000,timeout:12000});
+  }
+
+  // -------- camera --------
+  var streams={};
+  function startCamera(videoEl,facing,key){
+    stopCamera(key);
+    return navigator.mediaDevices.getUserMedia({
+      video:{facingMode:facing,width:{ideal:640},height:{ideal:480}},audio:false
+    }).then(function(stream){
+      streams[key]=stream;videoEl.srcObject=stream;return videoEl.play();
+    });
+  }
+  function stopCamera(key){
+    if(streams[key]){streams[key].getTracks().forEach(function(t){t.stop();});delete streams[key];}
+  }
+  function loadModels(){
     return Promise.all([
       faceapi.nets.tinyFaceDetector.loadFromUri(MODELS),
       faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODELS),
       faceapi.nets.faceRecognitionNet.loadFromUri(MODELS)
-    ]).then(function () { state.ready = true; });
+    ]).then(function(){S.ready=true;});
+  }
+  function detect(videoEl){
+    var opts=new faceapi.TinyFaceDetectorOptions({inputSize:320,scoreThreshold:0.5});
+    return faceapi.detectSingleFace(videoEl,opts).withFaceLandmarks(true).withFaceDescriptor();
+  }
+  function snapshot(videoEl){
+    var c=$("canvas");
+    c.width=480;c.height=Math.round(480*(videoEl.videoHeight||480)/(videoEl.videoWidth||640));
+    c.getContext("2d").drawImage(videoEl,0,0,c.width,c.height);
+    return c.toDataURL("image/jpeg",0.75);
   }
 
-  function detect(videoEl) {
-    var opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
-    return faceapi.detectSingleFace(videoEl, opts)
-      .withFaceLandmarks(true)
-      .withFaceDescriptor();
+  // -------- attendance loop --------
+  var lastLookup=0;
+  function punchLoop(){
+    if(!S.ready||S.busy||$("attendScreen").classList.contains("hidden")){return setTimeout(punchLoop,700);}
+    detect($("video")).then(function(res){
+      var stage=$("stage");
+      if(!res){stage.setAttribute("data-face","no");$("who").textContent="Looking for a face";
+        $("score").textContent="";S.descriptor=null;S.labour=null;renderPunches([]);return;}
+      stage.setAttribute("data-face","yes");
+      S.descriptor=Array.prototype.slice.call(res.descriptor);
+      var now=Date.now();if(now-lastLookup<1800)return;lastLookup=now;
+      call("site_api.match_face",{embedding:S.descriptor,project:S.project}).then(function(m){
+        if(!m){$("who").textContent="Not enrolled";$("score").textContent="";S.labour=null;
+          renderPunches([]);note($("punchNote"),"warn","This face is not enrolled. Use Add worker.");return;}
+        S.labour=m.labour;S.labourName=m.labour_name;
+        $("who").textContent=m.labour_name;$("score").textContent="match "+Math.round(m.score*100)+"%";
+        return refreshDay(m.labour);
+      }).catch(function(e){note($("punchNote"),"err",e.message);});
+    }).catch(function(){}).then(function(){setTimeout(punchLoop,700);});
   }
-
-  // ---------- punch loop ----------
-  var lastLookup = 0;
-  function punchLoop() {
-    if (!state.ready || state.busy || $("panePunch").classList.contains("hidden")) {
-      return setTimeout(punchLoop, 700);
-    }
-    detect($("video")).then(function (res) {
-      var stage = $("stage");
-      if (!res) {
-        stage.setAttribute("data-face", "no");
-        $("who").textContent = "Looking for a face";
-        $("score").textContent = "";
-        state.descriptor = null; state.labour = null;
-        renderPunches([]);
-        return;
-      }
-      stage.setAttribute("data-face", "yes");
-      state.descriptor = Array.prototype.slice.call(res.descriptor);
-
-      var now = Date.now();
-      if (now - lastLookup < 1800) return;
-      lastLookup = now;
-
-      call("site_api.match_face", { embedding: state.descriptor, project: state.project })
-        .then(function (m) {
-          if (!m) {
-            $("who").textContent = "Not enrolled";
-            $("score").textContent = "";
-            state.labour = null;
-            renderPunches([]);
-            note($("punchNote"), "warn", "This face is not enrolled. Use Add person.");
-            return;
-          }
-          state.labour = m.labour;
-          state.labourName = m.labour_name;
-          $("who").textContent = m.labour_name;
-          $("score").textContent = "match " + Math.round(m.score * 100) + "%";
-          return refreshDay(m.labour);
-        })
-        .catch(function (e) { note($("punchNote"), "err", e.message); });
-    }).catch(function () {
-      /* a dropped frame is not worth surfacing */
-    }).then(function () { setTimeout(punchLoop, 700); });
+  function refreshDay(labour){
+    return call("doctype.labour_attendance_log.labour_attendance_log.get_day_status",{labour:labour})
+      .then(function(s){S.allowed=s.allowed_next||[];paintTrack(s.punches||[]);renderPunches(S.allowed);
+        if(!S.allowed.length){note($("punchNote"),"ok",S.labourName+" has finished for today.");}
+        else{note($("punchNote"),"","Tap a button to record the punch.");}});
   }
-
-  function refreshDay(labour) {
-    return call("doctype.labour_attendance_log.labour_attendance_log.get_day_status",
-                { labour: labour })
-      .then(function (s) {
-        state.allowed = s.allowed_next || [];
-        paintTrack(s.punches || []);
-        renderPunches(state.allowed);
-        if (!state.allowed.length) {
-          note($("punchNote"), "ok", state.labourName + " has finished for today.");
-        } else {
-          note($("punchNote"), "", "Tap a button to record the punch.");
-        }
-      });
+  function paintTrack(punches){
+    var map={"IN":"IN","TEA OUT":"TEA","TEA IN":"TEA","LUNCH OUT":"LUNCH","LUNCH IN":"LUNCH","OUT":"OUT"};
+    var seen={};punches.forEach(function(p){var st=map[p.log_type];if(st)seen[st]=String(p.log_datetime).slice(11,16);});
+    var last=punches.length?map[punches[punches.length-1].log_type]:null;
+    Array.prototype.forEach.call($("track").querySelectorAll("li"),function(li){
+      var k=li.getAttribute("data-step");li.setAttribute("data-done",seen[k]?"1":"0");
+      li.setAttribute("data-now",k===last?"1":"0");li.querySelector("b").textContent=seen[k]||"--:--";});
   }
-
-  function paintTrack(punches) {
-    var map = { "IN": "IN", "TEA OUT": "TEA", "TEA IN": "TEA",
-                "LUNCH OUT": "LUNCH", "LUNCH IN": "LUNCH", "OUT": "OUT" };
-    var seen = {};
-    punches.forEach(function (p) {
-      var step = map[p.log_type];
-      if (step) seen[step] = String(p.log_datetime).slice(11, 16);
-    });
-    var last = punches.length ? map[punches[punches.length - 1].log_type] : null;
-    Array.prototype.forEach.call($("track").querySelectorAll("li"), function (li) {
-      var k = li.getAttribute("data-step");
-      li.setAttribute("data-done", seen[k] ? "1" : "0");
-      li.setAttribute("data-now", k === last ? "1" : "0");
-      li.querySelector("b").textContent = seen[k] || "--:--";
-    });
+  var KIND={"IN":"in","OUT":"out","LUNCH OUT":"break","LUNCH IN":"break","TEA OUT":"break","TEA IN":"break"};
+  function renderPunches(allowed){
+    var box=$("punches");box.innerHTML="";if(!allowed.length)return;
+    allowed.forEach(function(t,i){var b=document.createElement("button");b.type="button";
+      b.className="punch"+(allowed.length%2===1&&i===0?" wide":"");
+      b.setAttribute("data-kind",KIND[t]||"break");b.textContent=t;
+      b.onclick=function(){doPunch(t);};box.appendChild(b);});
   }
+  function doPunch(logType){
+    if(!S.labour||S.busy)return;S.busy=true;note($("punchNote"),"","Recording "+logType+"...");
+    var payload={project:S.project,log_type:logType,embedding:S.descriptor,
+      latitude:S.gps?S.gps.lat:null,longitude:S.gps?S.gps.lng:null,
+      photo:snapshot($("video")),device_id:deviceId()};
+    call("site_api.punch",payload).then(function(r){
+      if(!r||!r.matched){note($("punchNote"),"warn",(r&&r.message)||"No match.");return;}
+      var extra=r.within_geofence?"":"  Outside the site by "+Math.round(r.distance_from_site)+" m.";
+      note($("punchNote"),r.within_geofence?"ok":"warn",
+        r.labour_name+" - "+r.log_type+" at "+String(r.time).slice(11,16)+"."+extra);
+      return refreshDay(r.labour);
+    }).catch(function(e){
+      if(!navigator.onLine){queuePush(payload);note($("punchNote"),"warn","No network. Saved on this device.");}
+      else{note($("punchNote"),"err",e.message);}
+    }).then(function(){S.busy=false;});
+  }
+  function deviceId(){var k="sbi_device_id";var v=localStorage.getItem(k);
+    if(!v){v="dev-"+Math.random().toString(36).slice(2,10);localStorage.setItem(k,v);}return v;}
 
-  var KIND = { "IN": "in", "OUT": "out", "LUNCH OUT": "break", "LUNCH IN": "break",
-               "TEA OUT": "break", "TEA IN": "break" };
+  // -------- offline queue --------
+  function queueRead(){try{return JSON.parse(localStorage.getItem(QKEY)||"[]");}catch(e){return[];}}
+  function queuePush(item){var q=queueRead();q.push(item);localStorage.setItem(QKEY,JSON.stringify(q));paintQueue();}
+  function paintQueue(){var n=queueRead().length;var bar=$("queueBar");
+    bar.classList.toggle("hidden",n===0);bar.textContent=n+" punch"+(n===1?"":"es")+" waiting to send";}
+  function queueFlush(){var q=queueRead();if(!q.length||!navigator.onLine)return;
+    call("site_api.punch",q[0]).then(function(){var r=queueRead();r.shift();
+      localStorage.setItem(QKEY,JSON.stringify(r));paintQueue();queueFlush();}).catch(function(){});}
 
-  function renderPunches(allowed) {
-    var box = $("punches");
-    box.innerHTML = "";
-    if (!allowed.length) return;
-    allowed.forEach(function (t, i) {
-      var b = document.createElement("button");
-      b.type = "button";
-      b.className = "punch" + (allowed.length % 2 === 1 && i === 0 ? " wide" : "");
-      b.setAttribute("data-kind", KIND[t] || "break");
-      b.textContent = t;
-      b.onclick = function () { doPunch(t); };
-      box.appendChild(b);
+  // -------- enroll --------
+  var enFrozen=false;
+  function enrollLoop(){
+    if(!S.ready||$("enrollScreen").classList.contains("hidden")||enFrozen){return setTimeout(enrollLoop,800);}
+    detect($("video2")).then(function(res){
+      var ok=!!res;$("stage2").setAttribute("data-face",ok?"yes":"no");
+      $("who2").textContent=ok?"Face detected - tap Freeze":"Face the camera";
+    }).catch(function(){}).then(function(){setTimeout(enrollLoop,800);});
+  }
+  function freezeEnroll(){
+    detect($("video2")).then(function(res){
+      if(!res){note($("enrollNote"),"warn","No face detected. Try again.");return;}
+      S.enrollDescriptor=Array.prototype.slice.call(res.descriptor);
+      var img=snapshot($("video2"));
+      $("frozen2").src=img;$("frozen2").classList.remove("hidden");$("video2").classList.add("hidden");
+      enFrozen=true;$("btnFreeze2").textContent="Retake";$("who2").textContent="Photo captured";
+      note($("enrollNote"),"ok","Face captured. Now fill in the name and add the worker.");
     });
   }
-
-  function doPunch(logType) {
-    if (!state.labour || state.busy) return;
-    state.busy = true;
-    note($("punchNote"), "", "Recording " + logType + "...");
-
-    var payload = {
-      project: state.project,
-      log_type: logType,
-      embedding: state.descriptor,
-      latitude: state.gps ? state.gps.lat : null,
-      longitude: state.gps ? state.gps.lng : null,
-      photo: snapshot($("video")),
-      device_id: deviceId()
-    };
-
-    call("site_api.punch", payload)
-      .then(function (r) {
-        if (!r || !r.matched) {
-          note($("punchNote"), "warn", (r && r.message) || "No match.");
-          return;
-        }
-        var extra = r.within_geofence ? "" :
-          "  Outside the site boundary by " + Math.round(r.distance_from_site) + " m.";
-        note($("punchNote"), r.within_geofence ? "ok" : "warn",
-             r.labour_name + " - " + r.log_type + " at " + String(r.time).slice(11, 16) + "." + extra);
-        return refreshDay(r.labour);
-      })
-      .catch(function (e) {
-        if (!navigator.onLine) {
-          queuePush(payload);
-          note($("punchNote"), "warn", "No network. Saved on this device and will send later.");
-        } else {
-          note($("punchNote"), "err", e.message);
-        }
-      })
-      .then(function () { state.busy = false; });
+  function unfreezeEnroll(){
+    enFrozen=false;S.enrollDescriptor=null;
+    $("frozen2").classList.add("hidden");$("video2").classList.remove("hidden");
+    $("btnFreeze2").textContent="Freeze";
+  }
+  function doEnroll(){
+    var name=$("enName").value.trim();
+    if(!name){note($("enrollNote"),"warn","Enter the worker's name.");return;}
+    if(!S.enrollDescriptor){note($("enrollNote"),"warn","Freeze a face photo first.");return;}
+    $("btnEnroll").disabled=true;note($("enrollNote"),"","Adding "+name+"...");
+    call("site_api.enroll_labour",{
+      labour_name:name,gender:$("enGender").value,skill_category:$("enSkill").value||null,
+      phone:$("enPhone").value.trim()||null,wage_type:$("enWage").value||null,
+      wage_rate:$("enRate").value||0,project:S.project,
+      embedding:S.enrollDescriptor,photo:$("frozen2").src
+    }).then(function(r){
+      if(r&&r.duplicate){note($("enrollNote"),"warn","Already enrolled as "+r.labour_name+". Use Attendance.");return;}
+      S.newLabour=r.labour;$("aaName").textContent=r.labour_name;
+      note($("enrollNote"),"ok",r.labour_name+" added. Now capture the Aadhaar below.");
+      $("aadhaarBlock").classList.remove("hidden");
+      startAadhaarCam();
+      $("aadhaarBlock").scrollIntoView({behavior:"smooth"});
+    }).catch(function(e){note($("enrollNote"),"err",e.message);})
+    .then(function(){$("btnEnroll").disabled=false;});
   }
 
-  function snapshot(videoEl) {
-    var c = $("canvas");
-    c.width = 320;
-    c.height = Math.round(320 * (videoEl.videoHeight || 480) / (videoEl.videoWidth || 640));
-    c.getContext("2d").drawImage(videoEl, 0, 0, c.width, c.height);
-    return c.toDataURL("image/jpeg", 0.7);
+  // -------- aadhaar capture + OCR --------
+  function startAadhaarCam(){
+    startCamera($("aaVideo"),"environment","aaF").catch(function(){});
+    startCamera($("aaVideoB"),"environment","aaB").catch(function(){});
+  }
+  function captureAadhaar(which){
+    var vid=which==="front"?$("aaVideo"):$("aaVideoB");
+    var img=which==="front"?$("aaFrozen"):$("aaFrozenB");
+    var c=$("canvas");
+    c.width=800;c.height=Math.round(800*(vid.videoHeight||500)/(vid.videoWidth||800));
+    c.getContext("2d").drawImage(vid,0,0,c.width,c.height);
+    var data=c.toDataURL("image/jpeg",0.8);
+    img.src=data;img.classList.remove("hidden");vid.classList.add("hidden");
+    if(which==="front"){
+      S.aaFront=data;$("aaBackWrap").classList.remove("hidden");
+      runOcr(data);
+    }else{S.aaBack=data;}
+  }
+  function runOcr(dataUrl){
+    if(typeof Tesseract==="undefined"){$("aaOcrNote").textContent="Type the number from the card.";return;}
+    $("aaOcrNote").textContent="Reading the number from the photo...";
+    Tesseract.recognize(dataUrl,"eng").then(function(res){
+      var text=(res.data&&res.data.text)||"";
+      var digits=text.replace(/[^0-9]/g,"");
+      var m=digits.match(/\d{12}/);
+      if(m){$("aaNumber").value=m[0].replace(/(\d{4})(\d{4})(\d{4})/,"$1 $2 $3");
+        $("aaOcrNote").textContent="Read from the photo - please check it is correct.";}
+      else{$("aaOcrNote").textContent="Could not read the number. Please type it.";}
+    }).catch(function(){$("aaOcrNote").textContent="Could not read the number. Please type it.";});
+  }
+  function saveAadhaar(){
+    if(!S.newLabour){note($("aadhaarNote"),"warn","Add the worker first.");return;}
+    var num=$("aaNumber").value.replace(/[^0-9]/g,"");
+    if(num&&num.length!==12){note($("aadhaarNote"),"warn","An Aadhaar number is 12 digits.");return;}
+    $("btnSaveAadhaar").disabled=true;note($("aadhaarNote"),"","Saving Aadhaar...");
+    call("site_api.save_aadhaar",{labour:S.newLabour,aadhaar_number:num||null,
+      front_image:S.aaFront,back_image:S.aaBack}).then(function(r){
+      note($("aadhaarNote"),"ok","Aadhaar saved. You can add another worker.");
+      resetEnroll();
+    }).catch(function(e){note($("aadhaarNote"),"err",e.message);})
+    .then(function(){$("btnSaveAadhaar").disabled=false;});
+  }
+  function resetEnroll(){
+    $("enName").value="";$("enPhone").value="";$("enRate").value="";$("aaNumber").value="";
+    $("aaOcrNote").textContent="";S.newLabour=null;S.aaFront=null;S.aaBack=null;
+    $("aaFrozen").classList.add("hidden");$("aaFrozenB").classList.add("hidden");
+    $("aaVideo").classList.remove("hidden");$("aaVideoB").classList.remove("hidden");
+    $("aaBackWrap").classList.add("hidden");$("aadhaarBlock").classList.add("hidden");
+    unfreezeEnroll();stopCamera("aaF");stopCamera("aaB");
   }
 
-  function deviceId() {
-    var k = "sbi_device_id";
-    var v = localStorage.getItem(k);
-    if (!v) {
-      v = "dev-" + Math.random().toString(36).slice(2, 10);
-      localStorage.setItem(k, v);
-    }
-    return v;
-  }
-
-  // ---------- offline queue ----------
-  function queueRead() {
-    try { return JSON.parse(localStorage.getItem(QKEY) || "[]"); } catch (e) { return []; }
-  }
-  function queuePush(item) {
-    var q = queueRead(); q.push(item);
-    localStorage.setItem(QKEY, JSON.stringify(q));
-    paintQueue();
-  }
-  function paintQueue() {
-    var n = queueRead().length;
-    var bar = $("queueBar");
-    bar.classList.toggle("hidden", n === 0);
-    bar.textContent = n + " punch" + (n === 1 ? "" : "es") + " waiting to send";
-  }
-  function queueFlush() {
-    var q = queueRead();
-    if (!q.length || !navigator.onLine) return;
-    var item = q[0];
-    call("site_api.punch", item).then(function () {
-      var rest = queueRead(); rest.shift();
-      localStorage.setItem(QKEY, JSON.stringify(rest));
-      paintQueue();
-      queueFlush();
-    }).catch(function () { /* try again on the next tick */ });
-  }
-
-  // ---------- enroll ----------
-  function enrollLoop() {
-    if (!state.ready || $("paneEnroll").classList.contains("hidden")) {
-      return setTimeout(enrollLoop, 800);
-    }
-    detect($("video2")).then(function (res) {
-      var ok = !!res;
-      $("stage2").setAttribute("data-face", ok ? "yes" : "no");
-      $("who2").textContent = ok ? "Face captured" : "Looking for a face";
-      state.enrollDescriptor = ok ? Array.prototype.slice.call(res.descriptor) : null;
-    }).catch(function () {}).then(function () { setTimeout(enrollLoop, 800); });
-  }
-
-  function doEnroll() {
-    var name = $("enName").value.trim();
-    if (!name) { note($("enrollNote"), "warn", "Enter the person's name."); return; }
-    if (!state.enrollDescriptor) { note($("enrollNote"), "warn", "Face the camera first."); return; }
-
-    $("btnEnroll").disabled = true;
-    note($("enrollNote"), "", "Adding " + name + "...");
-
-    call("site_api.enroll_labour", {
-      labour_name: name,
-      gender: $("enGender").value,
-      skill_category: $("enSkill").value || null,
-      phone: $("enPhone").value.trim() || null,
-      wage_type: $("enWage").value || null,
-      wage_rate: $("enRate").value || 0,
-      project: state.project,
-      embedding: state.enrollDescriptor,
-      photo: snapshot($("video2"))
-    }).then(function (r) {
-      if (r && r.duplicate) {
-        note($("enrollNote"), "warn",
-             "This face is already enrolled as " + r.labour_name +
-             " (" + Math.round(r.score * 100) + "% match). Use the Attendance tab instead.");
-        return;
-      }
-      note($("enrollNote"), "ok", r.labour_name + " added. They can punch in now.");
-      $("enName").value = ""; $("enPhone").value = ""; $("enRate").value = "";
-    }).catch(function (e) {
-      note($("enrollNote"), "err", e.message);
-    }).then(function () { $("btnEnroll").disabled = false; });
-  }
-
-  // ---------- roster ----------
-  function loadRoster() {
-    var box = $("roster");
-    box.innerHTML = '<div class="person"><span class="nm muted">Loading...</span></div>';
-    call("site_api.get_site_roster", { project: state.project }).then(function (rows) {
-      box.innerHTML = "";
-      if (!rows.length) {
-        box.innerHTML = '<div class="person"><span class="nm muted">' +
-          'No one is on this site yet. Use Add person.</span></div>';
-        return;
-      }
-      rows.forEach(function (p) {
-        var d = document.createElement("div");
-        d.className = "person";
-        var img = p.photo
-          ? '<img class="avatar" src="' + p.photo + '" alt="">'
-          : '<span class="avatar"></span>';
-        var pill = !p.enrolled
-          ? '<span class="pill new">NO FACE</span>'
-          : (p.last_punch && p.last_punch !== "OUT"
-              ? '<span class="pill on">' + p.last_punch + '</span>'
-              : '<span class="pill off">' + (p.last_punch || "NOT IN") + '</span>');
-        d.innerHTML = img + '<span class="nm">' + esc(p.labour_name) +
-          '<small>' + esc(p.skill_category || p.sbi_wage_type || "") + '</small></span>' + pill;
-        box.appendChild(d);
-      });
-    }).catch(function (e) {
-      box.innerHTML = '<div class="person"><span class="nm">' + esc(e.message) + '</span></div>';
+  // -------- daily entry --------
+  function loadStagesInto(sel){
+    return call("site_api.get_app_menu",{project:S.project}).then(function(m){
+      sel.innerHTML="";
+      (m.stages||[]).forEach(function(s){var o=document.createElement("option");
+        o.value=s.task;o.textContent=s.subject;sel.appendChild(o);});
+      return m;
     });
   }
-
-  function fillSelect(el, values, blankFirst) {
-    el.innerHTML = "";
-    if (blankFirst) {
-      var b = document.createElement("option");
-      b.value = ""; b.textContent = "Not set";
-      el.appendChild(b);
-    }
-    (values || []).forEach(function (v) {
-      var o = document.createElement("option");
-      o.value = v; o.textContent = v;
-      el.appendChild(o);
-    });
+  var progParams=[], cashCats=[];
+  function addProgressRow(){
+    var wrap=document.createElement("div");wrap.className="entry-row";
+    var opts=progParams.map(function(p){return '<option value="'+esc(p.name)+'">'+esc(p.parameter_name)+(p.uom?" ("+esc(p.uom)+")":"")+'</option>';}).join("");
+    wrap.innerHTML='<div><select class="pr-param">'+opts+'</select></div>'+
+      '<div style="flex:0 0 90px"><input class="pr-qty" type="number" inputmode="decimal" placeholder="Qty"></div>'+
+      '<button class="rm" type="button">Ã—</button>';
+    wrap.querySelector(".rm").onclick=function(){wrap.remove();};
+    $("progressRows").appendChild(wrap);
+  }
+  function addCashRow(){
+    var wrap=document.createElement("div");wrap.className="entry-row";
+    var opts=cashCats.map(function(c){return '<option value="'+esc(c)+'">'+esc(c)+'</option>';}).join("");
+    wrap.innerHTML='<div><select class="cc-cat">'+opts+'</select></div>'+
+      '<div style="flex:0 0 120px"><input class="cc-amt" type="number" inputmode="decimal" placeholder="Amount"></div>'+
+      '<button class="rm" type="button">Ã—</button>';
+    wrap.querySelector(".rm").onclick=function(){wrap.remove();};
+    $("cashRows").appendChild(wrap);
+  }
+  function saveDaily(){
+    var task=$("dlStage").value;
+    var holiday=$("dlHoliday").checked?1:0;
+    var progress=[];
+    $("progressRows").querySelectorAll(".entry-row").forEach(function(r){
+      var p=r.querySelector(".pr-param").value,q=r.querySelector(".pr-qty").value;
+      if(p&&q)progress.push({parameter:p,quantity:q});});
+    var cash=[];
+    $("cashRows").querySelectorAll(".entry-row").forEach(function(r){
+      var c=r.querySelector(".cc-cat").value,a=r.querySelector(".cc-amt").value;
+      if(c&&a)cash.push({category:c,amount:a});});
+    $("btnSaveDaily").disabled=true;note($("dailyNote"),"","Saving...");
+    call("site_api.submit_daily_log",{project:S.project,task:task,is_holiday:holiday,
+      remarks:$("dlRemarks").value.trim()||null,
+      progress_rows:JSON.stringify(progress),petty_cash:JSON.stringify(cash)
+    }).then(function(r){
+      note($("dailyNote"),"ok","Today's entry saved. The office will review it.");
+      $("progressRows").innerHTML="";$("cashRows").innerHTML="";$("dlRemarks").value="";
+      $("dlHoliday").checked=false;
+    }).catch(function(e){note($("dailyNote"),"err",e.message);})
+    .then(function(){$("btnSaveDaily").disabled=false;});
   }
 
-  function hideField(id) {
-    var el = $(id);
-    if (!el) return;
-    el.classList.add("hidden");
-    var lab = document.querySelector('label[for="' + id + '"]');
-    if (lab) lab.classList.add("hidden");
+  // -------- roster --------
+  function loadRoster(){
+    var box=$("roster");box.innerHTML='<div class="person"><span class="nm muted">Loading...</span></div>';
+    call("site_api.get_site_roster",{project:S.project}).then(function(rows){
+      box.innerHTML="";
+      if(!rows.length){box.innerHTML='<div class="person"><span class="nm muted">No workers yet. Use Add worker.</span></div>';return;}
+      rows.forEach(function(p){var d=document.createElement("div");d.className="person";
+        var img=p.photo?'<img class="avatar" src="'+p.photo+'" alt="">':'<span class="avatar"></span>';
+        var pill=!p.enrolled?'<span class="pill new">NO FACE</span>':
+          (p.last_punch&&p.last_punch!=="OUT"?'<span class="pill on">'+p.last_punch+'</span>':
+          '<span class="pill off">'+(p.last_punch||"NOT IN")+'</span>');
+        d.innerHTML=img+'<span class="nm">'+esc(p.labour_name)+'<small>'+esc(p.skill_category||"")+'</small></span>'+pill;
+        box.appendChild(d);});
+    }).catch(function(e){box.innerHTML='<div class="person"><span class="nm">'+esc(e.message)+'</span></div>';});
+  }
+  function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){
+    return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+
+  // -------- navigation --------
+  function showScreen(which){
+    ["home","attend","enroll","daily","today"].forEach(function(k){
+      $(k+"Screen").classList.add("hidden");});
+    $(which+"Screen").classList.remove("hidden");
+    $("btnHome").classList.toggle("hidden",which==="home");
+    if(which==="today")loadRoster();
+    if(which==="daily"){loadStagesInto($("dlStage"));}
+    if(which==="enroll"){startCamera($("video2"),S.facing2,"en2").catch(function(){});}
+    else{stopCamera("en2");}
+    if(which==="attend"){startCamera($("video"),S.facing,"att").catch(function(){});}
+    else{stopCamera("att");}
+    if(which!=="enroll"){resetEnroll();}
   }
 
-  function esc(s) {
-    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
-      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
-    });
-  }
+  // -------- boot --------
+  function boot(){
+    $("btnLogin").onclick=doLogin;
+    $("lgPass").addEventListener("keydown",function(e){if(e.key==="Enter")doLogin();});
+    $("btnLogout").onclick=doLogout;
 
-  // ---------- tabs ----------
-  function showTab(which) {
-    var map = { punch: "panePunch", enroll: "paneEnroll", list: "paneList" };
-    Object.keys(map).forEach(function (k) {
-      $(map[k]).classList.toggle("hidden", k !== which);
-      $("tab" + k.charAt(0).toUpperCase() + k.slice(1))
-        .setAttribute("aria-selected", String(k === which));
-    });
-    if (which === "list") loadRoster();
-  }
-
-  // ---------- boot ----------
-  function boot() {
-    var sel = $("siteSelect");
-
-    if (!PROJECTS.length) {
-      $("pickSite").innerHTML =
-        '<h1 style="font-size:26px;margin-bottom:4px">No site assigned</h1>' +
-        '<p class="muted">You are not currently assigned to any open site. ' +
-        'Ask the project manager to add a site assignment for you, then reload this page.</p>';
+    if(!PROJECTS){ // not logged in -> show login
+      $("loginScreen").classList.remove("hidden");
+      $("appShell").classList.add("hidden");
       return;
     }
+    // logged in
+    $("loginScreen").classList.add("hidden");
+    $("appShell").classList.remove("hidden");
 
-    PROJECTS.forEach(function (p) {
-      var o = document.createElement("option");
-      o.value = p.name;
-      o.textContent = p.project_name || p.name;
-      sel.appendChild(o);
-    });
+    var sel=$("siteSelect");
+    if(!PROJECTS.length){
+      $("pickSite").innerHTML='<h1 style="font-size:24px;margin-bottom:4px">No site assigned</h1>'+
+        '<p class="muted">Ask the office to assign you to a site, then sign in again.</p>';
+      return;
+    }
+    PROJECTS.forEach(function(p){var o=document.createElement("option");
+      o.value=p.name;o.textContent=p.project_name||p.name;sel.appendChild(o);});
+    var saved=localStorage.getItem("sbi_site");if(saved)sel.value=saved;
 
-    var saved = localStorage.getItem("sbi_site");
-    if (saved) sel.value = saved;
-
-    $("btnStart").onclick = function () {
-      state.project = sel.value;
-      if (!state.project) return;
-      localStorage.setItem("sbi_site", state.project);
-      $("siteLabel").textContent = sel.options[sel.selectedIndex].text;
+    $("btnStart").onclick=function(){
+      S.project=sel.value;if(!S.project)return;
+      localStorage.setItem("sbi_site",S.project);
+      $("siteLabel").textContent=sel.options[sel.selectedIndex].text;
       $("pickSite").classList.add("hidden");
-      $("main").classList.remove("hidden");
       begin();
     };
+    $("btnHome").onclick=function(){showScreen("home");};
+    Array.prototype.forEach.call(document.querySelectorAll(".tile"),function(t){
+      t.onclick=function(){showScreen(t.getAttribute("data-go"));};});
 
-    $("btnSwitch").onclick = function () {
-      $("main").classList.add("hidden");
-      $("pickSite").classList.remove("hidden");
-    };
-
-    $("tabPunch").onclick = function () { showTab("punch"); };
-    $("tabEnroll").onclick = function () { showTab("enroll"); };
-    $("tabList").onclick = function () { showTab("list"); };
-    $("btnEnroll").onclick = doEnroll;
-    $("btnRefresh").onclick = loadRoster;
-
-    window.addEventListener("online", queueFlush);
+    $("btnFlip").onclick=function(){S.facing=S.facing==="user"?"environment":"user";
+      $("video").classList.toggle("mirror",S.facing==="user");
+      startCamera($("video"),S.facing,"att");};
+    $("btnFlip2").onclick=function(){S.facing2=S.facing2==="user"?"environment":"user";
+      $("video2").classList.toggle("mirror",S.facing2==="user");
+      startCamera($("video2"),S.facing2,"en2");};
+    $("btnFreeze2").onclick=function(){enFrozen?unfreezeEnroll():freezeEnroll();};
+    $("btnEnroll").onclick=doEnroll;
+    $("aaFreeze").onclick=function(){captureAadhaar("front");};
+    $("aaFreezeB").onclick=function(){captureAadhaar("back");};
+    $("btnSaveAadhaar").onclick=saveAadhaar;
+    $("btnAddProgress").onclick=addProgressRow;
+    $("btnAddCash").onclick=addCashRow;
+    $("btnSaveDaily").onclick=saveDaily;
+    $("dlHoliday").onchange=function(){$("dlWorkBlock").classList.toggle("hidden",this.checked);};
+    $("btnRefresh").onclick=loadRoster;
+    window.addEventListener("online",queueFlush);
     paintQueue();
+    setupInstall();
   }
 
-  function begin() {
+  function begin(){
+    $("btnHome").classList.remove("hidden");
     watchGps();
-    note($("punchNote"), "", "Loading face recognition...");
-
-    Promise.all([
-      startCamera($("video")),
-      startCamera($("video2")),
-      loadModels()
-    ]).then(function () {
-      note($("punchNote"), "", "Look at the camera.");
-      punchLoop();
-      enrollLoop();
-      queueFlush();
-      return call("site_api.get_site_roster", { project: state.project });
-    }).then(function () {
-      return call("site_api.get_enroll_options", {}).then(function (o) {
-        fillSelect($("enGender"), o.gender, false);
-        fillSelect($("enSkill"), o.skill, true);
-        fillSelect($("enWage"), o.wage_types, true);
-        $("enSkill").parentNode && (o.has_skill || hideField("enSkill"));
-        if (!o.has_phone) hideField("enPhone");
-      });
-    }).catch(function (e) {
-      note($("punchNote"), "err",
-           "Camera or face models could not start. " + e.message);
+    note($("punchNote"),"","Loading face recognition...");
+    Promise.all([loadModels()]).then(function(){
+      punchLoop();enrollLoop();queueFlush();
+      return Promise.all([
+        call("site_api.get_enroll_options",{}),
+        call("site_api.get_progress_parameters",{}),
+        call("site_api.get_petty_cash_categories",{}),
+        call("site_api.get_app_menu",{project:S.project})
+      ]);
+    }).then(function(res){
+      var opt=res[0]||{};
+      fillSelect($("enGender"),opt.gender,false);
+      fillSelect($("enSkill"),opt.skill,true);
+      fillSelect($("enWage"),opt.wage_types,true);
+      progParams=res[1]||[];cashCats=res[2]||[];
+      var m=res[3]||{};
+      $("hsPresent").textContent=m.present||0;$("hsHead").textContent=m.headcount||0;
+      $("hsDate").textContent=m.today||"â€”";
+      showScreen("home");
+    }).catch(function(e){
+      showScreen("home");
+      frappe_alert("Some data could not load: "+e.message);
     });
   }
+  function fillSelect(el,vals,blank){if(!el)return;el.innerHTML="";
+    if(blank){var b=document.createElement("option");b.value="";b.textContent="Not set";el.appendChild(b);}
+    (vals||[]).forEach(function(v){var o=document.createElement("option");o.value=v;o.textContent=v;el.appendChild(o);});}
+  function frappe_alert(msg){/* silent, notes handle per-screen errors */}
 
-  // ---------- installable app ----------
-  function setupInstall() {
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sbi_sw.js", { scope: "/site_app" })
-        .catch(function () { /* app still works, just without offline cache */ });
+  function setupInstall(){
+    if("serviceWorker" in navigator){
+      navigator.serviceWorker.register("/sbi_sw.js",{scope:"/site_app"}).catch(function(){});
     }
-
-    var deferred = null;
-    window.addEventListener("beforeinstallprompt", function (e) {
-      e.preventDefault();
-      deferred = e;
-      $("btnInstall").classList.remove("hidden");
-    });
-
-    $("btnInstall").onclick = function () {
-      if (!deferred) return;
-      deferred.prompt();
-      deferred.userChoice.then(function () {
-        deferred = null;
-        $("btnInstall").classList.add("hidden");
-      });
-    };
-
-    window.addEventListener("appinstalled", function () {
-      $("btnInstall").classList.add("hidden");
-    });
   }
 
-  setupInstall();
   boot();
 })();
 </script>
