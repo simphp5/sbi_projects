@@ -16,9 +16,33 @@ FAB_GROUP = "Fabricated Steel"
 
 
 class SteelFabricationImport(Document):
+    def autoname(self):
+        """SC-26-27-<project>-0001, counter kept per project.
+
+        A `format:` autoname cannot expand a `.####` series, so naming is
+        done here instead.
+        """
+        from frappe.model.naming import make_autoname
+
+        project = self.project or "GEN"
+        self.name = make_autoname(f"SC-26-27-{project}-.####")
+
     def validate(self):
         if not self.company:
             self.company = frappe.defaults.get_user_default("Company")
+        self.set_target_warehouse()
+
+    def set_target_warehouse(self):
+        """Default the receiving warehouse to the project's site warehouse."""
+        if self.target_warehouse or not self.project:
+            return
+        abbr = frappe.db.get_value("Company", self.company, "abbr") if self.company else None
+        if not abbr:
+            return
+        name = frappe.db.get_value("Project", self.project, "project_name")
+        wh = f"{name} - {abbr}"
+        if frappe.db.exists("Warehouse", wh):
+            self.target_warehouse = wh
 
 
 # ======================================================================

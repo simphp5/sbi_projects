@@ -9,6 +9,7 @@
   "cb_1",
   "company",
   "supplier",
+  "target_warehouse",
   "sb_options",
   "include_bolts",
   "wastage_percent",
@@ -54,6 +55,13 @@
    "label": "Supplier (optional)",
    "options": "Supplier",
    "description": "Leave blank to set the fabricator on each PO later. If set, applied to all POs."
+  },
+  {
+   "fieldname": "target_warehouse",
+   "fieldtype": "Link",
+   "label": "Receiving Warehouse",
+   "options": "Warehouse",
+   "description": "Site warehouse where fabricated material is received (GRN). Auto-filled from the Project."
   },
   {
    "fieldname": "sb_options",
@@ -162,7 +170,7 @@
  "module": "SBI Projects",
  "name": "Steel Fabrication Import",
  "naming_rule": "Expression",
- "autoname": "format:SC-26-27-{project}-.####",
+ "autoname": "",
  "owner": "Administrator",
  "permissions": [
   {
