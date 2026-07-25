@@ -50,12 +50,19 @@ def _has_transactions(cost_center):
     return bool(frappe.db.get_value("GL Entry", {"cost_center": cost_center}))
 
 
+@frappe.whitelist()
 def run(dry_run=1, company=None):
     """Upgrade old site leaf cost centers to group + category leaves.
 
     dry_run=1 (default) previews; dry_run=0 applies.
     company=<name> limits to one company; omitted = all.
+
+    Whitelisted so it can be triggered from the browser console (F12):
+        frappe.call({method: "sbi_projects.sbi_projects.backfill_site_categories.run",
+                     args: {dry_run: 1}}).then(r => console.log(r.message));
+    Restricted to System Manager because dry_run=0 rewrites the cost center tree.
     """
+    frappe.only_for("System Manager")
     dry_run = cint(dry_run)
 
     report = {
