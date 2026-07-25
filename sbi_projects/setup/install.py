@@ -3,6 +3,8 @@
 import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
+from sbi_projects.setup.milestone_custom_fields import create_milestone_custom_fields
+
 
 def after_install():
 	from sbi_projects.setup.crm_setup import setup_crm
@@ -21,6 +23,7 @@ def after_install():
 		seed_enquiry_types,
 		setup_crm,
 		setup_branding,
+		create_milestone_custom_fields,
 	)
 	for step in steps:
 		try:
