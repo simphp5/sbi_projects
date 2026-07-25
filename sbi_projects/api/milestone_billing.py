@@ -69,8 +69,11 @@ def make_milestone_invoice(
 	billing_mode:
 	    "Proportional Qty"    -> every SO item is billed at (selected %) of its
 	                             original qty. Keeps HSN / GST / SO % Billed intact.
+	                             Only valid when the resulting qty stays whole for
+	                             items whose UOM disallows fractions.
 	    "Single Service Item" -> one consolidated service line for the selected
-	                             amount. Use for advance / erection milestones.
+	                             amount. Use for advance / erection / %-based
+	                             milestones where no goods actually move.
 	"""
 
 	if isinstance(selected_rows, str):
@@ -93,7 +96,7 @@ def make_milestone_invoice(
 	if billing_mode == "Single Service Item":
 		_apply_service_item(si, so, selected, total_portion, service_item)
 	else:
-		_apply_proportional_qty(si, so, total_portion / 100.0)
+		_apply_proportional_qty(si, so, total_portion)
 
 	_apply_payment_schedule(si, selected, total_portion)
 
@@ -125,17 +128,35 @@ def _resolve_terms(so, selected_rows):
 	return selected
 
 
-def _apply_proportional_qty(si, so, factor):
+def _uom_needs_whole_number(uom, _cache={}):
+	"""True if the given UOM disallows fractional quantities."""
+	if not uom:
+		return False
+	if uom not in _cache:
+		_cache[uom] = bool(frappe.get_cached_value("UOM", uom, "must_be_whole_number"))
+	return _cache[uom]
+
+
+def _apply_proportional_qty(si, so, total_portion):
 	"""Scale every invoice line against the ORIGINAL Sales Order qty.
 
 	make_sales_invoice() hands us the *remaining* qty; scaling that by the
 	factor would compound across milestones, so we always recompute from the
 	Sales Order Item qty.
+
+	Proportional billing only makes sense when the scaled qty stays valid for
+	the item's UOM. For a lump-sum item (qty 1, UOM Nos) a 25% milestone would
+	be 0.25 Nos, which ERPNext rejects with a cryptic "Quantity must not be in
+	fraction" error at save time. We detect that up front and tell the user to
+	switch to Single Service Item mode instead.
 	"""
+	factor = total_portion / 100.0
 	so_qty = {d.name: flt(d.qty) for d in so.items}
 	precision = frappe.get_precision("Sales Invoice Item", "qty") or 3
 
 	rows = []
+	fraction_problems = []
+
 	for item in si.items:
 		base_qty = so_qty.get(item.so_detail)
 		if base_qty is None:
@@ -143,9 +164,35 @@ def _apply_proportional_qty(si, so, factor):
 			rows.append(item)
 			continue
 
-		item.qty = flt(base_qty * factor, precision)
-		if flt(item.qty) > 0:
-			rows.append(item)
+		new_qty = flt(base_qty * factor, precision)
+		if new_qty <= 0:
+			continue
+
+		if _uom_needs_whole_number(item.uom) and new_qty != flt(int(new_qty)):
+			fraction_problems.append((item.item_code, base_qty, new_qty, item.uom))
+
+		item.qty = new_qty
+		rows.append(item)
+
+	if fraction_problems:
+		lines = "".join(
+			"<li>{0}: {1} &times; {2}% = <b>{3}</b> {4}</li>".format(
+				code, base, flt(total_portion, 2), new, uom
+			)
+			for code, base, new, uom in fraction_problems
+		)
+		frappe.throw(
+			_(
+				"Proportional Qty billing would create fractional quantities, "
+				"which these items do not allow:"
+			)
+			+ "<ul>{0}</ul>".format(lines)
+			+ _(
+				"Use the <b>Single Service Item</b> billing mode for "
+				"percentage / advance milestones where no goods actually move."
+			),
+			title=_("Fractional Quantity"),
+		)
 
 	if not rows:
 		frappe.throw(_("Nothing left to bill on this Sales Order"))
