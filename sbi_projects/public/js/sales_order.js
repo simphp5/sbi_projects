@@ -19,8 +19,11 @@ frappe.ui.form.on("Sales Order", {
 			return;
 		}
 
-		// 1. drop ERPNext's own "Project" button to avoid confusion
-		frm.remove_custom_button("Project", "Create");
+		// 1. drop ERPNext's own "Project" button to avoid confusion.
+		//    ERPNext adds it during its own refresh, which may run after ours,
+		//    so remove it now and again on the next tick to catch late additions.
+		sbi_remove_core_project_button(frm);
+		setTimeout(() => sbi_remove_core_project_button(frm), 300);
 
 		// 2. our Create/View Project button + mapped-project caption
 		sbi_project_button(frm);
@@ -40,6 +43,18 @@ frappe.ui.form.on("Sales Order", {
 		}
 	},
 });
+
+// ---------------------------------------------------------------------------
+// Remove ERPNext's core "Project" button (exact label "Project"), while
+// keeping our own "Project (with Stages)" / "View Project".
+// ---------------------------------------------------------------------------
+
+function sbi_remove_core_project_button(frm) {
+	// remove_custom_button targets the exact inner label under the group.
+	frm.remove_custom_button(__("Project"), __("Create"));
+	// Fallback: some ERPNext versions register it without a group.
+	frm.remove_custom_button(__("Project"));
+}
 
 // ---------------------------------------------------------------------------
 // Create / View Project
