@@ -37,26 +37,30 @@ def _parse(emb):
 	return emb
 
 
-def _enrolled_faces(project=None):
+def _enrolled_faces(project=None, include_inactive=0):
 	"""All enrolled faces (Labour + Employee), optionally scoped to a project."""
 	out = []
 
-	lf = {"face_enrolled": 1, "status": "Active"}
+	lf = {"face_enrolled": 1}
+	if not include_inactive:
+		lf["status"] = "Active"
 	if project:
 		lf["default_project"] = project
 	for r in frappe.get_all("Labour", filters=lf,
-		fields=["name", "labour_name", "face_embedding", "photo"]):
+		fields=["name", "labour_name", "face_embedding", "photo", "status"]):
 		emb = _parse(r.face_embedding)
 		if emb:
 			out.append({"type": "Labour", "id": r.name, "name": r.labour_name,
-			            "embedding": emb, "photo": r.photo})
+			            "embedding": emb, "photo": r.photo, "status": r.status})
 
 	em = frappe.get_meta("Employee")
 	if em.has_field("sbi_face_embedding"):
-		ef = {"sbi_face_enrolled": 1, "status": "Active"}
+		ef = {"sbi_face_enrolled": 1}
+		if not include_inactive:
+			ef["status"] = "Active"
 		if project and em.has_field("sbi_default_project"):
 			ef["sbi_default_project"] = project
-		fields = ["name", "employee_name", "sbi_face_embedding"]
+		fields = ["name", "employee_name", "sbi_face_embedding", "status"]
 		if em.has_field("sbi_face_photo"):
 			fields.append("sbi_face_photo")
 		for r in frappe.get_all("Employee", filters=ef, fields=fields):
@@ -64,7 +68,7 @@ def _enrolled_faces(project=None):
 			if emb:
 				out.append({"type": "Employee", "id": r.name,
 				            "name": r.employee_name, "embedding": emb,
-				            "photo": r.get("sbi_face_photo")})
+				            "photo": r.get("sbi_face_photo"), "status": r.status})
 	return out
 
 
@@ -301,14 +305,15 @@ def _haversine(lat1, lng1, lat2, lng2):
 
 
 @frappe.whitelist()
-def roster(project):
+def roster(project, include_inactive=0):
 	"""Who is enrolled at this site and their current state today."""
 	out = []
-	for rec in _enrolled_faces(project):
+	for rec in _enrolled_faces(project, include_inactive=int(include_inactive or 0)):
 		ds = day_status(rec["type"], rec["id"], project)
 		last = ds["punches"][-1]["log_type"] if ds["punches"] else None
 		out.append({"type": rec["type"], "id": rec["id"], "name": rec["name"],
 		            "photo": rec.get("photo"), "last": last,
+		            "status": rec.get("status", "Active"),
 		            "on_site": bool(last and last != "OUT")})
 	out.sort(key=lambda x: (not x["on_site"], x["name"] or ""))
 	return out
@@ -427,3 +432,131 @@ def get_shift(project):
 		"steps": steps,
 		"late_grace": int(s.get("late_entry_grace_period") or 0) if s.get("enable_late_entry_marking") else 0,
 	}
+
+
+# ---- worker master management (edit / inactive / delete / aadhaar view) ------
+
+_OWNER_ROLES = {"System Manager", "Projects Manager", "Site Cost Approver",
+                "HR Manager", "HR User", "Administrator"}
+
+
+def _can_see_aadhaar():
+	"""Only owner/admin/HR roles may see the full Aadhaar number and images."""
+	if frappe.session.user == "Administrator":
+		return True
+	return bool(_OWNER_ROLES & set(frappe.get_roles()))
+
+
+@frappe.whitelist()
+def worker_detail(worker_type, worker_id):
+	"""Full detail for the master view. Aadhaar only for owner/admin/HR."""
+	dt = "Employee" if worker_type == "Employee" else "Labour"
+	if not frappe.db.exists(dt, worker_id):
+		frappe.throw("Worker not found.")
+
+	if dt == "Labour":
+		d = frappe.db.get_value("Labour", worker_id, [
+			"labour_name", "gender", "mobile_no", "skill", "status",
+			"photo", "aadhaar_number", "aadhaar_last4", "aadhaar_front", "aadhaar_back",
+			"sbi_wage_type", "sbi_wage_rate", "default_project",
+		], as_dict=True) or {}
+		out = {
+			"type": "Labour", "id": worker_id, "name": d.get("labour_name"),
+			"gender": d.get("gender"), "phone": d.get("mobile_no"),
+			"skill": d.get("skill"), "status": d.get("status"),
+			"photo": d.get("photo"), "wage_type": d.get("sbi_wage_type"),
+			"wage_rate": d.get("sbi_wage_rate"), "project": d.get("default_project"),
+			"aadhaar_last4": d.get("aadhaar_last4"),
+		}
+		if _can_see_aadhaar():
+			out["aadhaar_number"] = d.get("aadhaar_number")
+			out["aadhaar_front"] = d.get("aadhaar_front")
+			out["aadhaar_back"] = d.get("aadhaar_back")
+			out["can_see_aadhaar"] = True
+		else:
+			out["can_see_aadhaar"] = False
+		return out
+
+	d = frappe.db.get_value("Employee", worker_id, [
+		"employee_name", "gender", "cell_number", "designation", "status",
+		"sbi_face_photo", "sbi_aadhaar_number", "sbi_aadhaar_last4",
+		"sbi_aadhaar_front", "sbi_aadhaar_back",
+	], as_dict=True) or {}
+	out = {
+		"type": "Employee", "id": worker_id, "name": d.get("employee_name"),
+		"gender": d.get("gender"), "phone": d.get("cell_number"),
+		"skill": d.get("designation"), "status": d.get("status"),
+		"photo": d.get("sbi_face_photo"), "aadhaar_last4": d.get("sbi_aadhaar_last4"),
+	}
+	if _can_see_aadhaar():
+		out["aadhaar_number"] = d.get("sbi_aadhaar_number")
+		out["aadhaar_front"] = d.get("sbi_aadhaar_front")
+		out["aadhaar_back"] = d.get("sbi_aadhaar_back")
+		out["can_see_aadhaar"] = True
+	else:
+		out["can_see_aadhaar"] = False
+	return out
+
+
+@frappe.whitelist()
+def update_worker(worker_type, worker_id, name=None, phone=None, skill=None,
+                  wage_type=None, wage_rate=None):
+	"""Edit a worker's basic details (not the face)."""
+	dt = "Employee" if worker_type == "Employee" else "Labour"
+	if not frappe.db.exists(dt, worker_id):
+		frappe.throw("Worker not found.")
+	doc = frappe.get_doc(dt, worker_id)
+	m = doc.meta
+	if dt == "Labour":
+		if name:
+			doc.labour_name = name
+		if phone is not None and m.has_field("mobile_no"):
+			doc.mobile_no = phone
+		if skill is not None and m.has_field("skill"):
+			doc.skill = skill
+		if wage_type is not None and m.has_field("sbi_wage_type"):
+			doc.sbi_wage_type = wage_type
+		if wage_rate is not None and m.has_field("sbi_wage_rate"):
+			doc.sbi_wage_rate = flt(wage_rate)
+	else:
+		if name:
+			doc.employee_name = name
+		if phone is not None and m.has_field("cell_number"):
+			doc.cell_number = phone
+	doc.flags.ignore_mandatory = True
+	doc.save(ignore_permissions=True)
+	frappe.db.commit()
+	return {"saved": True}
+
+
+@frappe.whitelist()
+def set_status(worker_type, worker_id, status):
+	"""Activate / deactivate a worker (kept, not deleted)."""
+	if status not in ("Active", "Inactive"):
+		frappe.throw("Status must be Active or Inactive.")
+	dt = "Employee" if worker_type == "Employee" else "Labour"
+	if not frappe.db.exists(dt, worker_id):
+		frappe.throw("Worker not found.")
+	frappe.db.set_value(dt, worker_id, "status", status)
+	frappe.db.commit()
+	return {"status": status}
+
+
+@frappe.whitelist()
+def delete_worker(worker_type, worker_id):
+	"""Permanently delete a worker. Owner/admin only, and only Labour."""
+	if not _can_see_aadhaar():   # same privileged set
+		frappe.throw("Only the owner or an administrator can delete a worker.", frappe.PermissionError)
+	dt = "Employee" if worker_type == "Employee" else "Labour"
+	if not frappe.db.exists(dt, worker_id):
+		frappe.throw("Worker not found.")
+	# guard: do not delete if there are attendance records; deactivate instead
+	f = {"employee": worker_id} if worker_type == "Employee" else {"labour": worker_id}
+	if frappe.db.exists("Labour Attendance Log", f):
+		frappe.db.set_value(dt, worker_id, "status", "Inactive")
+		frappe.db.commit()
+		return {"deleted": False, "deactivated": True,
+		        "message": "Worker has attendance records, so was set Inactive instead of deleted."}
+	frappe.delete_doc(dt, worker_id, force=1, ignore_permissions=True)
+	frappe.db.commit()
+	return {"deleted": True}

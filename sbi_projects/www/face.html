@@ -132,8 +132,11 @@
 
     <!-- WORKERS (this site only) -->
     <section id="workers" class="hidden">
-      <div class="note" data-tone="">Workers enrolled at this site. Green = on site now.</div>
-      <div id="rosterList" style="margin-top:12px"></div>
+      <div class="note" data-tone="">Workers at this site. Tap a worker to edit, deactivate, or view Aadhaar.</div>
+      <label class="chk" style="display:flex;align-items:center;gap:8px;margin:10px 2px;font-weight:700">
+        <input type="checkbox" id="wsInactive"> Show inactive too
+      </label>
+      <div id="rosterList" style="margin-top:8px"></div>
     </section>
 
     <!-- ENROLL -->
@@ -740,17 +743,84 @@
   // =====================================================================
   // mode switch + boot
   // =====================================================================
+  function openWorkerSheet(w){
+    modal(w.name, '<div class="tiny">Loading...</div>', [
+      {label:"Close",ghost:true,onClick:closeModal}
+    ]);
+    api("worker_detail",{worker_type:w.type,worker_id:w.id}).then(function(d){
+      renderWorkerSheet(d);
+    }).catch(function(e){$("sheetBody").innerHTML='<div class="tiny">'+esc(e.message)+'</div>';});
+  }
+
+  function renderWorkerSheet(d){
+    var photo=d.photo?'<img src="'+esc(d.photo)+'" style="width:100%;max-width:220px;border-radius:10px;display:block;margin:0 auto 12px">':'';
+    var aadhaarBlock="";
+    if(d.can_see_aadhaar){
+      var num=d.aadhaar_number?d.aadhaar_number.replace(/(\d{4})(\d{4})(\d{4})/,"$1 $2 $3"):"(not captured)";
+      aadhaarBlock='<div style="margin-top:14px;padding:12px;border:1px solid var(--line);border-radius:10px">'+
+        '<div style="font-weight:800;margin-bottom:6px">Aadhaar</div>'+
+        '<div>Number: <b>'+esc(num)+'</b></div>'+
+        (d.aadhaar_front?'<img src="'+esc(d.aadhaar_front)+'" style="width:100%;border-radius:8px;margin-top:8px">':'')+
+        (d.aadhaar_back?'<img src="'+esc(d.aadhaar_back)+'" style="width:100%;border-radius:8px;margin-top:8px">':'')+
+        '</div>';
+    }else{
+      aadhaarBlock='<div class="tiny" style="margin-top:12px">Aadhaar: ****'+esc(d.aadhaar_last4||"")+' (full details visible to owner/admin only)</div>';
+    }
+    var isLab=d.type==="Labour";
+    var body=photo+
+      '<label>Full name</label><input id="wsName" value="'+esc(d.name||"")+'">'+
+      '<label>Phone</label><input id="wsPhone" value="'+esc(d.phone||"")+'">'+
+      (isLab?'<label>Skill</label><input id="wsSkill" value="'+esc(d.skill||"")+'">':'')+
+      '<div class="tiny" style="margin-top:8px">'+esc(d.type)+' - '+esc(d.status)+
+        (d.project?' - '+esc(d.project):'')+'</div>'+
+      aadhaarBlock;
+
+    var buttons=[
+      {label:"Save",onClick:function(){
+        api("update_worker",{worker_type:d.type,worker_id:d.id,
+          name:val("wsName"),phone:val("wsPhone"),skill:val("wsSkill")})
+          .then(function(){beep("ok");closeModal();loadRoster();})
+          .catch(function(e){alert(e.message);});
+      }},
+      {label:d.status==="Active"?"Set inactive":"Activate",ghost:true,onClick:function(){
+        api("set_status",{worker_type:d.type,worker_id:d.id,
+          status:d.status==="Active"?"Inactive":"Active"})
+          .then(function(){beep("ok");closeModal();loadRoster();});
+      }}
+    ];
+    if(d.can_see_aadhaar){
+      buttons.push({label:"Delete",ghost:true,onClick:function(){
+        if(!confirm("Delete "+d.name+"? This cannot be undone."))return;
+        api("delete_worker",{worker_type:d.type,worker_id:d.id}).then(function(r){
+          beep(r.deleted?"ok":"warn");
+          alert(r.deleted?"Deleted.":(r.message||"Set inactive."));
+          closeModal();loadRoster();
+        }).catch(function(e){alert(e.message);});
+      }});
+    }
+    modal(d.name,body,buttons);
+  }
+
   function loadRoster(){
     var box=$("rosterList");
     box.innerHTML='<div class="tiny">Loading...</div>';
-    api("face_api.roster",{project:PROJECT}).then(function(rows){
+    var inc=$("wsInactive")&&$("wsInactive").checked?1:0;
+    api("face_api.roster",{project:PROJECT,include_inactive:inc}).then(function(rows){
       if(!rows||!rows.length){box.innerHTML='<div class="tiny">No workers enrolled at this site yet. Use Add worker.</div>';return;}
-      box.innerHTML=rows.map(function(r){
+      box.innerHTML=rows.map(function(r,i){
         var av=r.photo?'<img class="av" src="'+esc(r.photo)+'">':'<span class="av"></span>';
-        return '<div class="rw">'+av+
+        var inactive=r.status&&r.status!=="Active";
+        var pill=inactive?'<span class="st off">Inactive</span>'
+          :'<span class="st '+(r.on_site?'on':'off')+'">'+(r.on_site?'On site':'Off')+'</span>';
+        return '<div class="rw" data-i="'+i+'" style="cursor:pointer'+(inactive?';opacity:.6':'')+'">'+av+
           '<span class="nm">'+esc(r.name)+'<small>'+esc(r.type)+(r.last?' - last '+esc(r.last):'')+'</small></span>'+
-          '<span class="st '+(r.on_site?'on':'off')+'">'+(r.on_site?'On site':'Off')+'</span></div>';
+          pill+
+          '<span style="color:var(--soft);font-size:20px;margin-left:6px">&rsaquo;</span></div>';
       }).join("");
+      // tap a row to manage that worker
+      box.querySelectorAll(".rw").forEach(function(el){
+        el.onclick=function(){openWorkerSheet(rows[+el.getAttribute("data-i")]);};
+      });
     }).catch(function(e){box.innerHTML='<div class="tiny">'+esc(e.message)+'</div>';});
   }
 
@@ -786,6 +856,7 @@
     tickClock();setInterval(tickClock,10000);
     $("btnMode").onclick=function(){setMode(S.mode==="enroll"?"attend":"enroll");};
     $("btnWorkers").onclick=function(){setMode("workers");};
+    $("wsInactive").onchange=loadRoster;
     $("btnBackToAttend").onclick=function(){setMode("attend");};
     $("btnRetake").onclick=function(){resetEnroll();};
     document.querySelectorAll(".seg button").forEach(function(b){
