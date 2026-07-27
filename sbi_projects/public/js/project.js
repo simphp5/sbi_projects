@@ -454,3 +454,125 @@ function sbi_capture_location(frm) {
 		{ enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
 	);
 }
+
+// ---------------------------------------------------------------------------
+// Site-login setup on the Project form.
+//
+// After the owner picks a site in-charge, this panel creates that person's
+// login in one step (site staff have no email, so the owner sets the password
+// and passes it on).  The login gets the Projects User role and a Site
+// Assignment, which is what limits the site app to that person's own site.
+// ---------------------------------------------------------------------------
+
+frappe.ui.form.on("Project", {
+	refresh(frm) {
+		if (frm.is_new()) return;
+		sbi_render_incharge_login(frm);
+	},
+	sbi_site_incharge(frm) {
+		sbi_render_incharge_login(frm);
+	},
+});
+
+function sbi_render_incharge_login(frm) {
+	const wrapper = frm.get_field("sbi_incharge_login_html");
+	if (!wrapper || !wrapper.$wrapper) return;
+
+	frappe.call({
+		method: "sbi_projects.sbi_projects.incharge_login.get_incharge_login_status",
+		args: { project: frm.doc.name },
+		callback(r) {
+			const d = (r && r.message) || {};
+			wrapper.$wrapper.html(sbi_incharge_html(d));
+			sbi_bind_incharge(wrapper.$wrapper, frm, d);
+		},
+	});
+}
+
+function sbi_incharge_html(d) {
+	if (!d.has_incharge) {
+		return `<div style="border:1px solid var(--border-color);border-radius:4px;padding:14px;color:var(--text-muted)">
+			Assign a site in-charge above to set up their site login.</div>`;
+	}
+	const ready = d.has_login && d.has_assignment;
+	return `<div style="border:1px solid var(--border-color);border-radius:4px;overflow:hidden">
+		<div style="padding:12px 14px;background:var(--fg-color);border-bottom:1px solid var(--border-color)">
+			<div style="font-weight:700">${frappe.utils.escape_html(d.employee_name || d.employee)}</div>
+			<div class="text-muted" style="font-size:13px">
+				${ready
+					? "Login ready: " + frappe.utils.escape_html(d.user_id) + " â€” sees only this site."
+					: d.has_login
+						? "Has a login, but this site is not assigned yet."
+						: "No login yet."}
+			</div>
+		</div>
+		<div style="padding:12px 14px">
+			${ready
+				? `<span class="indicator-pill green">Site login active</span>
+				   <button class="btn btn-xs btn-default sbi-reassign" style="margin-left:8px">Re-assign this site</button>`
+				: `<button class="btn btn-sm btn-primary sbi-setup-login">Set up site login</button>`}
+		</div>
+	</div>`;
+}
+
+function sbi_bind_incharge(  $w, frm, d) {
+	$w.find(".sbi-setup-login").on("click", () => sbi_setup_login_dialog(frm, d));
+	$w.find(".sbi-reassign").on("click", () => {
+		frappe.call({
+			method: "sbi_projects.sbi_projects.incharge_login.setup_incharge_login",
+			args: { project: frm.doc.name },
+			freeze: true,
+			callback() { frappe.show_alert({ message: "Site assigned", indicator: "green" });
+				sbi_render_incharge_login(frm); },
+		});
+	});
+}
+
+function sbi_setup_login_dialog(frm, d) {
+	// if they already have a login, no username/password needed
+	if (d.has_login) {
+		frappe.call({
+			method: "sbi_projects.sbi_projects.incharge_login.setup_incharge_login",
+			args: { project: frm.doc.name },
+			freeze: true,
+			callback() { frappe.show_alert({ message: "Site login ready", indicator: "green" });
+				sbi_render_incharge_login(frm); },
+		});
+		return;
+	}
+
+	const dlg = new frappe.ui.Dialog({
+		title: "Set up site login",
+		fields: [
+			{ fieldtype: "HTML", options:
+				`<p class="text-muted" style="margin-bottom:10px">
+				 This creates a login for the site in-charge. Note the password down and give it to them â€”
+				 site staff usually have no email, so it will not be sent anywhere.</p>` },
+			{ fieldname: "username", fieldtype: "Data", label: "Username", reqd: 1,
+			  default: d.suggested_username,
+			  description: "They will sign in with this." },
+			{ fieldname: "password", fieldtype: "Password", label: "Password", reqd: 1,
+			  description: "At least 8 characters. Write it down before saving." },
+		],
+		primary_action_label: "Create login",
+		primary_action(v) {
+			frappe.call({
+				method: "sbi_projects.sbi_projects.incharge_login.setup_incharge_login",
+				args: { project: frm.doc.name, username: v.username, password: v.password },
+				freeze: true, freeze_message: "Creating loginâ€¦",
+				callback() {
+					dlg.hide();
+					frappe.msgprint({
+						title: "Site login created",
+						message: "Username: <b>" + frappe.utils.escape_html(v.username) + "</b><br>"
+							+ "Give this and the password to the site in-charge. "
+							+ "They can sign in at /site_app and will see only this site.",
+						indicator: "green",
+					});
+					sbi_render_incharge_login(frm);
+				},
+			});
+		},
+	});
+	dlg.show();
+}
