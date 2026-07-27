@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
 <title>SBI Site Attendance</title>
-<link rel="manifest" href="/face_manifest.json">
+<link rel="manifest" href="/sbi_site_manifest.json">
 <meta name="theme-color" content="#be1e2d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -202,6 +202,7 @@
   var CSRF="{{ csrf_token }}";
   var PROJECT="{{ project }}";
   var PROJECT_NAME="{{ project_name }}";
+  var SITES={{ frappe.utils.json.dumps(sites) if sites else "[]" }};
   var MODELS="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model";
 
   // ---- tuning (client) ----
@@ -220,14 +221,14 @@
 
   function api(method,args,_retried){
     var fn = method.indexOf(".")>=0 ? method.split(".").pop() : method;
-    return fetch("/api/method/sbi_projects.sbi_projects.face_api."+fn,{
+    return fetch("/api/method/sbi_projects.sbi_projects.sbi_site_api."+fn,{
       method:"POST", credentials:"same-origin",
       headers:{"Content-Type":"application/json","X-Frappe-CSRF-Token":CSRF},
       body:JSON.stringify(args||{})
     }).then(function(r){
       if(r.status===400 && !_retried){
         // likely a stale CSRF token - get a fresh one and retry once
-        return fetch("/api/method/sbi_projects.sbi_projects.face_api.get_token",{credentials:"same-origin"})
+        return fetch("/api/method/sbi_projects.sbi_projects.sbi_site_api.get_token",{credentials:"same-origin"})
           .then(function(x){return x.json();})
           .then(function(j){ if(j&&j.message&&j.message.csrf_token) CSRF=j.message.csrf_token;
             return api(method,args,true); });
@@ -423,7 +424,7 @@
     var released=false;
     function release(){if(!released){released=true;setTimeout(function(){aBusy=false;aGood=0;},800);}}
     setTimeout(function(){if(!released){released=true;aBusy=false;aGood=0;}},6000); // hard fallback
-    api("face_api.match",{embedding:desc,project:PROJECT}).then(function(m){
+    api("match",{embedding:desc,project:PROJECT}).then(function(m){
       if(!m){
         $("whoA").textContent="Not recognized";
         $("subA").textContent="Not enrolled here. Use Add worker.";
@@ -432,7 +433,7 @@
       }
       $("whoA").textContent=m.name;
       $("subA").textContent=m.type+" - match "+Math.round(m.confidence*100)+"%";
-      return api("face_api.day_status",{worker_type:m.type,worker_id:m.id,project:PROJECT})
+      return api("day_status",{worker_type:m.type,worker_id:m.id,project:PROJECT})
         .then(function(ds){
           showToday(m.name,ds);
           if(ds.finished){
@@ -461,7 +462,7 @@
   function doPunch(m,next){
     var photo=null;
     try{photo=snapshot($("camA"));}catch(e){}   // stamped with time + GPS
-    api("face_api.punch",{worker_type:m.type,worker_id:m.id,project:PROJECT,
+    api("punch",{worker_type:m.type,worker_id:m.id,project:PROJECT,
       log_type:next,latitude:S.gps&&S.gps.lat,longitude:S.gps&&S.gps.lng,photo:photo})
       .then(function(r){
         if(r.already){note($("noteA"),"warn",r.name+" already has "+r.log_type+" today.");beep("warn");}
@@ -472,7 +473,7 @@
             r.name+" - "+r.log_type+"  "+stamp()+extra+lateMsg);
           beep(r.within_geofence?"ok":"warn");
         }
-        return api("face_api.day_status",{worker_type:m.type,worker_id:m.id,project:PROJECT})
+        return api("day_status",{worker_type:m.type,worker_id:m.id,project:PROJECT})
           .then(function(ds){showToday(r.name,ds);});
       }).catch(function(e){note($("noteA"),"err",e.message);})
       .then(function(){
@@ -612,7 +613,7 @@
           skill:val("dSkill"),wage_type:val("dWage"),wage_rate:val("dRate")};
         closeModal();
         note($("noteE"),"","Adding "+name+"...");
-        api("face_api.enroll",payload).then(function(r){
+        api("enroll",payload).then(function(r){
           if(r&&r.duplicate){
             note($("noteE"),"warn","Already enrolled as "+r.name+" ("+r.type+").");
             beep("warn");resetEnroll();return;
@@ -814,7 +815,7 @@
     var box=$("rosterList");
     box.innerHTML='<div class="tiny">Loading...</div>';
     var inc=$("wsInactive")&&$("wsInactive").checked?1:0;
-    api("face_api.roster",{project:PROJECT,include_inactive:inc}).then(function(rows){
+    api("roster",{project:PROJECT,include_inactive:inc}).then(function(rows){
       if(!rows||!rows.length){box.innerHTML='<div class="tiny">No workers enrolled at this site yet. Use Add worker.</div>';return;}
       box.innerHTML=rows.map(function(r,i){
         var av=r.photo?'<img class="av" src="'+esc(r.photo)+'">':'<span class="av"></span>';
@@ -861,7 +862,7 @@
 
   function setupPWA(){
     if("serviceWorker" in navigator){
-      navigator.serviceWorker.register("/face_sw.js",{scope:"/face"})
+      navigator.serviceWorker.register("/sbi_site_sw.js",{scope:"/sbi_site"})
         .catch(function(){});
     }
     var deferred=null;
@@ -880,8 +881,32 @@
     });
   }
 
+  function showChooser(){
+    // hide the action buttons, show a list of sites
+    ["btnMode","btnWorkers","btnInstall"].forEach(function(id){var b=$(id);if(b)b.classList.add("hidden");});
+    $("siteName").childNodes[0].nodeValue="Choose a site ";
+    var host=$("attend");
+    host.classList.remove("hidden");
+    $("workers").classList.add("hidden");$("enroll").classList.add("hidden");
+    var html='<div class="note" data-tone="">Select the site you are working at.</div><div style="margin-top:12px">';
+    if(!SITES.length){
+      html+='<div class="tiny">No sites are assigned to you yet. Ask the office to assign your site.</div>';
+    }else{
+      SITES.forEach(function(s){
+        html+='<a href="/sbi_site?project='+encodeURIComponent(s.name)+'" '+
+          'style="display:block;text-decoration:none;background:var(--card);border:1px solid var(--line);'+
+          'border-radius:12px;padding:16px;margin-bottom:10px;color:var(--ink);font-weight:700">'+
+          esc(s.project_name||s.name)+'<small style="display:block;color:var(--soft);font-weight:600;font-size:12px">'+esc(s.name)+'</small></a>';
+      });
+    }
+    html+='</div>';
+    host.innerHTML=html;
+  }
+
   function boot(){
     setupPWA();
+    // no site chosen (multi-site user) -> show the chooser, do not start the camera
+    if(!PROJECT){ showChooser(); return; }
     // site name text (avoid clobbering the clock child)
     $("siteName").childNodes[0].nodeValue=(PROJECT_NAME||"Site")+" ";
     tickClock();setInterval(tickClock,10000);
@@ -935,7 +960,7 @@
     }
 
     // fetch a fresh CSRF token first (GET needs no CSRF); keeps POSTs valid
-    fetch("/api/method/sbi_projects.sbi_projects.face_api.get_token",{credentials:"same-origin"})
+    fetch("/api/method/sbi_projects.sbi_projects.sbi_site_api.get_token",{credentials:"same-origin"})
       .then(function(r){return r.json();})
       .then(function(j){ if(j&&j.message&&j.message.csrf_token) CSRF=j.message.csrf_token; })
       .catch(function(){});
@@ -949,7 +974,7 @@
       faceapi.nets.faceRecognitionNet.loadFromUri(MODELS)
     ]).then(function(){
       // options are optional - a failure here must never block the camera
-      return api("face_api.enroll_options",{}).then(function(o){S.opts=o||{};})
+      return api("enroll_options",{}).then(function(o){S.opts=o||{};})
         .catch(function(){S.opts={gender:["Male","Female","Other"],skill:[],wage_types:[]};});
     }).then(function(){
       S.ready=true;

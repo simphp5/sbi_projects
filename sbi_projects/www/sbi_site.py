@@ -1,8 +1,9 @@
-"""Standalone face-attendance page controller.
+"""SBI Site attendance app controller (route: /sbi_site).
 
-Requires a signed-in user with access to the site.  The project comes from the
-URL (?project=PROJ-xxxx); if the user has exactly one assigned site and none is
-given, that one is used.  Everything else (login, chooser) stays in /site_app.
+The single site app: face attendance, worker master, Aadhaar, shift.
+Requires a signed-in user. The project comes from ?project=PROJ-xxxx.
+If the user has one site it is auto-selected; if several and none is chosen,
+the app shows an in-page site chooser. Guests go to the Frappe login page.
 """
 
 import frappe
@@ -17,8 +18,8 @@ def get_context(context):
 	context.no_breadcrumbs = 1
 
 	if frappe.session.user == "Guest":
-		# send them to the main app to sign in, then come back
-		frappe.local.flags.redirect_location = "/site_app"
+		# send to the standard Frappe login, then return here
+		frappe.local.flags.redirect_location = "/login?redirect-to=/sbi_site"
 		raise frappe.Redirect
 
 	context.csrf_token = frappe.sessions.get_csrf_token()
@@ -26,19 +27,21 @@ def get_context(context):
 	allowed = _allowed_projects()
 	req = frappe.form_dict.get("project")
 
+	# default: nothing chosen yet
+	context.project = ""
+	context.project_name = ""
+	context.sites = allowed
+
 	if req:
 		if req not in [p["name"] for p in allowed]:
 			frappe.throw("You do not have access to this site.", frappe.PermissionError)
-		project = req
+		context.project = req
+		context.project_name = frappe.db.get_value("Project", req, "project_name") or req
 	elif len(allowed) == 1:
-		project = allowed[0]["name"]
-	else:
-		# no project chosen and more than one available -> back to the chooser
-		frappe.local.flags.redirect_location = "/site_app"
-		raise frappe.Redirect
+		context.project = allowed[0]["name"]
+		context.project_name = allowed[0]["project_name"] or allowed[0]["name"]
+	# else: multiple sites, none chosen -> the page shows the chooser (context.sites)
 
-	context.project = project
-	context.project_name = frappe.db.get_value("Project", project, "project_name") or project
 	return context
 
 
