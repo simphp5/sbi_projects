@@ -299,9 +299,9 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
       <div class="note" id="enrollNote" data-tone="">Freeze a clear face photo, then fill in the name.</div>
 
       <!-- Aadhaar capture, appears after a worker is added -->
-      <section id="aadhaarBlock" class="hidden" style="margin-top:20px;border-top:2px solid var(--ink);padding-top:16px">
-        <h2 style="font-size:18px;margin-bottom:4px">Aadhaar for <span id="aaName">worker</span></h2>
-        <p class="muted">For salary and records. Capture the front and back of the card.</p>
+      <section id="aadhaarBlock" style="margin-top:20px;border-top:2px solid var(--ink);padding-top:16px">
+        <h2 style="font-size:18px;margin-bottom:4px">Aadhaar for <span id="aaName">the new worker</span></h2>
+        <p class="muted">Add the worker above first, then capture the front and back of the Aadhaar card. Used for salary and records.</p>
         <div class="entry-row">
           <div>
             <label>Front</label>
@@ -559,7 +559,18 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
         $("score").textContent="";S.descriptor=null;S.labour=null;cancelCountdown();renderPunches([]);return;}
       stage.setAttribute("data-face","yes");
       S.descriptor=Array.prototype.slice.call(res.descriptor);
-      var now=Date.now();if(now-lastLookup<1800)return;lastLookup=now;
+      // face quality gate: detection score + face size in frame
+      var q = (res.detection && res.detection.score) || 0;
+      var box = res.detection && res.detection.box;
+      var v = $("video");
+      var sizeOk = box && v.videoWidth ? (box.width / v.videoWidth) > 0.18 : true;
+      S.faceQuality = q;
+      if(q < 0.7 || !sizeOk){
+        $("score").textContent = "hold steady";
+        cancelCountdown();
+        return;   // wait for a clearer frame
+      }
+      var now=Date.now();if(now-lastLookup<1200)return;lastLookup=now;
       call("site_api.match_worker",{embedding:S.descriptor,project:S.project}).then(function(m){
         if(!m){$("who").textContent="Not enrolled";$("score").textContent="";S.labour=null;
           cancelCountdown();renderPunches([]);
@@ -621,7 +632,7 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
   function startAutoPunch(restart){
     if(autoTimer && autoFor===S.labour && !restart) return;
     cancelCountdown();
-    autoFor=S.labour; autoCount=3;
+    autoFor=S.labour; autoCount=2;
     var next=S.allowed[0];
     note($("punchNote"),"","Punching "+S.labourName+" \u2014 "+next+" in "+autoCount+"\u2026 (move away to cancel)");
     autoTimer=setInterval(function(){
@@ -682,8 +693,6 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
       S.newLabour=r.id; S.newLabourType=r.type; $("aaName").textContent=r.name;
       beep("ok");
       note($("enrollNote"),"ok",r.name+" added as "+r.type+". Now capture the Aadhaar below.");
-      // Aadhaar only for Labour (Employee handled by HR); still allow if fields exist
-      $("aadhaarBlock").classList.remove("hidden");
       startAadhaarCam();
       $("aadhaarBlock").scrollIntoView({behavior:"smooth"});
     }).catch(function(e){note($("enrollNote"),"err",e.message);beep("err");})
@@ -738,7 +747,7 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
     $("aaOcrNote").textContent="";S.newLabour=null;S.aaFront=null;S.aaBack=null;
     $("aaFrozen").classList.add("hidden");$("aaFrozenB").classList.add("hidden");
     $("aaVideo").classList.remove("hidden");$("aaVideoB").classList.remove("hidden");
-    $("aaBackWrap").classList.add("hidden");$("aadhaarBlock").classList.add("hidden");
+    $("aaBackWrap").classList.add("hidden");
     unfreezeEnroll();stopCamera("aaF");stopCamera("aaB");
   }
 
@@ -826,11 +835,13 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
       var c=r.querySelector(".cc-cat").value,a=r.querySelector(".cc-amt").value;
       if(c&&a)cash.push({category:c,amount:a});});
     $("btnSaveDaily").disabled=true;note($("dailyNote"),"","Saving...");
-    call("site_api.submit_daily_log",{project:S.project,task:task,is_holiday:holiday,
+    call("site_api.submit_progress",{project:S.project,task:task,is_holiday:holiday,
       remarks:$("dlRemarks").value.trim()||null,
       progress_rows:JSON.stringify(progress),petty_cash:JSON.stringify(cash)
     }).then(function(r){
-      note($("dailyNote"),"ok","Today's entry saved. The office will review it.");
+      var n=(r&&r.attended_count)||0;
+      note($("dailyNote"),"ok","Saved and mapped to "+n+" worker"+(n===1?"":"s")+" present today.");
+      beep("ok");
       $("progressRows").innerHTML="";$("cashRows").innerHTML="";$("dlRemarks").value="";
       $("dlHoliday").checked=false;
     }).catch(function(e){note($("dailyNote"),"err",e.message);})

@@ -924,3 +924,105 @@ def save_worker_aadhaar(worker_type, worker_id, aadhaar_number=None,
 		frappe.db.set_value(dt, worker_id, updates, update_modified=True)
 		frappe.db.commit()
 	return {"saved": True, "last4": num[-4:] if num else None}
+
+
+@frappe.whitelist()
+def get_attended_today(project, log_date=None):
+	"""Everyone (Labour + Employee) with an IN punch today, for progress mapping."""
+	log_date = log_date or today()
+	rows = frappe.get_all(
+		"Labour Attendance Log",
+		filters={"project": project, "log_date": log_date, "log_type": "IN"},
+		fields=["labour", "employee", "worker_type", "labour_name"],
+	)
+	seen = set()
+	out = []
+	for r in rows:
+		wid = r.labour or r.employee
+		if not wid or wid in seen:
+			continue
+		seen.add(wid)
+		name = r.labour_name
+		if not name:
+			if r.employee:
+				name = frappe.db.get_value("Employee", r.employee, "employee_name")
+			elif r.labour:
+				name = frappe.db.get_value("Labour", r.labour, "labour_name")
+		out.append({
+			"worker_type": r.worker_type or ("Employee" if r.employee else "Labour"),
+			"id": wid,
+			"name": name or wid,
+		})
+	return out
+
+
+@frappe.whitelist()
+def submit_progress(project, task=None, log_date=None, is_holiday=0,
+                    remarks=None, progress_rows=None, petty_cash=None):
+	"""Save the day's progress and map it to everyone who attended.
+
+	The people present today are pulled from attendance and written into the
+	log's labour rows, so a day's progress is always tied to who did the work.
+	Cost figures are never returned to the caller.
+	"""
+	import json
+	_check_site_access(project)
+	log_date = log_date or today()
+
+	existing = frappe.db.exists("Daily Work Log",
+		{"project": project, "task": task, "log_date": log_date})
+	if existing:
+		doc = frappe.get_doc("Daily Work Log", existing)
+	else:
+		doc = frappe.new_doc("Daily Work Log")
+		doc.project = project
+		if task and doc.meta.has_field("task"):
+			doc.task = task
+		if doc.meta.has_field("log_date"):
+			doc.log_date = log_date
+
+	# progress rows
+	if progress_rows and doc.meta.has_field("sbi_progress_rows"):
+		rows = json.loads(progress_rows) if isinstance(progress_rows, str) else progress_rows
+		doc.set("sbi_progress_rows", [])
+		for r in rows:
+			doc.append("sbi_progress_rows", {
+				"progress_parameter": r.get("parameter"),
+				"qty_today": flt(r.get("quantity")),
+				"remarks": r.get("remarks"),
+			})
+
+	# petty cash -> cost table
+	if petty_cash and doc.meta.has_field("sbi_costs"):
+		rows = json.loads(petty_cash) if isinstance(petty_cash, str) else petty_cash
+		for r in rows:
+			doc.append("sbi_costs", {
+				"site_cost_category": r.get("category"),
+				"description": r.get("description"),
+				"amount": flt(r.get("amount")),
+			})
+
+	# map today's attendance into the labour rows
+	if doc.meta.has_field("labour_details"):
+		attended = get_attended_today(project, log_date)
+		existing_ids = {r.labour for r in doc.get("labour_details") if r.labour}
+		for w in attended:
+			# labour_details only links Labour; skip Employees here (kept in attendance)
+			if w["worker_type"] == "Labour" and w["id"] not in existing_ids:
+				doc.append("labour_details", {
+					"labour": w["id"],
+					"labour_name": w["name"],
+				})
+
+	if remarks:
+		if doc.meta.has_field("remarks"):
+			doc.remarks = remarks
+		elif doc.meta.has_field("sbi_remarks"):
+			doc.sbi_remarks = remarks
+
+	doc.flags.ignore_permissions = True
+	doc.save()
+	frappe.db.commit()
+
+	attended = get_attended_today(project, log_date)
+	return {"name": doc.name, "saved": True, "attended_count": len(attended)}
