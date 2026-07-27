@@ -269,7 +269,7 @@
   var detOpts=null;
   function detect(video){
     if(!detOpts)detOpts=new faceapi.TinyFaceDetectorOptions({inputSize:320,scoreThreshold:0.5});
-    return faceapi.detectSingleFace(video,detOpts).withFaceLandmarks(true).withFaceDescriptor();
+    return faceapi.detectSingleFace(video,detOpts).withFaceLandmarks().withFaceDescriptor();
   }
   // draw a Facebook-style tracking box on the overlay canvas
   function drawBox(canvasId, res, video, tone){
@@ -654,6 +654,7 @@
     Promise.all([
       faceapi.nets.tinyFaceDetector.loadFromUri(MODELS),
       faceapi.nets.faceLandmark68Net.loadFromUri(MODELS),
+      faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODELS),
       faceapi.nets.faceRecognitionNet.loadFromUri(MODELS)
     ]).then(function(){
       // options are optional - a failure here must never block the camera
