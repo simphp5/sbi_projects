@@ -1,0 +1,218 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:parameter_code",
+ "creation": "2026-07-23 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "parameter_code",
+  "parameter_name",
+  "section",
+  "section_no",
+  "column_break_1",
+  "bucket",
+  "display_order",
+  "is_mandatory",
+  "is_active",
+  "section_break_input",
+  "fieldtype",
+  "uom",
+  "default_value",
+  "column_break_2",
+  "options",
+  "section_break_applicability",
+  "applicable_work_type",
+  "section_break_help",
+  "help_text"
+ ],
+ "fields": [
+  {
+   "description": "UPPER_SNAKE_CASE. Used inside Quantity Rule formulas as params.CODE",
+   "fieldname": "parameter_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Parameter Code",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "parameter_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Parameter Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Section",
+   "options": "Building Parameter Section",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "section.section_no",
+   "fieldname": "section_no",
+   "fieldtype": "Int",
+   "label": "Section No",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "section.bucket",
+   "fieldname": "bucket",
+   "fieldtype": "Data",
+   "in_standard_filter": 1,
+   "label": "Bucket",
+   "read_only": 1
+  },
+  {
+   "description": "Order within the section",
+   "fieldname": "display_order",
+   "fieldtype": "Int",
+   "label": "Display Order"
+  },
+  {
+   "fieldname": "is_mandatory",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Is Mandatory"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active"
+  },
+  {
+   "fieldname": "section_break_input",
+   "fieldtype": "Section Break",
+   "label": "Input Definition"
+  },
+  {
+   "default": "Data",
+   "fieldname": "fieldtype",
+   "fieldtype": "Select",
+   "label": "Input Type",
+   "options": "Data\nFloat\nInt\nSelect\nCheck\nSmall Text\nDate\nAttach",
+   "reqd": 1
+  },
+  {
+   "description": "Display unit shown next to the input, e.g. m, T, kW, kg/m2",
+   "fieldname": "uom",
+   "fieldtype": "Data",
+   "label": "UOM"
+  },
+  {
+   "fieldname": "default_value",
+   "fieldtype": "Data",
+   "label": "Default Value"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.fieldtype=='Select'",
+   "description": "One value per line",
+   "fieldname": "options",
+   "fieldtype": "Small Text",
+   "label": "Options",
+   "mandatory_depends_on": "eval:doc.fieldtype=='Select'"
+  },
+  {
+   "fieldname": "section_break_applicability",
+   "fieldtype": "Section Break",
+   "label": "Applicability"
+  },
+  {
+   "fieldname": "applicable_work_type",
+   "fieldtype": "Table MultiSelect",
+   "label": "Applicable Work Type",
+   "options": "Building Parameter Work Type",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_help",
+   "fieldtype": "Section Break",
+   "label": "Help"
+  },
+  {
+   "description": "Shown to the client on the enquiry portal",
+   "fieldname": "help_text",
+   "fieldtype": "Small Text",
+   "label": "Help Text"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-23 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "PEB Estimation",
+ "name": "Building Parameter",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales User",
+   "share": 0,
+   "write": 0
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Projects Manager",
+   "share": 0,
+   "write": 0
+  }
+ ],
+ "search_fields": "parameter_name,section",
+ "show_title_field_in_link": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "parameter_name",
+ "track_changes": 1
+}
