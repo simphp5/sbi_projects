@@ -1,0 +1,76 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-07-28 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "sl_no",
+  "client_description",
+  "uom",
+  "qty",
+  "mapped_work_item",
+  "is_mapped"
+ ],
+ "fields": [
+  {
+   "columns": 1,
+   "fieldname": "sl_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Sl No"
+  },
+  {
+   "columns": 4,
+   "fieldname": "client_description",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Client Description",
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "uom",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "UOM"
+  },
+  {
+   "columns": 1,
+   "fieldname": "qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Qty"
+  },
+  {
+   "columns": 3,
+   "description": "SBI maps this client line to an internal work item (Phase 5)",
+   "fieldname": "mapped_work_item",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Mapped Work Item"
+  },
+  {
+   "columns": 1,
+   "fieldname": "is_mapped",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Mapped",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-07-28 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "PEB Estimation",
+ "name": "Building Enquiry BOQ Line",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

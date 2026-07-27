@@ -1,0 +1,115 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-07-28 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "parameter",
+  "parameter_name",
+  "section",
+  "section_no",
+  "fieldtype",
+  "value",
+  "uom",
+  "filled_by",
+  "is_mandatory",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "fieldname": "parameter",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Parameter",
+   "options": "Building Parameter",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "fetch_from": "parameter.parameter_name",
+   "fieldname": "parameter_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Parameter Name",
+   "read_only": 1
+  },
+  {
+   "columns": 2,
+   "fetch_from": "parameter.section",
+   "fieldname": "section",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Section",
+   "options": "Building Parameter Section",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "parameter.section_no",
+   "fieldname": "section_no",
+   "fieldtype": "Int",
+   "hidden": 1,
+   "label": "Section No",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "parameter.fieldtype",
+   "fieldname": "fieldtype",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Input Type",
+   "read_only": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "value",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Value"
+  },
+  {
+   "columns": 1,
+   "fetch_from": "parameter.uom",
+   "fieldname": "uom",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "UOM",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "default": "SBI",
+   "fieldname": "filled_by",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Filled By",
+   "options": "\nClient\nSBI"
+  },
+  {
+   "fieldname": "is_mandatory",
+   "fieldtype": "Check",
+   "label": "Mandatory",
+   "read_only": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-07-28 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "PEB Estimation",
+ "name": "Building Enquiry Parameter",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

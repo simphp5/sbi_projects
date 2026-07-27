@@ -1,0 +1,425 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-07-28 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "title",
+  "column_break_top",
+  "status",
+  "section_source",
+  "lead",
+  "opportunity",
+  "customer",
+  "column_break_source",
+  "customer_name",
+  "project_name",
+  "project_location",
+  "section_contact",
+  "contact_person",
+  "contact_email",
+  "column_break_contact",
+  "contact_mobile",
+  "section_scope",
+  "work_type",
+  "other_work_description",
+  "column_break_scope",
+  "input_mode",
+  "section_parameters",
+  "parameter_template",
+  "column_break_tmpl",
+  "total_parameters",
+  "filled_parameters",
+  "mandatory_pending",
+  "section_param_table",
+  "parameters",
+  "section_boq",
+  "client_boq_file",
+  "boq_lines",
+  "section_drawings",
+  "drawings",
+  "section_portal",
+  "access_token",
+  "link_valid_days",
+  "link_sent_on",
+  "column_break_portal",
+  "link_expires_on",
+  "client_submitted_on",
+  "client_verified_email",
+  "section_downstream",
+  "boq",
+  "quotation",
+  "section_remarks",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "default": "ENQ-.YY.-.####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "ENQ-.YY.-.####",
+   "reqd": 1
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Title",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_top",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Draft\nSent to Client\nClient Submitted\nUnder Review\nCosting in Progress\nQuoted\nWon\nLost",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_source",
+   "fieldtype": "Section Break",
+   "label": "Source"
+  },
+  {
+   "fieldname": "lead",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Lead",
+   "options": "Lead"
+  },
+  {
+   "fieldname": "opportunity",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Opportunity",
+   "options": "Opportunity"
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Customer",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "column_break_source",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "customer_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Customer / Client Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Project Name"
+  },
+  {
+   "fieldname": "project_location",
+   "fieldtype": "Data",
+   "label": "Project Location"
+  },
+  {
+   "fieldname": "section_contact",
+   "fieldtype": "Section Break",
+   "label": "Contact"
+  },
+  {
+   "fieldname": "contact_person",
+   "fieldtype": "Data",
+   "label": "Contact Person"
+  },
+  {
+   "description": "OTP and the enquiry link are sent here",
+   "fieldname": "contact_email",
+   "fieldtype": "Data",
+   "label": "Contact Email",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_contact",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "contact_mobile",
+   "fieldtype": "Data",
+   "label": "Contact Mobile"
+  },
+  {
+   "fieldname": "section_scope",
+   "fieldtype": "Section Break",
+   "label": "Scope"
+  },
+  {
+   "fieldname": "work_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Work Type",
+   "options": "Building Work Type",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.work_type=='Others'",
+   "fieldname": "other_work_description",
+   "fieldtype": "Small Text",
+   "label": "Describe Other Scope",
+   "mandatory_depends_on": "eval:doc.work_type=='Others'"
+  },
+  {
+   "fieldname": "column_break_scope",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "SBI Parameters",
+   "description": "Default suggestion. The client can change this on the portal.",
+   "fieldname": "input_mode",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "label": "Input Mode",
+   "options": "SBI Parameters\nBOQ Upload\nDrawing Upload",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.input_mode=='SBI Parameters'",
+   "fieldname": "section_parameters",
+   "fieldtype": "Section Break",
+   "label": "Parameters"
+  },
+  {
+   "description": "Only Approved templates can be loaded",
+   "fieldname": "parameter_template",
+   "fieldtype": "Link",
+   "label": "Parameter Template",
+   "options": "Building Parameter Template"
+  },
+  {
+   "fieldname": "column_break_tmpl",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_parameters",
+   "fieldtype": "Int",
+   "label": "Total",
+   "read_only": 1
+  },
+  {
+   "fieldname": "filled_parameters",
+   "fieldtype": "Int",
+   "label": "Filled",
+   "read_only": 1
+  },
+  {
+   "fieldname": "mandatory_pending",
+   "fieldtype": "Int",
+   "label": "Mandatory Pending",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_param_table",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "parameters",
+   "fieldtype": "Table",
+   "label": "Parameters",
+   "options": "Building Enquiry Parameter"
+  },
+  {
+   "depends_on": "eval:doc.input_mode=='BOQ Upload'",
+   "fieldname": "section_boq",
+   "fieldtype": "Section Break",
+   "label": "Client BOQ"
+  },
+  {
+   "description": "Accepted: .xlsx, .xls, .pdf",
+   "fieldname": "client_boq_file",
+   "fieldtype": "Attach",
+   "label": "Client BOQ File"
+  },
+  {
+   "fieldname": "boq_lines",
+   "fieldtype": "Table",
+   "label": "BOQ Lines",
+   "options": "Building Enquiry BOQ Line"
+  },
+  {
+   "depends_on": "eval:doc.input_mode=='Drawing Upload'",
+   "fieldname": "section_drawings",
+   "fieldtype": "Section Break",
+   "label": "Drawings"
+  },
+  {
+   "description": "Accepted: .pdf, .jpg, .jpeg, .png",
+   "fieldname": "drawings",
+   "fieldtype": "Table",
+   "label": "Drawings",
+   "options": "Building Enquiry Drawing"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_portal",
+   "fieldtype": "Section Break",
+   "label": "Client Portal"
+  },
+  {
+   "fieldname": "access_token",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Access Token",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "default": "15",
+   "description": "Set when generating the link",
+   "fieldname": "link_valid_days",
+   "fieldtype": "Int",
+   "label": "Link Valid (days)"
+  },
+  {
+   "fieldname": "link_sent_on",
+   "fieldtype": "Datetime",
+   "label": "Link Sent On",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_portal",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "link_expires_on",
+   "fieldtype": "Date",
+   "label": "Link Expires On",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "client_submitted_on",
+   "fieldtype": "Datetime",
+   "label": "Client Submitted On",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "description": "Email the client verified via OTP on the portal",
+   "fieldname": "client_verified_email",
+   "fieldtype": "Data",
+   "label": "Verified Email",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_downstream",
+   "fieldtype": "Section Break",
+   "label": "Downstream"
+  },
+  {
+   "description": "Set when BOQ is created (Phase 5)",
+   "fieldname": "boq",
+   "fieldtype": "Data",
+   "label": "BOQ",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "quotation",
+   "fieldtype": "Link",
+   "label": "Quotation",
+   "no_copy": 1,
+   "options": "Quotation",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_remarks",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-28 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "PEB Estimation",
+ "name": "Building Enquiry",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales User",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Projects Manager",
+   "share": 0,
+   "write": 0
+  }
+ ],
+ "search_fields": "customer_name,project_name,work_type",
+ "show_title_field_in_link": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title",
+ "track_changes": 1
+}
