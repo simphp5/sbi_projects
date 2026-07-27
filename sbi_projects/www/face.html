@@ -1,4 +1,3 @@
-{% raw %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -96,7 +95,7 @@
 <div class="wrap">
   <div class="bar">
     <img src="/assets/sbi_projects/site_app/sbi-logo-full.png" alt="SBI">
-    <span class="site" id="siteName">Site</span>
+    <span class="site" id="siteName">Site<small id="clock" style="display:block;font-size:11px;font-weight:600;opacity:.85"></small></span>
     <button id="btnWorkers" type="button">Workers</button>
     <button id="btnMode" type="button">Add worker</button>
   </div>
@@ -110,7 +109,7 @@
         <div class="ring"></div>
         <div class="count hidden" id="countA">3</div>
         <div class="badge">
-          <div class="who" id="whoA">Looking for a faceâ€¦</div>
+          <div class="who" id="whoA">Looking for a face...</div>
           <div class="sub" id="subA">Look at the camera and hold still.</div>
         </div>
       </div>
@@ -177,7 +176,7 @@
 
   // ---- tuning (client) ----
   var MIN_SCORE=0.82;      // face-api detection confidence to accept a frame
-  var MIN_FACE=0.30;       // face box width / video width â€” must be reasonably close
+  var MIN_FACE=0.30;       // face box width / video width - must be reasonably close
   var STABLE_FRAMES=3;     // consecutive good frames before we act
   var PUNCH_COUNTDOWN=2;   // seconds before an auto punch
   // -------------------------
@@ -282,7 +281,7 @@
         cancelCount();
       }else{
         aGood=0;stage.setAttribute("data-face","no");
-        $("whoA").textContent="Looking for a faceâ€¦";
+        $("whoA").textContent="Looking for a face...";
         $("subA").textContent="Look at the camera and hold still.";
         S.lastId=null;cancelCount();hideToday();
       }
@@ -298,7 +297,7 @@
         aBusy=false;aGood=0;return;
       }
       $("whoA").textContent=m.name;
-      $("subA").textContent=m.type+" Â· match "+Math.round(m.confidence*100)+"%";
+      $("subA").textContent=m.type+" - match "+Math.round(m.confidence*100)+"%";
       return api("face_api.day_status",{worker_type:m.type,worker_id:m.id,project:PROJECT})
         .then(function(ds){
           showToday(m.name,ds);
@@ -314,7 +313,7 @@
   function startCount(m,next){
     cancelCount();aPending=m;aCountVal=PUNCH_COUNTDOWN;
     $("countA").classList.remove("hidden");$("countA").textContent=aCountVal;
-    note($("noteA"),"",next+" â€” hold stillâ€¦");
+    note($("noteA"),"",next+" - hold still...");
     aCountTimer=setInterval(function(){
       aCountVal--;
       if(aCountVal<=0){cancelCount();doPunch(m,next);}
@@ -332,7 +331,8 @@
         if(r.already){note($("noteA"),"warn",r.name+" already has "+r.log_type+" today.");beep("warn");}
         else{
           var extra=r.within_geofence?"":" (off-site "+Math.round(r.distance)+"m)";
-          note($("noteA"),r.within_geofence?"ok":"warn",r.name+" â€” "+r.log_type+" at "+r.time+extra);
+          note($("noteA"),r.within_geofence?"ok":"warn",
+            r.name+" - "+r.log_type+"  "+stamp()+extra);
           beep(r.within_geofence?"ok":"warn");
         }
         return api("face_api.day_status",{worker_type:m.type,worker_id:m.id,project:PROJECT})
@@ -346,7 +346,7 @@
 
   function showToday(name,ds){
     $("todayA").classList.remove("hidden");
-    $("todayName").textContent=name+" â€” today";
+    $("todayName").textContent=name+" - today";
     var seq=["IN","LUNCH OUT","LUNCH IN","OUT"];
     var done={};ds.punches.forEach(function(p){done[p.log_type]=p.time;});
     $("todayChips").innerHTML=seq.map(function(s){
@@ -369,7 +369,7 @@
       if(q.ok){
         eGood++;
         stage.setAttribute("data-face","yes");
-        $("whoE").textContent="Hold stillâ€¦";
+        $("whoE").textContent="Hold still...";
         $("subE").textContent=eGood+" / "+STABLE_FRAMES;
         if(eGood>=STABLE_FRAMES){freeze(res,v);return;}
       }else if(q.near){
@@ -388,7 +388,7 @@
     eImg=snapshot(video);
     $("frameE").src=eImg;$("frameE").classList.remove("hidden");$("camE").classList.add("hidden");
     $("stageE").setAttribute("data-face","yes");
-    $("whoE").textContent="\u2713 Captured";$("subE").textContent="Enter the details.";
+    $("whoE").textContent="OK  Captured";$("subE").textContent="Enter the details.";
     beep("ok");
     openDetails();
   }
@@ -417,11 +417,11 @@
   function openDetails(){
     var isLab=S.wt==="Labour";
     var body='<label>Full name</label><input id="dName" placeholder="Full name">'+
-      '<label>Gender</label><select id="dGender"><option value="">â€”</option>'+optList(S.opts.gender)+'</select>'+
+      '<label>Gender</label><select id="dGender"><option value="">-</option>'+optList(S.opts.gender)+'</select>'+
       '<label>Phone</label><input id="dPhone" inputmode="tel" placeholder="Optional">';
     if(isLab){
-      body+='<label>Skill</label><select id="dSkill"><option value="">â€”</option>'+optList(S.opts.skill)+'</select>'+
-        '<label>Wage type</label><select id="dWage"><option value="">â€”</option>'+optList(S.opts.wage_types)+'</select>'+
+      body+='<label>Skill</label><select id="dSkill"><option value="">-</option>'+optList(S.opts.skill)+'</select>'+
+        '<label>Wage type</label><select id="dWage"><option value="">-</option>'+optList(S.opts.wage_types)+'</select>'+
         '<label>Wage rate</label><input id="dRate" inputmode="decimal" placeholder="0">';
     }
     modal("New "+S.wt,body,[
@@ -433,7 +433,7 @@
           gender:val("dGender"),phone:val("dPhone"),
           skill:val("dSkill"),wage_type:val("dWage"),wage_rate:val("dRate")};
         closeModal();
-        note($("noteE"),"","Adding "+name+"â€¦");
+        note($("noteE"),"","Adding "+name+"...");
         api("face_api.enroll",payload).then(function(r){
           if(r&&r.duplicate){
             note($("noteE"),"warn","Already enrolled as "+r.name+" ("+r.type+").");
@@ -450,7 +450,7 @@
   function val(id){var e=$(id);return e?e.value:null;}
 
   function openAadhaar(worker){
-    modal("Aadhaar â€” "+worker.name,
+    modal("Aadhaar - "+worker.name,
       '<div class="stage" style="aspect-ratio:16/10">'+
         '<video id="aaCam" playsinline muted autoplay></video>'+
         '<img class="frame hidden" id="aaImg" alt="">'+
@@ -458,7 +458,7 @@
       '<button class="btn" id="aaShot" style="margin-top:10px">Capture front</button>'+
       '<div class="tiny" id="aaMsg">Point at the front of the Aadhaar card.</div>'+
       '<label>Aadhaar number</label>'+
-      '<input id="aaNum" inputmode="numeric" maxlength="14" placeholder="Reads from photo â€” check it">',
+      '<input id="aaNum" inputmode="numeric" maxlength="14" placeholder="Reads from photo - check it">',
       [
         {label:"Skip",ghost:true,onClick:function(){closeModal();stopCam("aa");finishEnroll(worker,null,null,null);}},
         {label:"Save",onClick:function(){
@@ -477,7 +477,7 @@
       if(S._aaStep==="front"){
         S._aaFront=data;S._aaStep="back";
         img.src=data;img.classList.remove("hidden");v.classList.add("hidden");beep("ok");
-        $("aaMsg").textContent="Reading numberâ€¦";ocr(data);
+        $("aaMsg").textContent="Reading number...";ocr(data);
         setTimeout(function(){img.classList.add("hidden");v.classList.remove("hidden");
           btn.textContent="Capture back";$("aaMsg").textContent="Now the back, then Capture.";},1400);
       }else{
@@ -493,8 +493,8 @@
       var d=((res.data&&res.data.text)||"").replace(/\D/g,"");
       var m=d.match(/\d{12}/);var inp=$("aaNum");
       if(m&&inp){inp.value=m[0].replace(/(\d{4})(\d{4})(\d{4})/,"$1 $2 $3");
-        $("aaMsg").textContent="Number read â€” check it.";}
-      else $("aaMsg").textContent="Could not read â€” type it.";
+        $("aaMsg").textContent="Number read - check it.";}
+      else $("aaMsg").textContent="Could not read - type it.";
     }).catch(function(){});
   }
 
@@ -518,13 +518,13 @@
   // =====================================================================
   function loadRoster(){
     var box=$("rosterList");
-    box.innerHTML='<div class="tiny">Loadingâ€¦</div>';
+    box.innerHTML='<div class="tiny">Loading...</div>';
     api("face_api.roster",{project:PROJECT}).then(function(rows){
       if(!rows||!rows.length){box.innerHTML='<div class="tiny">No workers enrolled at this site yet. Use Add worker.</div>';return;}
       box.innerHTML=rows.map(function(r){
         var av=r.photo?'<img class="av" src="'+esc(r.photo)+'">':'<span class="av"></span>';
         return '<div class="rw">'+av+
-          '<span class="nm">'+esc(r.name)+'<small>'+esc(r.type)+(r.last?' Â· last '+esc(r.last):'')+'</small></span>'+
+          '<span class="nm">'+esc(r.name)+'<small>'+esc(r.type)+(r.last?' - last '+esc(r.last):'')+'</small></span>'+
           '<span class="st '+(r.on_site?'on':'off')+'">'+(r.on_site?'On site':'Off')+'</span></div>';
       }).join("");
     }).catch(function(e){box.innerHTML='<div class="tiny">'+esc(e.message)+'</div>';});
@@ -547,8 +547,18 @@
     }
   }
 
+  function pad(n){return (n<10?"0":"")+n;}
+  function stamp(d){
+    d=d||new Date();
+    return pad(d.getDate())+"/"+pad(d.getMonth()+1)+"/"+String(d.getFullYear()).slice(2)+
+      " "+pad(d.getHours())+":"+pad(d.getMinutes());
+  }
+  function tickClock(){var c=$("clock");if(c)c.textContent=stamp();}
+
   function boot(){
-    $("siteName").textContent=PROJECT_NAME||"Site";
+    // site name text (avoid clobbering the clock child)
+    $("siteName").childNodes[0].nodeValue=(PROJECT_NAME||"Site")+" ";
+    tickClock();setInterval(tickClock,10000);
     $("btnMode").onclick=function(){setMode(S.mode==="enroll"?"attend":"enroll");};
     $("btnWorkers").onclick=function(){setMode("workers");};
     $("btnBackToAttend").onclick=function(){setMode("attend");};
@@ -568,19 +578,21 @@
     }
 
     // load models + options, then start
-    note($("noteA"),"","Loading face modelsâ€¦");
+    note($("noteA"),"","Loading face models...");
     Promise.all([
       faceapi.nets.tinyFaceDetector.loadFromUri(MODELS),
       faceapi.nets.faceLandmark68Net.loadFromUri(MODELS),
       faceapi.nets.faceRecognitionNet.loadFromUri(MODELS)
     ]).then(function(){
-      return api("face_api.enroll_options",{}).then(function(o){S.opts=o||{};});
+      // options are optional - a failure here must never block the camera
+      return api("face_api.enroll_options",{}).then(function(o){S.opts=o||{};})
+        .catch(function(){S.opts={gender:["Male","Female","Other"],skill:[],wage_types:[]};});
     }).then(function(){
       S.ready=true;
       note($("noteA"),"","Point the camera at a worker's face.");
       setMode("attend");
     }).catch(function(e){
-      note($("noteA"),"err","Could not load face models. Reload the page. ("+(e&&e.message||e)+")");
+      note($("noteA"),"err","Could not load the face models. Check the internet connection and reload.");
     });
   }
 
@@ -590,4 +602,3 @@
 </script>
 </body>
 </html>
-{% endraw %}
