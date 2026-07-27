@@ -205,17 +205,23 @@
     facingA:"user", facingE:"user", darkA:true, darkE:true
   };
 
-  function api(method,args){
-    // method may be "enroll_options" or "face_api.enroll_options"; normalise to just the fn
+  function api(method,args,_retried){
     var fn = method.indexOf(".")>=0 ? method.split(".").pop() : method;
     return fetch("/api/method/sbi_projects.sbi_projects.face_api."+fn,{
       method:"POST", credentials:"same-origin",
       headers:{"Content-Type":"application/json","X-Frappe-CSRF-Token":CSRF},
       body:JSON.stringify(args||{})
     }).then(function(r){
+      if(r.status===400 && !_retried){
+        // likely a stale CSRF token â€” get a fresh one and retry once
+        return fetch("/api/method/sbi_projects.sbi_projects.face_api.get_token",{credentials:"same-origin"})
+          .then(function(x){return x.json();})
+          .then(function(j){ if(j&&j.message&&j.message.csrf_token) CSRF=j.message.csrf_token;
+            return api(method,args,true); });
+      }
       if(!r.ok) return r.text().then(function(t){throw new Error("Server "+r.status);});
-      return r.json();
-    }).then(function(j){return j.message;});
+      return r.json().then(function(j){return j.message;});
+    });
   }
 
   function note(el,tone,msg){el.setAttribute("data-tone",tone||"");el.textContent=msg;}
@@ -727,6 +733,12 @@
         S.gps={lat:p.coords.latitude,lng:p.coords.longitude};
       },function(){},{enableHighAccuracy:true,maximumAge:15000,timeout:12000});
     }
+
+    // fetch a fresh CSRF token first (GET needs no CSRF); keeps POSTs valid
+    fetch("/api/method/sbi_projects.sbi_projects.face_api.get_token",{credentials:"same-origin"})
+      .then(function(r){return r.json();})
+      .then(function(j){ if(j&&j.message&&j.message.csrf_token) CSRF=j.message.csrf_token; })
+      .catch(function(){});
 
     // load models + options, then start
     note($("noteA"),"","Loading face models...");

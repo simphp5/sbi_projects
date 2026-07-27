@@ -351,3 +351,13 @@ def save_aadhaar(worker_type, worker_id, aadhaar_number=None,
 		frappe.db.set_value(dt, worker_id, updates, update_modified=True)
 		frappe.db.commit()
 	return {"saved": True, "last4": num[-4:] if num else None}
+
+
+@frappe.whitelist()
+def get_token():
+	"""Return a fresh CSRF token for the current session.
+
+	Fetched via GET on page load, so POSTs afterwards always carry a valid token
+	even if the server-rendered one went stale.
+	"""
+	return {"csrf_token": frappe.sessions.get_csrf_token()}
