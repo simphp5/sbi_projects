@@ -32,6 +32,7 @@
   .spot{position:absolute;inset:0;pointer-events:none;border-radius:14px;
     background:radial-gradient(ellipse 62% 50% at 50% 44%,
       rgba(0,0,0,0) 0%, rgba(0,0,0,0) 42%, rgba(0,0,0,.55) 78%, rgba(0,0,0,.82) 100%)}
+  .track{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
   .ring{position:absolute;inset:0;pointer-events:none;border:4px solid transparent;border-radius:14px;
     transition:border-color .15s}
   .stage[data-face="yes"] .ring{border-color:#22c55e}
@@ -106,6 +107,7 @@
       <div class="stage" id="stageA" data-face="no">
         <video id="camA" playsinline muted autoplay></video>
         <div class="spot"></div>
+        <canvas id="trackA" class="track"></canvas>
         <div class="ring"></div>
         <div class="count hidden" id="countA">3</div>
         <div class="badge">
@@ -136,6 +138,7 @@
         <video id="camE" playsinline muted autoplay></video>
         <img class="frame hidden" id="frameE" alt="">
         <div class="spot"></div>
+        <canvas id="trackE" class="track"></canvas>
         <div class="ring"></div>
         <div class="count hidden" id="countE"></div>
         <div class="badge">
@@ -175,9 +178,9 @@
   var MODELS="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model";
 
   // ---- tuning (client) ----
-  var MIN_SCORE=0.82;      // face-api detection confidence to accept a frame
-  var MIN_FACE=0.30;       // face box width / video width - must be reasonably close
-  var STABLE_FRAMES=3;     // consecutive good frames before we act
+  var MIN_SCORE=0.55;      // detection confidence to ACT (TinyFaceDetector is ~0.5-0.9)
+  var MIN_FACE=0.16;       // face box width / video width - phone at arm's length
+  var STABLE_FRAMES=2;     // consecutive good frames before we act
   var PUNCH_COUNTDOWN=2;   // seconds before an auto punch
   // -------------------------
 
@@ -244,37 +247,78 @@
     if(!detOpts)detOpts=new faceapi.TinyFaceDetectorOptions({inputSize:320,scoreThreshold:0.5});
     return faceapi.detectSingleFace(video,detOpts).withFaceLandmarks(true).withFaceDescriptor();
   }
+  // draw a Facebook-style tracking box on the overlay canvas
+  function drawBox(canvasId, res, video, tone){
+    var cv=$(canvasId); if(!cv||!video.videoWidth) return;
+    // match canvas pixels to the video's displayed size
+    var w=cv.clientWidth, h=cv.clientHeight;
+    if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h;}
+    var ctx=cv.getContext("2d");
+    ctx.clearRect(0,0,w,h);
+    if(!res||!res.detection||!res.detection.box) return;
+    var b=res.detection.box;
+    // video uses object-fit:cover -> compute the scale + offset the browser applied
+    var vw=video.videoWidth, vh=video.videoHeight;
+    var scale=Math.max(w/vw, h/vh);
+    var dispW=vw*scale, dispH=vh*scale;
+    var offX=(w-dispW)/2, offY=(h-dispH)/2;
+    // front camera is mirrored via CSS? our video is NOT mirrored, so no flip needed
+    var x=b.x*scale+offX, y=b.y*scale+offY, bw=b.width*scale, bh=b.height*scale;
+    var color=tone==="yes"?"#22c55e":tone==="near"?"#f59e0b":"#ffffff";
+    // rounded corner brackets (camera-style)
+    var r=Math.min(bw,bh)*0.22, lw=4;
+    ctx.strokeStyle=color; ctx.lineWidth=lw; ctx.lineCap="round";
+    function corner(cx,cy,dx,dy){
+      ctx.beginPath();
+      ctx.moveTo(cx, cy+dy*r); ctx.lineTo(cx, cy); ctx.lineTo(cx+dx*r, cy);
+      ctx.stroke();
+    }
+    corner(x, y, 1, 1);            // top-left
+    corner(x+bw, y, -1, 1);       // top-right
+    corner(x, y+bh, 1, -1);       // bottom-left
+    corner(x+bw, y+bh, -1, -1);   // bottom-right
+  }
+  function clearBox(canvasId){var cv=$(canvasId);if(cv){var c=cv.getContext("2d");c.clearRect(0,0,cv.width,cv.height);}}
+
   function quality(res,video){
-    if(!res)return {ok:false,near:false};
+    if(!res)return {ok:false,detected:false,near:false,score:0};
     var score=(res.detection&&res.detection.score)||0;
     var box=res.detection&&res.detection.box;
     var frac=box&&video.videoWidth?box.width/video.videoWidth:0;
-    if(score>=MIN_SCORE&&frac>=MIN_FACE)return {ok:true,near:false,score:score};
-    if(score>=0.6&&frac>=MIN_FACE*0.7)return {ok:false,near:true,score:score};
-    return {ok:false,near:false,score:score};
+    // a face is DETECTED (ring shows) whenever face-api returns one
+    if(score>=MIN_SCORE&&frac>=MIN_FACE)return {ok:true,detected:true,near:false,score:score,frac:frac};
+    // detected but too small -> guide closer
+    return {ok:false,detected:true,near:frac<MIN_FACE,score:score,frac:frac};
   }
 
   // =====================================================================
   // ATTENDANCE LOOP
   // =====================================================================
-  var aGood=0, aBusy=false, aCountTimer=null, aCountVal=0, aPending=null;
+  var aGood=0, aBusy=false, aBusySince=0, aCountTimer=null, aCountVal=0, aPending=null;
+  // watchdog: never let the attendance loop stay stuck
+  setInterval(function(){
+    if(aBusy && aBusySince && (Date.now()-aBusySince)>8000){ aBusy=false; aGood=0; }
+  },2000);
 
   function attendLoop(){
     if(S.mode!=="attend"||!S.ready){return setTimeout(attendLoop,400);}
     if(aBusy){return setTimeout(attendLoop,300);}
-    var v=$("camA");
+    var v=$("camA"), stage=$("stageA");
+    if(!v||!v.videoWidth){return setTimeout(attendLoop,250);}
     detect(v).then(function(res){
       var q=quality(res,v);
-      var stage=$("stageA");
+      drawBox("trackA",res,v,q.ok?"yes":q.detected?"near":"no");
       if(q.ok){
         aGood++;
         stage.setAttribute("data-face","yes");
+        $("whoA").textContent="Hold still...";
+        $("subA").textContent="Reading face ("+aGood+"/"+STABLE_FRAMES+")";
         if(aGood>=STABLE_FRAMES){
-          aBusy=true;
+          aBusy=true;aBusySince=Date.now();
           var desc=Array.prototype.slice.call(res.descriptor);
           matchAndPunch(desc);
         }
-      }else if(q.near){
+      }else if(q.detected){
         aGood=0;stage.setAttribute("data-face","near");
         $("whoA").textContent="Come a little closer";
         $("subA").textContent="Fill the ring with your face.";
@@ -285,16 +329,22 @@
         $("subA").textContent="Look at the camera and hold still.";
         S.lastId=null;cancelCount();hideToday();
       }
-    }).catch(function(){}).then(function(){setTimeout(attendLoop,220);});
+    }).catch(function(){
+      // keep the loop alive even if one detection throws
+    }).then(function(){setTimeout(attendLoop,200);});
   }
 
   function matchAndPunch(desc){
+    // safety: never let aBusy stay stuck
+    var released=false;
+    function release(){if(!released){released=true;setTimeout(function(){aBusy=false;aGood=0;},800);}}
+    setTimeout(function(){if(!released){released=true;aBusy=false;aGood=0;}},6000); // hard fallback
     api("face_api.match",{embedding:desc,project:PROJECT}).then(function(m){
       if(!m){
         $("whoA").textContent="Not recognized";
         $("subA").textContent="Not enrolled here. Use Add worker.";
         note($("noteA"),"warn","Face not recognized at this site.");
-        aBusy=false;aGood=0;return;
+        release();return;
       }
       $("whoA").textContent=m.name;
       $("subA").textContent=m.type+" - match "+Math.round(m.confidence*100)+"%";
@@ -303,11 +353,11 @@
           showToday(m.name,ds);
           if(ds.finished){
             note($("noteA"),"ok",m.name+" has completed all punches today.");
-            beep("ok");aBusy=false;return;
+            beep("ok");release();return;
           }
           startCount(m,ds.next);
         });
-    }).catch(function(e){note($("noteA"),"err",e.message);aBusy=false;});
+    }).catch(function(e){note($("noteA"),"err",e.message);release();});
   }
 
   function startCount(m,next){
@@ -340,7 +390,7 @@
       }).catch(function(e){note($("noteA"),"err",e.message);})
       .then(function(){
         // brief pause so the same face doesn't immediately re-trigger
-        setTimeout(function(){aBusy=false;aGood=0;},1500);
+        setTimeout(function(){aBusy=false;aGood=0;},1800);
       });
   }
 
@@ -364,22 +414,24 @@
   function enrollLoop(){
     if(S.mode!=="enroll"||!S.ready||eFrozen){return setTimeout(enrollLoop,400);}
     var v=$("camE");
+    if(!v||!v.videoWidth){return setTimeout(enrollLoop,250);}
     detect(v).then(function(res){
       var q=quality(res,v);var stage=$("stageE");
+      drawBox("trackE",res,v,q.ok?"yes":q.detected?"near":"no");
       if(q.ok){
         eGood++;
         stage.setAttribute("data-face","yes");
         $("whoE").textContent="Hold still...";
         $("subE").textContent=eGood+" / "+STABLE_FRAMES;
         if(eGood>=STABLE_FRAMES){freeze(res,v);return;}
-      }else if(q.near){
+      }else if(q.detected){
         eGood=0;stage.setAttribute("data-face","near");
-        $("whoE").textContent="Come closer";$("subE").textContent="Fill the ring.";
+        $("whoE").textContent="Come closer";$("subE").textContent="Fill the ring with your face.";
       }else{
         eGood=0;stage.setAttribute("data-face","no");
         $("whoE").textContent="Position the face";$("subE").textContent="Inside the ring, look ahead.";
       }
-    }).catch(function(){}).then(function(){setTimeout(enrollLoop,220);});
+    }).catch(function(){}).then(function(){setTimeout(enrollLoop,200);});
   }
 
   function freeze(res,video){
@@ -536,7 +588,7 @@
     $("workers").classList.toggle("hidden",m!=="workers");
     $("enroll").classList.toggle("hidden",m!=="enroll");
     $("btnMode").textContent=m==="enroll"?"Attendance":"Add worker";
-    stopCam("a");stopCam("e");cancelCount();
+    stopCam("a");stopCam("e");cancelCount();clearBox("trackA");clearBox("trackE");
     if(m==="attend"){
       resetEnroll();
       startCam($("camA"),"a","user").then(function(){aBusy=false;aGood=0;attendLoop();});
