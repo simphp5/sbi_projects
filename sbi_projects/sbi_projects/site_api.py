@@ -677,40 +677,54 @@ def _all_face_records(project=None):
 	return out
 
 
-def _cosine(a, b):
-	dot = sum(x * y for x, y in zip(a, b))
-	na = sum(x * x for x in a) ** 0.5
-	nb = sum(y * y for y in b) ** 0.5
-	if not na or not nb:
-		return 0.0
-	return dot / (na * nb)
+def _euclidean(a, b):
+	"""Euclidean distance between two face descriptors (face-api standard).
+
+	Lower is more similar.  For face-api's 128-d descriptors, the same person
+	is typically below 0.5 and different people above 0.6.
+	"""
+	if len(a) != len(b):
+		return 999.0
+	return sum((x - y) ** 2 for x, y in zip(a, b)) ** 0.5
+
+
+# distance thresholds (face-api convention)
+MATCH_MAX_DISTANCE = 0.52      # at or below -> confident same person
+DUPLICATE_MAX_DISTANCE = 0.52  # enrolling: block if this close to an existing face
 
 
 @frappe.whitelist()
-def match_worker(embedding, project=None, threshold=0.62):
-	"""Match a face against both Labour and Employee. Returns the best worker."""
+def match_worker(embedding, project=None, max_distance=None):
+	"""Match a face against Labour + Employee using Euclidean distance.
+
+	Returns the closest worker only if the distance is within the threshold, so
+	an unknown face is rejected rather than matched to the nearest stranger.
+	"""
 	if isinstance(embedding, str):
 		embedding = json.loads(embedding)
-	threshold = flt(threshold)
+	limit = flt(max_distance) if max_distance else MATCH_MAX_DISTANCE
 
 	best = None
-	best_score = 0.0
+	best_dist = 999.0
 	for rec in _all_face_records(project=project):
 		try:
 			stored = json.loads(rec["embedding"]) if isinstance(rec["embedding"], str) else rec["embedding"]
 		except Exception:
 			continue
-		score = _cosine(embedding, stored)
-		if score > best_score:
-			best_score = score
+		d = _euclidean(embedding, stored)
+		if d < best_dist:
+			best_dist = d
 			best = rec
 
-	if best and best_score >= threshold:
+	if best and best_dist <= limit:
+		# convert distance to a friendly 0-1 confidence for display
+		confidence = max(0.0, 1.0 - (best_dist / 0.6))
 		return {
 			"type": best["type"],
 			"id": best["id"],
 			"name": best["name"],
-			"score": round(best_score, 3),
+			"distance": round(best_dist, 3),
+			"score": round(confidence, 3),
 		}
 	return None
 
@@ -729,10 +743,23 @@ def enroll_worker(worker_type, name, embedding, photo=None, project=None,
 	else:
 		emb = json.dumps(embedding)
 
-	# duplicate face guard across both masters
-	dup = match_worker(embedding, threshold=0.75)
-	if dup:
-		return {"duplicate": True, "type": dup["type"], "id": dup["id"], "name": dup["name"]}
+	# duplicate face guard across both masters (search ALL sites, not just this one,
+	# so the same person is never enrolled twice anywhere)
+	emb = embedding if isinstance(embedding, list) else json.loads(embedding)
+	dup = None
+	dup_dist = 999.0
+	for rec in _all_face_records(project=None):
+		try:
+			stored = json.loads(rec["embedding"]) if isinstance(rec["embedding"], str) else rec["embedding"]
+		except Exception:
+			continue
+		d = _euclidean(emb, stored)
+		if d < dup_dist:
+			dup_dist = d
+			dup = rec
+	if dup and dup_dist <= DUPLICATE_MAX_DISTANCE:
+		return {"duplicate": True, "type": dup["type"], "id": dup["id"], "name": dup["name"],
+		        "distance": round(dup_dist, 3)}
 
 	if worker_type == "Employee":
 		doc = frappe.new_doc("Employee")

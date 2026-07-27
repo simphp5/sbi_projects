@@ -600,7 +600,8 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
           note($("punchNote"),"warn","This face is not enrolled. Use Add worker.");return;}
         var changed = S.labour !== m.id;
         S.labour=m.id;S.labourName=m.name;S.labourType=m.type;
-        $("who").textContent=m.name+" ("+m.type+")";$("score").textContent="match "+Math.round(m.score*100)+"%";
+        $("who").textContent=m.name+" ("+m.type+")";
+        $("score").textContent="match "+Math.round((m.score||0)*100)+"%";
         return refreshDay(m.id).then(function(){
           if(S.allowed && S.allowed.length){ startAutoPunch(changed); }
         });
@@ -711,17 +712,25 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
   }
 
   function autoFreezeEnroll(res){
-    S.enrollDescriptor=Array.prototype.slice.call(res.descriptor);
-    var img=snapshot($("video2"));
-    $("frozen2").src=img;$("frozen2").classList.remove("hidden");$("video2").classList.add("hidden");
-    $("stage2").setAttribute("data-face","yes");
-    enFrozen=true;enGoodFrames=0;
-    $("who2").textContent="\u2713 Face captured";
-    beep("ok");
-    if(navigator.vibrate)navigator.vibrate([60,40,60]);
-    note($("enrollNote"),"ok","Face captured. Fill in the details.");
-    // straight to the details popup
-    openWorkerDetailsDialog();
+    try{
+      enFrozen=true;enGoodFrames=0;               // stop the loop first
+      S.enrollDescriptor=Array.prototype.slice.call(res.descriptor);
+      var v=$("video2"), fr=$("frozen2");
+      if(v && fr){
+        var img=snapshot(v);
+        fr.src=img; fr.classList.remove("hidden"); v.classList.add("hidden");
+      }
+      if($("stage2"))$("stage2").setAttribute("data-face","yes");
+      if($("who2"))$("who2").textContent="\u2713 Face captured";
+      beep("ok");
+      if(navigator.vibrate)navigator.vibrate([60,40,60]);
+      note($("enrollNote"),"ok","Face captured. Fill in the details.");
+      openWorkerDetailsDialog();
+    }catch(err){
+      enFrozen=false;                              // let them retry
+      note($("enrollNote"),"err","Capture failed: "+(err&&err.message||err));
+      beep("err");
+    }
   }
 
   function freezeEnroll(){ /* manual fallback */
@@ -819,6 +828,8 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
 
   // -------- custom modal helpers (www page: no frappe.ui.Dialog) --------
   function modalOpen(title, bodyHtml, footButtons){
+    var back=$("modalBack");
+    if(!back){ alert(title+"\n\n(popup unavailable â€” please reload)"); return; }
     $("modalTitle").textContent=title;
     $("modalBody").innerHTML=bodyHtml;
     var foot=$("modalFoot");foot.innerHTML="";
@@ -828,7 +839,7 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
       btn.className=b.primary?"primary":"mf-secondary";
       btn.onclick=b.onClick;foot.appendChild(btn);
     });
-    $("modalBack").classList.remove("hidden");
+    back.classList.remove("hidden");
   }
   function modalClose(){$("modalBack").classList.add("hidden");$("modalBody").innerHTML="";}
   function opt(list){return (list||[]).map(function(s){return '<option value="'+esc(s)+'">'+esc(s)+'</option>';}).join("");}
