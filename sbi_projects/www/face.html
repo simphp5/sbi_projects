@@ -32,6 +32,10 @@
   .spot{position:absolute;inset:0;pointer-events:none;border-radius:14px;
     background:radial-gradient(ellipse 62% 50% at 50% 44%,
       rgba(0,0,0,0) 0%, rgba(0,0,0,0) 42%, rgba(0,0,0,.55) 78%, rgba(0,0,0,.82) 100%)}
+  .cam-ctrl{display:flex;gap:8px;margin-bottom:10px}
+  .cc{flex:1;min-height:44px;border:2px solid var(--line);background:var(--card);border-radius:10px;
+    font-size:14px;font-weight:700;color:var(--ink)}
+  .cc[aria-pressed="false"]{color:var(--soft)}
   .track{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
   .ring{position:absolute;inset:0;pointer-events:none;border:4px solid transparent;border-radius:14px;
     transition:border-color .15s}
@@ -104,6 +108,10 @@
   <main>
     <!-- ATTENDANCE (default) -->
     <section id="attend">
+      <div class="cam-ctrl">
+        <button type="button" class="cc" id="flipA">Flip camera</button>
+        <button type="button" class="cc" id="darkA" aria-pressed="true">Dark bg: On</button>
+      </div>
       <div class="stage" id="stageA" data-face="no">
         <video id="camA" playsinline muted autoplay></video>
         <div class="spot"></div>
@@ -134,6 +142,10 @@
         <button type="button" data-wt="Labour" aria-pressed="true" id="segLabour">Labour</button>
         <button type="button" data-wt="Employee" aria-pressed="false" id="segEmp">Employee</button>
       </div>
+      <div class="cam-ctrl">
+        <button type="button" class="cc" id="flipE">Flip camera</button>
+        <button type="button" class="cc" id="darkE" aria-pressed="true">Dark bg: On</button>
+      </div>
       <div class="stage" id="stageE" data-face="no">
         <video id="camE" playsinline muted autoplay></video>
         <img class="frame hidden" id="frameE" alt="">
@@ -149,7 +161,10 @@
       <div class="note" id="noteE" data-tone="">A clear, close face captures on its own.</div>
       <div class="row">
         <button class="btn ghost" id="btnRetake" type="button">Retake</button>
-        <button class="btn" id="btnBackToAttend" type="button">Done</button>
+        <button class="btn" id="btnCapture" type="button">Capture now</button>
+      </div>
+      <div class="row">
+        <button class="btn ghost" id="btnBackToAttend" type="button">Back to attendance</button>
       </div>
     </section>
   </main>
@@ -186,7 +201,8 @@
 
   var S={
     mode:"attend", ready:false, wt:"Labour",
-    gps:null, lastId:null, opts:{}
+    gps:null, lastId:null, opts:{},
+    facingA:"user", facingE:"user", darkA:true, darkE:true
   };
 
   function api(method,args){
@@ -261,8 +277,33 @@
 
   function snapshot(video){
     var c=$("cv");c.width=video.videoWidth||480;c.height=video.videoHeight||640;
-    c.getContext("2d").drawImage(video,0,0,c.width,c.height);
+    var ctx=c.getContext("2d");
+    ctx.drawImage(video,0,0,c.width,c.height);
+    stampPhoto(ctx,c.width,c.height);
     return c.toDataURL("image/jpeg",0.85);
+  }
+
+  // burn the date/time + GPS onto the photo (attendance proof)
+  function stampPhoto(ctx,w,h){
+    var lines=[stamp()];
+    if(S.gps){
+      lines.push("GPS "+S.gps.lat.toFixed(5)+", "+S.gps.lng.toFixed(5));
+    }else{
+      lines.push("GPS: acquiring...");
+    }
+    if(PROJECT_NAME)lines.push(PROJECT_NAME);
+    var fs=Math.max(14,Math.round(w*0.032));
+    var pad=Math.round(fs*0.5);
+    var lh=fs+pad;
+    var barH=lh*lines.length+pad;
+    ctx.fillStyle="rgba(0,0,0,.55)";
+    ctx.fillRect(0,h-barH,w,barH);
+    ctx.fillStyle="#fff";
+    ctx.font="600 "+fs+"px system-ui,sans-serif";
+    ctx.textBaseline="top";
+    lines.forEach(function(t,i){
+      ctx.fillText(t,pad,h-barH+pad+i*lh);
+    });
   }
 
   // ---- face detection (one clean helper) ----
@@ -399,8 +440,10 @@
     $("countA").classList.add("hidden");aPending=null;
   }
   function doPunch(m,next){
+    var photo=null;
+    try{photo=snapshot($("camA"));}catch(e){}   // stamped with time + GPS
     api("face_api.punch",{worker_type:m.type,worker_id:m.id,project:PROJECT,
-      log_type:next,latitude:S.gps&&S.gps.lat,longitude:S.gps&&S.gps.lng})
+      log_type:next,latitude:S.gps&&S.gps.lat,longitude:S.gps&&S.gps.lng,photo:photo})
       .then(function(r){
         if(r.already){note($("noteA"),"warn",r.name+" already has "+r.log_type+" today.");beep("warn");}
         else{
@@ -575,14 +618,20 @@
   }
 
   function finishEnroll(worker,num,front,back){
-    // save aadhaar via a dedicated call if any data was captured
+    var done=function(){
+      beep("ok");
+      resetEnroll();
+      // show the worker in the list so it is clearly saved
+      setMode("workers");
+      note($("noteA"),"ok",worker.name+" added to this site.");
+    };
     if(num||front||back){
       api("save_aadhaar",{worker_type:worker.type,worker_id:worker.id,
-          aadhaar_number:num,front_image:front,back_image:back}).catch(function(){});
+          aadhaar_number:num,front_image:front,back_image:back})
+        .then(done).catch(function(){done();});
+    }else{
+      done();
     }
-    beep("ok");
-    note($("noteE"),"ok",worker.name+" saved. Ready for the next worker.");
-    resetEnroll();
   }
 
   // =====================================================================
@@ -611,9 +660,9 @@
     stopCam("a");stopCam("e");cancelCount();clearBox("trackA");clearBox("trackE");
     if(m==="attend"){
       resetEnroll();
-      startCam($("camA"),"a","user").then(function(){aBusy=false;aGood=0;attendLoop();});
+      startCam($("camA"),"a",S.facingA).then(function(){aBusy=false;aGood=0;attendLoop();});
     }else if(m==="enroll"){
-      startCam($("camE"),"e","user").then(function(){resetEnroll();enrollLoop();});
+      startCam($("camE"),"e",S.facingE).then(function(){resetEnroll();enrollLoop();});
     }else if(m==="workers"){
       loadRoster();
     }
@@ -641,6 +690,36 @@
           x.setAttribute("aria-pressed",x===b?"true":"false");});};
     });
     $("back").onclick=function(e){if(e.target===$("back")){closeModal();stopCam("aa");}};
+
+    // camera flip (front/rear)
+    $("flipA").onclick=function(){
+      S.facingA=S.facingA==="user"?"environment":"user";
+      startCam($("camA"),"a",S.facingA).then(function(){aBusy=false;aGood=0;});
+    };
+    $("flipE").onclick=function(){
+      S.facingE=S.facingE==="user"?"environment":"user";
+      resetEnroll();startCam($("camE"),"e",S.facingE);
+    };
+    // dark background toggle
+    $("darkA").onclick=function(){
+      S.darkA=!S.darkA;this.setAttribute("aria-pressed",S.darkA?"true":"false");
+      this.textContent="Dark bg: "+(S.darkA?"On":"Off");
+      $("stageA").querySelector(".spot").style.display=S.darkA?"":"none";
+    };
+    $("darkE").onclick=function(){
+      S.darkE=!S.darkE;this.setAttribute("aria-pressed",S.darkE?"true":"false");
+      this.textContent="Dark bg: "+(S.darkE?"On":"Off");
+      $("stageE").querySelector(".spot").style.display=S.darkE?"":"none";
+    };
+    // manual capture (fallback if auto-freeze is slow)
+    $("btnCapture").onclick=function(){
+      if(eFrozen)return;
+      var v=$("camE");
+      detect(v).then(function(res){
+        if(!res){note($("noteE"),"warn","No clear face. Move closer and try again.");beep("warn");return;}
+        freeze(res,v);
+      });
+    };
 
     // GPS (non-blocking)
     if(navigator.geolocation){

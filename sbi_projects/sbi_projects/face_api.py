@@ -222,7 +222,7 @@ def day_status(worker_type, worker_id, project=None):
 @frappe.whitelist()
 def punch(worker_type, worker_id, project, log_type,
           latitude=None, longitude=None, photo=None):
-	"""Record one punch with the entry time; block a repeat of the same type."""
+	"""Record one punch with the entry time (and a stamped photo); block repeats."""
 	existing = {"log_date": today(), "log_type": log_type}
 	if worker_type == "Employee":
 		existing["employee"] = worker_id
@@ -256,6 +256,16 @@ def punch(worker_type, worker_id, project, log_type,
 
 	doc.flags.ignore_permissions = True
 	doc.insert(ignore_permissions=True)
+
+	# always keep the stamped photo as proof: attach it to this log record,
+	# and also set a photo field if the doctype has one
+	if photo:
+		url = _save_photo(photo, "Labour Attendance Log", doc.name)
+		for fld in ("sbi_photo", "attendance_photo", "photo", "face_photo"):
+			if doc.meta.has_field(fld):
+				frappe.db.set_value("Labour Attendance Log", doc.name, fld, url)
+				break
+
 	frappe.db.commit()
 
 	return {"ok": True, "name": vals["labour_name"], "log_type": log_type,
