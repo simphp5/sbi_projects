@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
 <title>SBI Site Attendance</title>
+<link rel="manifest" href="/face_manifest.json">
+<meta name="theme-color" content="#be1e2d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SBI Attendance">
+<link rel="apple-touch-icon" href="/assets/sbi_projects/site_app/apple-touch-icon.png">
+<link rel="icon" href="/assets/sbi_projects/site_app/icon-192.png">
 <style>
   :root{
     --brand:#be1e2d; --ink:#141414; --soft:#6b7280; --line:#e5e7eb;
@@ -101,6 +109,7 @@
   <div class="bar">
     <img src="/assets/sbi_projects/site_app/sbi-logo-full.png" alt="SBI">
     <span class="site" id="siteName">Site<small id="clock" style="display:block;font-size:11px;font-weight:600;opacity:.85"></small></span>
+    <button id="btnInstall" type="button" class="hidden" style="background:#fff;color:var(--brand)">Install</button>
     <button id="btnWorkers" type="button">Workers</button>
     <button id="btnMode" type="button">Add worker</button>
   </div>
@@ -850,7 +859,29 @@
   }
   function tickClock(){var c=$("clock");if(c)c.textContent=stamp();}
 
+  function setupPWA(){
+    if("serviceWorker" in navigator){
+      navigator.serviceWorker.register("/face_sw.js",{scope:"/face"})
+        .catch(function(){});
+    }
+    var deferred=null;
+    window.addEventListener("beforeinstallprompt",function(e){
+      e.preventDefault(); deferred=e;
+      var b=$("btnInstall"); if(b) b.classList.remove("hidden");
+    });
+    var ib=$("btnInstall");
+    if(ib) ib.onclick=function(){
+      if(!deferred)return;
+      deferred.prompt();
+      deferred.userChoice.then(function(){ deferred=null; ib.classList.add("hidden"); });
+    };
+    window.addEventListener("appinstalled",function(){
+      var b=$("btnInstall"); if(b) b.classList.add("hidden");
+    });
+  }
+
   function boot(){
+    setupPWA();
     // site name text (avoid clobbering the clock child)
     $("siteName").childNodes[0].nodeValue=(PROJECT_NAME||"Site")+" ";
     tickClock();setInterval(tickClock,10000);
