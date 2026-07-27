@@ -653,15 +653,71 @@
     };
   }
 
+  // preprocess the photo for OCR: grayscale + contrast + upscale the number band
+  function prepForOcr(dataUrl){
+    return new Promise(function(resolve){
+      var img=new Image();
+      img.onload=function(){
+        // Aadhaar number sits in the lower-middle band; crop to it and enlarge
+        var cw=img.width, ch=img.height;
+        var cropY=Math.round(ch*0.45), cropH=Math.round(ch*0.45);   // middle-lower band
+        var scale=Math.max(1, 1000/cw);                              // upscale small photos
+        var c=document.createElement("canvas");
+        c.width=Math.round(cw*scale); c.height=Math.round(cropH*scale);
+        var ctx=c.getContext("2d");
+        ctx.drawImage(img,0,cropY,cw,cropH,0,0,c.width,c.height);
+        // grayscale + contrast stretch
+        var id=ctx.getImageData(0,0,c.width,c.height), px=id.data;
+        for(var i=0;i<px.length;i+=4){
+          var g=0.299*px[i]+0.587*px[i+1]+0.114*px[i+2];
+          g=(g-128)*1.6+128;                 // boost contrast
+          g=g<0?0:g>255?255:g;
+          g=g>140?255:(g<90?0:g);            // soft threshold toward black/white
+          px[i]=px[i+1]=px[i+2]=g;
+        }
+        ctx.putImageData(id,0,0);
+        resolve(c.toDataURL("image/jpeg",0.95));
+      };
+      img.onerror=function(){resolve(dataUrl);};
+      img.src=dataUrl;
+    });
+  }
+
+  function extractCands(text){
+    var cands=[];
+    var spaced=text.match(/(\d{4})\D{0,3}(\d{4})\D{0,3}(\d{4})/g)||[];
+    spaced.forEach(function(s){var d=s.replace(/\D/g,"");if(d.length===12)cands.push(d);});
+    var digits=text.replace(/[^0-9]/g,"");
+    for(var i=0;i+12<=digits.length;i++){cands.push(digits.substr(i,12));}
+    return cands;
+  }
+
   function ocr(dataUrl){
     if(typeof Tesseract==="undefined")return;
-    Tesseract.recognize(dataUrl,"eng").then(function(res){
-      var d=((res.data&&res.data.text)||"").replace(/\D/g,"");
-      var m=d.match(/\d{12}/);var inp=$("aaNum");
-      if(m&&inp){inp.value=m[0].replace(/(\d{4})(\d{4})(\d{4})/,"$1 $2 $3");
-        $("aaMsg").textContent="Number read - check it.";}
-      else $("aaMsg").textContent="Could not read - type it.";
-    }).catch(function(){});
+    $("aaMsg").textContent="Reading number...";
+    var cfg={tessedit_char_whitelist:"0123456789 ",tessedit_pageseg_mode:"6"};
+    prepForOcr(dataUrl).then(function(clean){
+      // two passes: enhanced crop + full image, then merge candidates
+      return Promise.all([
+        Tesseract.recognize(clean,"eng",cfg).then(function(r){return r.data.text;}).catch(function(){return "";}),
+        Tesseract.recognize(dataUrl,"eng",cfg).then(function(r){return r.data.text;}).catch(function(){return "";})
+      ]);
+    }).then(function(texts){
+      var inp=$("aaNum");
+      var cands=[];
+      texts.forEach(function(t){cands=cands.concat(extractCands(t||""));});
+      // UIDAI: never starts with 0 or 1. Pick the most frequent valid candidate.
+      var valid=cands.filter(function(n){return n[0]!=="0"&&n[0]!=="1";});
+      var freq={};valid.forEach(function(n){freq[n]=(freq[n]||0)+1;});
+      var pick=Object.keys(freq).sort(function(a,b){return freq[b]-freq[a];})[0]
+               ||cands.find(function(n){return n.length===12;});
+      if(pick&&inp){
+        inp.value=pick.replace(/(\d{4})(\d{4})(\d{4})/,"$1 $2 $3");
+        $("aaMsg").textContent=valid.length?"Number read - please check it.":"Read (uncertain) - check carefully.";
+      }else{
+        $("aaMsg").textContent="Could not read clearly - type the number.";
+      }
+    }).catch(function(){$("aaMsg").textContent="Could not read - type the number.";});
   }
 
   function finishEnroll(worker,num,front,back){
