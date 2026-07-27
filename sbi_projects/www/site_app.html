@@ -149,6 +149,19 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
 .wtype-btn{flex:1;min-height:52px;border:2px solid var(--rule);background:var(--card);
   font-size:15px;font-weight:700;color:var(--ink-soft)}
 .wtype-btn[aria-pressed="true"]{border-color:var(--brand);color:var(--brand);background:#fff}
+.modal-back{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.55);
+  display:flex;align-items:flex-end;justify-content:center;padding:0}
+.modal-card{background:var(--card);width:100%;max-width:520px;border-radius:14px 14px 0 0;
+  max-height:92dvh;overflow:auto;display:flex;flex-direction:column}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;
+  border-bottom:1px solid var(--rule);position:sticky;top:0;background:var(--card);font-weight:800;font-size:18px}
+.modal-head button{background:transparent;border:0;font-size:26px;line-height:1;color:var(--ink-soft);width:40px}
+.modal-body{padding:16px 18px}
+.modal-foot{padding:14px 18px;border-top:1px solid var(--rule);display:flex;gap:8px;
+  position:sticky;bottom:0;background:var(--card)}
+.modal-foot .primary{margin-top:0}
+.modal-foot button{flex:1;min-height:56px;font-size:17px;font-weight:800;border-radius:2px}
+.mf-secondary{background:var(--card);border:2px solid var(--rule);color:var(--ink)}
 .soon{border:2px dashed var(--rule);background:var(--card);padding:28px 20px;text-align:center;margin-top:20px}
 .soon h2{font-size:20px;margin-bottom:8px;color:var(--brand)}
 .soon p{color:var(--ink-soft);font-size:15px;margin:0}
@@ -384,6 +397,16 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
 
   </div>
   <div class="queue hidden" id="queueBar"></div>
+
+  <!-- custom modal (www page has no frappe.ui.Dialog) -->
+  <div id="modalBack" class="modal-back hidden">
+    <div class="modal-card">
+      <div class="modal-head"><span id="modalTitle">Details</span>
+        <button type="button" id="modalX" aria-label="Close">Ã—</button></div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-foot" id="modalFoot"></div>
+    </div>
+  </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
@@ -653,30 +676,206 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
       localStorage.setItem(QKEY,JSON.stringify(r));paintQueue();queueFlush();}).catch(function(){});}
 
   // -------- enroll --------
-  var enFrozen=false;
+  var enFrozen=false, enGoodFrames=0;
   function enrollLoop(){
-    if(!S.ready||$("enrollScreen").classList.contains("hidden")||enFrozen){return setTimeout(enrollLoop,800);}
+    if(!S.ready||$("enrollScreen").classList.contains("hidden")||
+       $("workerAddWrap").classList.contains("hidden")||enFrozen){
+      return setTimeout(enrollLoop,500);
+    }
     detect($("video2")).then(function(res){
-      var ok=!!res;$("stage2").setAttribute("data-face",ok?"yes":"no");
-      $("who2").textContent=ok?"Face detected - tap Freeze":"Face the camera";
-    }).catch(function(){}).then(function(){setTimeout(enrollLoop,800);});
+      if(!res){
+        $("stage2").setAttribute("data-face","no");
+        $("who2").textContent="Face the camera";
+        enGoodFrames=0;
+        return;
+      }
+      // quality gate: clear + large enough face
+      var q=(res.detection&&res.detection.score)||0;
+      var box=res.detection&&res.detection.box;
+      var v=$("video2");
+      var sizeOk=box&&v.videoWidth?(box.width/v.videoWidth)>0.22:true;
+      if(q>=0.8&&sizeOk){
+        enGoodFrames++;
+        $("stage2").setAttribute("data-face","yes");
+        $("who2").textContent="Hold stillâ€¦ ("+enGoodFrames+"/2)";
+        if(enGoodFrames>=2){
+          autoFreezeEnroll(res);   // two clear frames -> auto freeze
+          return;
+        }
+      }else{
+        enGoodFrames=0;
+        $("stage2").setAttribute("data-face","no");
+        $("who2").textContent = q<0.8 ? "Come closer / hold steady" : "Move into the ring";
+      }
+    }).catch(function(){}).then(function(){setTimeout(enrollLoop,450);});
   }
-  function freezeEnroll(){
+
+  function autoFreezeEnroll(res){
+    S.enrollDescriptor=Array.prototype.slice.call(res.descriptor);
+    var img=snapshot($("video2"));
+    $("frozen2").src=img;$("frozen2").classList.remove("hidden");$("video2").classList.add("hidden");
+    $("stage2").setAttribute("data-face","yes");
+    enFrozen=true;enGoodFrames=0;
+    $("who2").textContent="\u2713 Face captured";
+    beep("ok");
+    if(navigator.vibrate)navigator.vibrate([60,40,60]);
+    note($("enrollNote"),"ok","Face captured. Fill in the details.");
+    // straight to the details popup
+    openWorkerDetailsDialog();
+  }
+
+  function freezeEnroll(){ /* manual fallback */
     detect($("video2")).then(function(res){
-      if(!res){note($("enrollNote"),"warn","No face detected. Try again.");return;}
-      S.enrollDescriptor=Array.prototype.slice.call(res.descriptor);
-      var img=snapshot($("video2"));
-      $("frozen2").src=img;$("frozen2").classList.remove("hidden");$("video2").classList.add("hidden");
-      $("stage2").setAttribute("data-face","yes");   // keep the green ring on the frozen shot
-      enFrozen=true;$("btnFreeze2").textContent="Retake";$("who2").textContent="âœ“ Face captured";
-      beep("ok");
-      note($("enrollNote"),"ok","Face captured. Now fill in the name and add the worker.");
+      if(!res){note($("enrollNote"),"warn","No face detected. Try again.");beep("warn");return;}
+      autoFreezeEnroll(res);
     });
   }
   function unfreezeEnroll(){
-    enFrozen=false;S.enrollDescriptor=null;
+    enFrozen=false;enGoodFrames=0;S.enrollDescriptor=null;
     $("frozen2").classList.add("hidden");$("video2").classList.remove("hidden");
-    $("btnFreeze2").textContent="Freeze";
+    if($("btnFreeze2"))$("btnFreeze2").textContent="Freeze";
+  }
+
+  // -------- guided Aadhaar popup (custom modal) --------
+  function openAadhaarDialog(workerName){
+    S._aaFront=null;S._aaBack=null;S._aaStep="front";
+    var body=
+      '<div style="position:relative;background:#000;border-radius:6px;overflow:hidden;aspect-ratio:16/10">'+
+        '<video id="aaDlgVideo" playsinline muted autoplay style="width:100%;height:100%;object-fit:cover"></video>'+
+        '<img id="aaDlgFrozen" class="hidden" style="width:100%;height:100%;object-fit:cover" alt="">'+
+      '</div>'+
+      '<button type="button" id="aaDlgCapture" class="primary" style="margin-top:10px">Capture front</button>'+
+      '<div id="aaDlgStatus" class="muted" style="margin-top:8px">Point at the front of the card, then Capture.</div>'+
+      '<label style="margin-top:12px">Aadhaar number</label>'+
+      '<input id="aaDlgNumber" type="text" inputmode="numeric" maxlength="14" placeholder="Reads from photo, correct if needed">';
+    modalOpen("Aadhaar for "+workerName, body, [
+      {label:"Skip",onClick:function(){
+        modalClose();stopCamera("aaDlg");
+        note($("enrollNote"),"ok","Worker saved (no Aadhaar). Ready for the next.");
+        resetEnrollFull();showMasterTab("list");
+      }},
+      {label:"Save Aadhaar",primary:true,onClick:function(){
+        var num=($("aaDlgNumber").value||"").replace(/[^0-9]/g,"");
+        if(num&&num.length!==12){beep("warn");$("aaDlgStatus").textContent="Aadhaar must be 12 digits.";return;}
+        modalClose();stopCamera("aaDlg");
+        call("site_api.save_worker_aadhaar",{worker_type:S.newLabourType||"Labour",
+          worker_id:S.newLabour,aadhaar_number:num||null,
+          front_image:S._aaFront||null,back_image:S._aaBack||null}).then(function(){
+          beep("ok");if(navigator.vibrate)navigator.vibrate([60,40,60]);
+          note($("enrollNote"),"ok","Worker and Aadhaar saved. Ready for the next worker.");
+          resetEnrollFull();showMasterTab("list");
+        }).catch(function(e){note($("enrollNote"),"err",e.message);beep("err");});
+      }}
+    ]);
+
+    var vid=document.getElementById("aaDlgVideo");
+    startCamera(vid,"environment","aaDlg").catch(function(){
+      var s=document.getElementById("aaDlgStatus");if(s)s.textContent="Camera not available.";
+    });
+
+    document.getElementById("aaDlgCapture").onclick=function(){
+      var btn=this;
+      var v=document.getElementById("aaDlgVideo"), img=document.getElementById("aaDlgFrozen");
+      var c=$("canvas");c.width=800;c.height=Math.round(800*(v.videoHeight||500)/(v.videoWidth||800));
+      c.getContext("2d").drawImage(v,0,0,c.width,c.height);
+      var data=c.toDataURL("image/jpeg",0.8);
+      if(S._aaStep==="front"){
+        S._aaFront=data;S._aaStep="back";
+        img.src=data;img.classList.remove("hidden");v.classList.add("hidden");
+        beep("ok");if(navigator.vibrate)navigator.vibrate(50);
+        document.getElementById("aaDlgStatus").textContent="Reading numberâ€¦";
+        runOcrDlg(data);
+        setTimeout(function(){
+          img.classList.add("hidden");v.classList.remove("hidden");
+          btn.textContent="Capture back";
+          document.getElementById("aaDlgStatus").textContent="Now the back of the card, then Capture.";
+        },1400);
+      }else{
+        S._aaBack=data;beep("ok");if(navigator.vibrate)navigator.vibrate(50);
+        img.src=data;img.classList.remove("hidden");v.classList.add("hidden");
+        document.getElementById("aaDlgStatus").textContent="Both sides captured. Save when ready.";
+        btn.disabled=true;
+      }
+    };
+  }
+
+  function runOcrDlg(dataUrl){
+    if(typeof Tesseract==="undefined"){return;}
+    Tesseract.recognize(dataUrl,"eng").then(function(res){
+      var digits=((res.data&&res.data.text)||"").replace(/[^0-9]/g,"");
+      var m=digits.match(/\d{12}/);
+      var inp=document.getElementById("aaDlgNumber");
+      if(m&&inp){inp.value=m[0].replace(/(\d{4})(\d{4})(\d{4})/,"$1 $2 $3");
+        document.getElementById("aaDlgStatus").textContent="Number read â€” please check it.";}
+      else{document.getElementById("aaDlgStatus").textContent="Could not read â€” type the number.";}
+    }).catch(function(){});
+  }
+
+  function resetEnrollFull(){
+    enFrozen=false;enGoodFrames=0;S.enrollDescriptor=null;S.newLabour=null;
+    S._aaFront=null;S._aaBack=null;
+    $("frozen2").classList.add("hidden");$("video2").classList.remove("hidden");
+  }
+
+  // -------- custom modal helpers (www page: no frappe.ui.Dialog) --------
+  function modalOpen(title, bodyHtml, footButtons){
+    $("modalTitle").textContent=title;
+    $("modalBody").innerHTML=bodyHtml;
+    var foot=$("modalFoot");foot.innerHTML="";
+    footButtons.forEach(function(b){
+      var btn=document.createElement("button");
+      btn.type="button";btn.textContent=b.label;
+      btn.className=b.primary?"primary":"mf-secondary";
+      btn.onclick=b.onClick;foot.appendChild(btn);
+    });
+    $("modalBack").classList.remove("hidden");
+  }
+  function modalClose(){$("modalBack").classList.add("hidden");$("modalBody").innerHTML="";}
+  function opt(list){return (list||[]).map(function(s){return '<option value="'+esc(s)+'">'+esc(s)+'</option>';}).join("");}
+
+  // -------- guided details popup after auto-freeze --------
+  function openWorkerDetailsDialog(){
+    var isLab=S.workerType==="Labour";
+    var body=
+      '<label>Full name</label><input id="mdName" type="text" placeholder="Full name">'+
+      '<label>Gender</label><select id="mdGender"><option value="">Not set</option>'+opt(S._genderOpts||["Male","Female","Other"])+'</select>'+
+      '<label>Phone</label><input id="mdPhone" type="tel" inputmode="tel" placeholder="Optional">';
+    if(isLab){
+      body+='<label>Skill</label><select id="mdSkill"><option value="">Not set</option>'+opt(S._skillOpts)+'</select>'+
+        '<label>Wage type</label><select id="mdWage"><option value="">Not set</option>'+opt(S._wageOpts)+'</select>'+
+        '<label>Wage rate</label><input id="mdRate" type="number" inputmode="decimal" placeholder="0">';
+    }
+    modalOpen("New "+S.workerType+" details", body, [
+      {label:"Retake photo",onClick:function(){modalClose();unfreezeEnroll();}},
+      {label:"Add worker",primary:true,onClick:function(){
+        var v={name:($("mdName").value||"").trim(),
+          gender:$("mdGender")?$("mdGender").value:"",
+          phone:$("mdPhone")?$("mdPhone").value.trim():"",
+          skill:$("mdSkill")?$("mdSkill").value:"",
+          wage_type:$("mdWage")?$("mdWage").value:"",
+          wage_rate:$("mdRate")?$("mdRate").value:0};
+        if(!v.name){$("mdName").focus();beep("warn");return;}
+        modalClose();doEnrollFromDialog(v);
+      }}
+    ]);
+    setTimeout(function(){var n=$("mdName");if(n)n.focus();},100);
+  }
+
+  function doEnrollFromDialog(v){
+    note($("enrollNote"),"","Adding "+v.name+"...");
+    call("site_api.enroll_worker",{
+      worker_type:S.workerType, name:v.name, gender:v.gender||null,
+      skill:v.skill||null, phone:v.phone||null,
+      wage_type:v.wage_type||null, wage_rate:v.wage_rate||0,
+      project:S.project, embedding:S.enrollDescriptor, photo:$("frozen2").src
+    }).then(function(r){
+      if(r&&r.duplicate){note($("enrollNote"),"warn","Already enrolled as "+r.name+" ("+r.type+").");beep("warn");unfreezeEnroll();return;}
+      S.newLabour=r.id;S.newLabourType=r.type;
+      beep("ok");if(navigator.vibrate)navigator.vibrate([60,40,60]);
+      note($("enrollNote"),"ok",r.name+" added. Now capture the Aadhaar.");
+      // straight to the Aadhaar popup
+      openAadhaarDialog(r.name);
+    }).catch(function(e){note($("enrollNote"),"err",e.message);beep("err");unfreezeEnroll();});
   }
   function doEnroll(){
     var name=$("enName").value.trim();
@@ -957,6 +1156,8 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
       };
     });
     $("btnEnroll").onclick=doEnroll;
+    $("modalX").onclick=function(){modalClose();stopCamera("aaDlg");};
+    $("modalBack").onclick=function(e){if(e.target===$("modalBack")){modalClose();stopCamera("aaDlg");}};
     $("tabList").onclick=function(){showMasterTab("list");};
     $("tabAdd").onclick=function(){showMasterTab("add");};
     $("wlRefresh").onclick=loadWorkerList;
@@ -989,6 +1190,9 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
       ]);
     }).then(function(res){
       var opt=res[0]||{};
+      S._genderOpts=opt.gender||["Male","Female","Other"];
+      S._skillOpts=opt.skill||[];
+      S._wageOpts=opt.wage_types||[];
       fillSelect($("enGender"),opt.gender,false);
       fillSelect($("enSkill"),opt.skill,true);
       fillSelect($("enWage"),opt.wage_types,true);
