@@ -140,6 +140,10 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
 .person .nm small{display:block;font-weight:500;color:var(--ink-soft);font-size:13px}
 .chk{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:16px;font-weight:700}
 .chk input{width:26px;height:26px;min-height:0}
+.wtype{display:flex;gap:8px;margin-bottom:4px}
+.wtype-btn{flex:1;min-height:52px;border:2px solid var(--rule);background:var(--card);
+  font-size:15px;font-weight:700;color:var(--ink-soft)}
+.wtype-btn[aria-pressed="true"]{border-color:var(--brand);color:var(--brand);background:#fff}
 .soon{border:2px dashed var(--rule);background:var(--card);padding:28px 20px;text-align:center;margin-top:20px}
 .soon h2{font-size:20px;margin-bottom:8px;color:var(--brand)}
 .soon p{color:var(--ink-soft);font-size:15px;margin:0}
@@ -249,6 +253,11 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
           <button id="btnFreeze2" type="button">Freeze</button>
         </div>
         <div class="badge"><span class="who" id="who2">Face the camera</span></div>
+      </div>
+      <label>Worker type</label>
+      <div class="wtype">
+        <button type="button" class="wtype-btn" data-wt="Labour" aria-pressed="true">Labour (weekly)</button>
+        <button type="button" class="wtype-btn" data-wt="Employee" aria-pressed="false">Employee (SBI)</button>
       </div>
       <label for="enName">Worker name</label>
       <input id="enName" type="text" autocomplete="off" placeholder="Full name">
@@ -366,7 +375,8 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
     descriptor:null, labour:null, labourName:null, allowed:[],
     enrollDescriptor:null, newLabour:null,
     facing:"user", facing2:"user",
-    aaFront:null, aaBack:null, aaStep:"front"
+    aaFront:null, aaBack:null, aaStep:"front",
+    workerType:"Labour"
   };
   var $ = function(id){return document.getElementById(id);};
 
@@ -391,10 +401,22 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
   function note(el,tone,text){el.classList.remove("hidden");el.setAttribute("data-tone",tone);el.textContent=text;}
 
   // -------- feedback: sound + vibration --------
-  var audioCtx=null;
+  var audioCtx=null, audioUnlocked=false;
+  function unlockAudio(){
+    if(audioUnlocked)return;
+    try{
+      audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+      if(audioCtx.state==="suspended")audioCtx.resume();
+      audioUnlocked=true;
+    }catch(e){}
+  }
+  // unlock on the very first tap anywhere (autoplay policy needs a gesture)
+  document.addEventListener("touchstart",unlockAudio,{once:true,passive:true});
+  document.addEventListener("click",unlockAudio,{once:true});
   function beep(kind){
     try{
       if(!audioCtx){audioCtx=new (window.AudioContext||window.webkitAudioContext)();}
+      if(audioCtx.state==="suspended")audioCtx.resume();
       var o=audioCtx.createOscillator(), g=audioCtx.createGain();
       o.connect(g); g.connect(audioCtx.destination);
       // ok = two rising notes, warn = one low, err = low buzz
@@ -513,12 +535,12 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
       stage.setAttribute("data-face","yes");
       S.descriptor=Array.prototype.slice.call(res.descriptor);
       var now=Date.now();if(now-lastLookup<1800)return;lastLookup=now;
-      call("site_api.match_face",{embedding:S.descriptor,project:S.project}).then(function(m){
+      call("site_api.match_worker",{embedding:S.descriptor,project:S.project}).then(function(m){
         if(!m){$("who").textContent="Not enrolled";$("score").textContent="";S.labour=null;
           renderPunches([]);note($("punchNote"),"warn","This face is not enrolled. Use Add worker.");return;}
-        S.labour=m.labour;S.labourName=m.labour_name;
-        $("who").textContent=m.labour_name;$("score").textContent="match "+Math.round(m.score*100)+"%";
-        return refreshDay(m.labour);
+        S.labour=m.id;S.labourName=m.name;S.labourType=m.type;
+        $("who").textContent=m.name+" ("+m.type+")";$("score").textContent="match "+Math.round(m.score*100)+"%";
+        return refreshDay(m.id);
       }).catch(function(e){note($("punchNote"),"err",e.message);});
     }).catch(function(){}).then(function(){setTimeout(punchLoop,700);});
   }
@@ -601,22 +623,24 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
   }
   function doEnroll(){
     var name=$("enName").value.trim();
-    if(!name){note($("enrollNote"),"warn","Enter the worker's name.");return;}
-    if(!S.enrollDescriptor){note($("enrollNote"),"warn","Freeze a face photo first.");return;}
+    if(!name){note($("enrollNote"),"warn","Enter the worker's name.");beep("warn");return;}
+    if(!S.enrollDescriptor){note($("enrollNote"),"warn","Freeze a face photo first.");beep("warn");return;}
     $("btnEnroll").disabled=true;note($("enrollNote"),"","Adding "+name+"...");
-    call("site_api.enroll_labour",{
-      labour_name:name,gender:$("enGender").value,skill_category:$("enSkill").value||null,
-      phone:$("enPhone").value.trim()||null,wage_type:$("enWage").value||null,
-      wage_rate:$("enRate").value||0,project:S.project,
-      embedding:S.enrollDescriptor,photo:$("frozen2").src
+    call("site_api.enroll_worker",{
+      worker_type:S.workerType, name:name, gender:$("enGender").value,
+      skill:$("enSkill").value||null, phone:$("enPhone").value.trim()||null,
+      wage_type:$("enWage").value||null, wage_rate:$("enRate").value||0,
+      project:S.project, embedding:S.enrollDescriptor, photo:$("frozen2").src
     }).then(function(r){
-      if(r&&r.duplicate){note($("enrollNote"),"warn","Already enrolled as "+r.labour_name+". Use Attendance.");return;}
-      S.newLabour=r.labour;$("aaName").textContent=r.labour_name;
-      note($("enrollNote"),"ok",r.labour_name+" added. Now capture the Aadhaar below.");
+      if(r&&r.duplicate){note($("enrollNote"),"warn","Already enrolled as "+r.name+" ("+r.type+"). Use Attendance.");beep("warn");return;}
+      S.newLabour=r.id; S.newLabourType=r.type; $("aaName").textContent=r.name;
+      beep("ok");
+      note($("enrollNote"),"ok",r.name+" added as "+r.type+". Now capture the Aadhaar below.");
+      // Aadhaar only for Labour (Employee handled by HR); still allow if fields exist
       $("aadhaarBlock").classList.remove("hidden");
       startAadhaarCam();
       $("aadhaarBlock").scrollIntoView({behavior:"smooth"});
-    }).catch(function(e){note($("enrollNote"),"err",e.message);})
+    }).catch(function(e){note($("enrollNote"),"err",e.message);beep("err");})
     .then(function(){$("btnEnroll").disabled=false;});
   }
 
@@ -814,6 +838,19 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
       $("video2").classList.toggle("mirror",S.facing2==="user");
       startCamera($("video2"),S.facing2,"en2");};
     $("btnFreeze2").onclick=function(){enFrozen?unfreezeEnroll():freezeEnroll();};
+    Array.prototype.forEach.call(document.querySelectorAll(".wtype-btn"),function(b){
+      b.onclick=function(){
+        S.workerType=b.getAttribute("data-wt");
+        document.querySelectorAll(".wtype-btn").forEach(function(x){
+          x.setAttribute("aria-pressed", x===b?"true":"false");});
+        // Labour shows skill/wage; Employee hides them
+        var isLab=S.workerType==="Labour";
+        ["enSkill","enWage","enRate"].forEach(function(id){
+          var el=$(id), lbl=el&&el.previousElementSibling;
+          if(el){el.style.display=isLab?"":"none"; if(lbl&&lbl.tagName==="LABEL")lbl.style.display=isLab?"":"none";}
+        });
+      };
+    });
     $("btnEnroll").onclick=doEnroll;
     $("aaFreeze").onclick=function(){captureAadhaar("front");};
     $("aaFreezeB").onclick=function(){captureAadhaar("back");};

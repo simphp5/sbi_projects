@@ -628,3 +628,248 @@ def get_site_fence(project):
 		"longitude": float(lng),
 		"radius": int(d.get("sbi_geofence_radius") or 200),
 	}
+
+
+# ======================================================================
+# Two worker types: Labour (outsourced, weekly) + Employee (SBI staff).
+# Both do face attendance.  These endpoints work across both masters.
+# ======================================================================
+
+import json
+from frappe.utils import flt, now_datetime, today
+
+
+def _all_face_records():
+	"""Every enrolled face across Labour and Employee, with a type tag."""
+	out = []
+	for r in frappe.get_all(
+		"Labour",
+		filters={"face_enrolled": 1, "status": "Active"},
+		fields=["name", "labour_name", "face_embedding", "default_project"],
+	):
+		if r.face_embedding:
+			out.append({"type": "Labour", "id": r.name, "name": r.labour_name,
+			            "embedding": r.face_embedding, "project": r.default_project})
+
+	meta = frappe.get_meta("Employee")
+	if meta.has_field("sbi_face_embedding"):
+		for r in frappe.get_all(
+			"Employee",
+			filters={"sbi_face_enrolled": 1, "status": "Active"},
+			fields=["name", "employee_name", "sbi_face_embedding"],
+		):
+			if r.sbi_face_embedding:
+				out.append({"type": "Employee", "id": r.name, "name": r.employee_name,
+				            "embedding": r.sbi_face_embedding, "project": None})
+	return out
+
+
+def _cosine(a, b):
+	dot = sum(x * y for x, y in zip(a, b))
+	na = sum(x * x for x in a) ** 0.5
+	nb = sum(y * y for y in b) ** 0.5
+	if not na or not nb:
+		return 0.0
+	return dot / (na * nb)
+
+
+@frappe.whitelist()
+def match_worker(embedding, project=None, threshold=0.62):
+	"""Match a face against both Labour and Employee. Returns the best worker."""
+	if isinstance(embedding, str):
+		embedding = json.loads(embedding)
+	threshold = flt(threshold)
+
+	best = None
+	best_score = 0.0
+	for rec in _all_face_records():
+		try:
+			stored = json.loads(rec["embedding"]) if isinstance(rec["embedding"], str) else rec["embedding"]
+		except Exception:
+			continue
+		score = _cosine(embedding, stored)
+		if score > best_score:
+			best_score = score
+			best = rec
+
+	if best and best_score >= threshold:
+		return {
+			"type": best["type"],
+			"id": best["id"],
+			"name": best["name"],
+			"score": round(best_score, 3),
+		}
+	return None
+
+
+@frappe.whitelist()
+def enroll_worker(worker_type, name, embedding, photo=None, project=None,
+                  gender=None, skill=None, wage_type=None, wage_rate=0,
+                  phone=None, daily_wage=0):
+	"""Enroll a new Labour or Employee with a face embedding.
+
+	A face capture always creates the master record if it does not exist, so the
+	site can add a worker on the spot.
+	"""
+	if isinstance(embedding, str):
+		emb = embedding
+	else:
+		emb = json.dumps(embedding)
+
+	# duplicate face guard across both masters
+	dup = match_worker(embedding, threshold=0.75)
+	if dup:
+		return {"duplicate": True, "type": dup["type"], "id": dup["id"], "name": dup["name"]}
+
+	if worker_type == "Employee":
+		doc = frappe.new_doc("Employee")
+		doc.employee_name = name
+		doc.first_name = name
+		if gender and doc.meta.has_field("gender"):
+			doc.gender = gender
+		doc.status = "Active"
+		if doc.meta.has_field("date_of_joining"):
+			doc.date_of_joining = today()
+		if doc.meta.has_field("company"):
+			doc.company = frappe.defaults.get_user_default("company") \
+				or frappe.db.get_single_value("Global Defaults", "default_company")
+		doc.sbi_face_embedding = emb
+		doc.sbi_face_enrolled = 1
+		doc.sbi_enrolled_on = now_datetime()
+		if photo:
+			doc.sbi_face_photo = _save_photo(photo, "Employee", name, name + "-face.jpg")
+		doc.flags.ignore_mandatory = True
+		doc.insert(ignore_permissions=True)
+		wid = doc.name
+	else:
+		doc = frappe.new_doc("Labour")
+		doc.labour_name = name
+		if gender:
+			doc.gender = gender
+		doc.status = "Active"
+		if skill and doc.meta.has_field("skill"):
+			doc.skill = skill
+		if phone and doc.meta.has_field("mobile_no"):
+			doc.mobile_no = phone
+		if wage_type and doc.meta.has_field("sbi_wage_type"):
+			doc.sbi_wage_type = wage_type
+		if wage_rate and doc.meta.has_field("sbi_wage_rate"):
+			doc.sbi_wage_rate = flt(wage_rate)
+		if daily_wage and doc.meta.has_field("daily_wage"):
+			doc.daily_wage = flt(daily_wage)
+		if project and doc.meta.has_field("default_project"):
+			doc.default_project = project
+		if doc.meta.has_field("date_of_joining"):
+			doc.date_of_joining = today()
+		doc.face_embedding = emb
+		doc.face_enrolled = 1
+		doc.enrolled_on = now_datetime()
+		if photo:
+			doc.photo = _save_photo(photo, "Labour", name, name + "-face.jpg")
+		doc.flags.ignore_mandatory = True
+		doc.insert(ignore_permissions=True)
+		wid = doc.name
+
+	frappe.db.commit()
+	return {"type": worker_type, "id": wid, "name": name}
+
+
+@frappe.whitelist()
+def list_workers(worker_type=None, project=None, include_inactive=0):
+	"""List workers for the master screen, newest first."""
+	rows = []
+	status_filter = {} if int(include_inactive or 0) else {"status": "Active"}
+
+	if worker_type in (None, "Labour"):
+		lf = dict(status_filter)
+		if project:
+			lf["default_project"] = project
+		for r in frappe.get_all("Labour", filters=lf,
+			fields=["name", "labour_name as wname", "skill", "mobile_no",
+			        "status", "face_enrolled", "photo", "aadhaar_last4"],
+			order_by="modified desc", limit_page_length=200):
+			r["type"] = "Labour"
+			rows.append(r)
+
+	if worker_type in (None, "Employee"):
+		meta = frappe.get_meta("Employee")
+		if meta.has_field("sbi_face_enrolled"):
+			for r in frappe.get_all("Employee", filters=status_filter,
+				fields=["name", "employee_name as wname", "designation as skill",
+				        "cell_number as mobile_no", "status",
+				        "sbi_face_enrolled as face_enrolled", "sbi_face_photo as photo"],
+				order_by="modified desc", limit_page_length=200):
+				r["type"] = "Employee"
+				r["aadhaar_last4"] = None
+				rows.append(r)
+
+	return rows
+
+
+@frappe.whitelist()
+def set_worker_status(worker_type, worker_id, status):
+	"""Mark a worker Active or Inactive (never deleted)."""
+	if status not in ("Active", "Inactive"):
+		frappe.throw("Status must be Active or Inactive.")
+	dt = "Employee" if worker_type == "Employee" else "Labour"
+	if not frappe.db.exists(dt, worker_id):
+		frappe.throw("Worker not found.")
+	frappe.db.set_value(dt, worker_id, "status", status)
+	frappe.db.commit()
+	return {"status": status}
+
+
+@frappe.whitelist()
+def update_worker(worker_type, worker_id, skill=None, wage_type=None,
+                  wage_rate=None, phone=None, daily_wage=None):
+	"""Edit a worker's details (not the face)."""
+	dt = "Employee" if worker_type == "Employee" else "Labour"
+	if not frappe.db.exists(dt, worker_id):
+		frappe.throw("Worker not found.")
+	doc = frappe.get_doc(dt, worker_id)
+	meta = doc.meta
+
+	if dt == "Labour":
+		if skill is not None and meta.has_field("skill"):
+			doc.skill = skill
+		if wage_type is not None and meta.has_field("sbi_wage_type"):
+			doc.sbi_wage_type = wage_type
+		if wage_rate is not None and meta.has_field("sbi_wage_rate"):
+			doc.sbi_wage_rate = flt(wage_rate)
+		if daily_wage is not None and meta.has_field("daily_wage"):
+			doc.daily_wage = flt(daily_wage)
+		if phone is not None and meta.has_field("mobile_no"):
+			doc.mobile_no = phone
+	else:
+		if phone is not None and meta.has_field("cell_number"):
+			doc.cell_number = phone
+
+	doc.flags.ignore_mandatory = True
+	doc.save(ignore_permissions=True)
+	frappe.db.commit()
+	return {"saved": True}
+
+
+@frappe.whitelist()
+def reenroll_face(worker_type, worker_id, embedding, photo=None):
+	"""Replace a worker's face embedding (re-capture)."""
+	if isinstance(embedding, str):
+		emb = embedding
+	else:
+		emb = json.dumps(embedding)
+	dt = "Employee" if worker_type == "Employee" else "Labour"
+	if not frappe.db.exists(dt, worker_id):
+		frappe.throw("Worker not found.")
+
+	if dt == "Employee":
+		vals = {"sbi_face_embedding": emb, "sbi_face_enrolled": 1, "sbi_enrolled_on": now_datetime()}
+		if photo:
+			vals["sbi_face_photo"] = _save_photo(photo, "Employee", worker_id, worker_id + "-face.jpg")
+	else:
+		vals = {"face_embedding": emb, "face_enrolled": 1, "enrolled_on": now_datetime()}
+		if photo:
+			vals["photo"] = _save_photo(photo, "Labour", worker_id, worker_id + "-face.jpg")
+
+	frappe.db.set_value(dt, worker_id, vals)
+	frappe.db.commit()
+	return {"reenrolled": True}
