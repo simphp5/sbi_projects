@@ -29,6 +29,7 @@ h1,h2,h3{margin:0;font-weight:800;letter-spacing:-.02em}
 .top{position:sticky;top:0;z-index:20;background:var(--ink);color:#fff;
   padding:10px 14px;display:flex;align-items:center;gap:12px}
 .top .mark{width:10px;height:26px;background:var(--brand);flex:0 0 auto}
+.top-logo{height:30px;background:#fff;padding:3px 6px;border-radius:3px;flex:0 0 auto}
 .top .site{font-weight:800;font-size:15px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .top button{background:transparent;border:1px solid #444;color:#fff;padding:8px 12px;
   font-size:14px;font-weight:700;border-radius:2px}
@@ -53,6 +54,8 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
 .primary:disabled{opacity:.4}
 
 /* home menu */
+.home-logo{display:flex;justify-content:center;padding:10px 0 4px}
+.home-logo img{height:52px}
 .home-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
 .tile{min-height:120px;border:2px solid var(--ink);background:var(--card);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
@@ -137,10 +140,22 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
 .person .nm small{display:block;font-weight:500;color:var(--ink-soft);font-size:13px}
 .chk{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:16px;font-weight:700}
 .chk input{width:26px;height:26px;min-height:0}
+.soon{border:2px dashed var(--rule);background:var(--card);padding:28px 20px;text-align:center;margin-top:20px}
+.soon h2{font-size:20px;margin-bottom:8px;color:var(--brand)}
+.soon p{color:var(--ink-soft);font-size:15px;margin:0}
 @media (prefers-reduced-motion:reduce){*{transition:none !important}}
 </style>
 </head>
 <body>
+
+<!-- loading splash with the company logo -->
+<div id="splash" style="position:fixed;inset:0;z-index:100;background:#111;display:flex;
+     flex-direction:column;align-items:center;justify-content:center;gap:20px">
+  <img src="/assets/sbi_projects/site_app/sbi-logo-full.png" alt="Shiv Bharat Infrastructures"
+       style="width:180px;background:#fff;padding:14px 18px;border-radius:6px">
+  <div style="color:#fff;font-family:system-ui,sans-serif;font-size:14px;letter-spacing:.08em;opacity:.7"
+       id="splashText">Loadingâ€¦</div>
+</div>
 
 <!-- ============ LOGIN ============ -->
 <section id="loginScreen" class="login-shell">
@@ -160,7 +175,7 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
 <!-- ============ APP SHELL ============ -->
 <div id="appShell" class="hidden">
   <div class="top">
-    <span class="mark"></span>
+    <img class="top-logo" src="/assets/sbi_projects/site_app/sbi-logo-full.png" alt="SBI">
     <span class="site" id="siteLabel">Choose a site</span>
     <button id="btnInstall" type="button" class="hidden">Install</button>
     <button id="btnHome" type="button" class="hidden">Menu</button>
@@ -180,16 +195,23 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
 
     <!-- HOME MENU -->
     <section id="homeScreen" class="hidden">
+      <div class="home-logo">
+        <img src="/assets/sbi_projects/site_app/sbi-logo-full.png" alt="Shiv Bharat Infrastructures">
+      </div>
       <div class="home-summary">
         <div><b id="hsPresent" class="num">0</b><span class="muted">On site now</span></div>
         <div><b id="hsHead" class="num">0</b><span class="muted">Enrolled</span></div>
         <div style="margin-left:auto;text-align:right"><b id="hsDate" style="font-size:15px">â€”</b><span class="muted">Today</span></div>
       </div>
       <div class="home-grid">
-        <button class="tile" data-go="attend"><span class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg></span>Attendance</button>
-        <button class="tile" data-go="daily"><span class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16M6 16l9-9 3 3-9 9H6v-3z"/></svg></span>Daily entry</button>
-        <button class="tile" data-accent="brand" data-go="enroll"><span class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="4"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5M18 8v6M21 11h-6"/></svg></span>Add worker</button>
-        <button class="tile" data-go="today"><span class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg></span>Who's in</button>
+        <button class="tile" data-go="attend"><span class="ic"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg></span>Daily Attendance</button>
+        <button class="tile" data-go="progress"><span class="ic"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16M6 16l9-9 3 3-9 9H6v-3z"/></svg></span>Daily Progress</button>
+        <button class="tile" data-go="material"><span class="ic"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7l8-4 8 4v10l-8 4-8-4V7zM4 7l8 4 8-4M12 11v10"/></svg></span>Material Request</button>
+        <button class="tile" data-go="stock"><span class="ic"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-6 9 6M4 10v9h16v-9M9 19v-6h6v6"/></svg></span>Stock Entry</button>
+        <button class="tile" data-go="grn"><span class="ic"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7L9 18l-5-5"/><path d="M3 3h4v4"/></svg></span>Purchase Receipt</button>
+        <button class="tile" data-accent="brand" data-go="master"><span class="ic"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="4"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5M18 8v6M21 11h-6"/></svg></span>Labour &amp; Employee</button>
+        <button class="tile" data-go="inspect"><span class="ic"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></span>Site Inspection</button>
+        <button class="tile" data-go="cash"><span class="ic"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/></svg></span>Petty Cash</button>
       </div>
     </section>
 
@@ -283,13 +305,16 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
       </label>
 
       <div id="dlWorkBlock">
-        <h3 style="margin-top:18px;font-size:15px">Work done</h3>
-        <div id="progressRows"></div>
-        <button class="addbtn" id="btnAddProgress" type="button">+ Add work item</button>
-
-        <h3 style="margin-top:20px;font-size:15px">Petty cash spent</h3>
-        <div id="cashRows"></div>
-        <button class="addbtn" id="btnAddCash" type="button">+ Add petty cash</button>
+        <div id="progressWrap">
+          <h3 style="margin-top:18px;font-size:15px">Work done</h3>
+          <div id="progressRows"></div>
+          <button class="addbtn" id="btnAddProgress" type="button">+ Add work item</button>
+        </div>
+        <div id="cashWrap">
+          <h3 style="margin-top:20px;font-size:15px">Petty cash spent</h3>
+          <div id="cashRows"></div>
+          <button class="addbtn" id="btnAddCash" type="button">+ Add petty cash</button>
+        </div>
       </div>
 
       <label for="dlRemarks" style="margin-top:18px">Remarks</label>
@@ -303,6 +328,24 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
     <section id="todayScreen" class="hidden">
       <div class="roster" id="roster"></div>
       <button class="primary" id="btnRefresh" type="button">Refresh</button>
+    </section>
+
+
+    <!-- MATERIAL REQUEST (coming next) -->
+    <section id="materialScreen" class="hidden">
+      <div class="soon"><h2>Material Request</h2><p>Ask the office to buy material for this site. This screen is being built next.</p></div>
+    </section>
+    <!-- STOCK ENTRY -->
+    <section id="stockScreen" class="hidden">
+      <div class="soon"><h2>Stock Entry</h2><p>Record material received or issued at the site. This screen is being built next.</p></div>
+    </section>
+    <!-- PURCHASE RECEIPT / GRN -->
+    <section id="grnScreen" class="hidden">
+      <div class="soon"><h2>Purchase Receipt</h2><p>Receive material against a purchase order. This screen is being built next.</p></div>
+    </section>
+    <!-- SITE INSPECTION -->
+    <section id="inspectScreen" class="hidden">
+      <div class="soon"><h2>Site Inspection</h2><p>Third-party inspection checklist with photos and signatures. This screen is being built next.</p></div>
     </section>
 
   </div>
@@ -698,22 +741,38 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
     return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
 
   // -------- navigation --------
+  var SCREENS=["home","attend","enroll","daily","today","material","stock","grn","inspect","progress","cash","master"];
   function showScreen(which){
-    ["home","attend","enroll","daily","today"].forEach(function(k){
-      $(k+"Screen").classList.add("hidden");});
-    $(which+"Screen").classList.remove("hidden");
+    // map menu items to actual screens
+    var map={progress:"daily", cash:"daily", master:"enroll"};
+    var screen = map[which] || which;
+    SCREENS.forEach(function(k){var el=$(k+"Screen"); if(el) el.classList.add("hidden");});
+    var target=$(screen+"Screen"); if(target) target.classList.remove("hidden");
     $("btnHome").classList.toggle("hidden",which==="home");
-    if(which==="today")loadRoster();
-    if(which==="daily"){loadStagesInto($("dlStage"));}
-    if(which==="enroll"){startCamera($("video2"),S.facing2,"en2").catch(function(){});}
+
+    if(screen==="today")loadRoster();
+    if(screen==="daily"){
+      loadStagesInto($("dlStage"));
+      // Daily Progress hides petty cash; Petty Cash hides progress; daily shows both
+      var showCash = (which==="cash"||which==="daily");
+      var showProg = (which==="progress"||which==="daily");
+      var pw=document.getElementById("progressWrap"), cw=document.getElementById("cashWrap");
+      if(pw) pw.style.display = showProg?"":"none";
+      if(cw) cw.style.display = showCash?"":"none";
+    }
+    if(screen==="enroll"){startCamera($("video2"),S.facing2,"en2").catch(function(){});}
     else{stopCamera("en2");}
-    if(which==="attend"){startCamera($("video"),S.facing,"att").catch(function(){});loadFence();}
+    if(screen==="attend"){startCamera($("video"),S.facing,"att").catch(function(){});loadFence();}
     else{stopCamera("att");}
-    if(which!=="enroll"){resetEnroll();}
+    if(screen!=="enroll"){resetEnroll();}
   }
 
   // -------- boot --------
+  function hideSplash(){var s=$("splash");if(s){s.style.opacity="0";s.style.transition="opacity .3s";
+    setTimeout(function(){s.style.display="none";},320);}}
+
   function boot(){
+    setTimeout(hideSplash, 400);   // logo shows briefly, then the app
     $("btnLogin").onclick=doLogin;
     $("lgPass").addEventListener("keydown",function(e){if(e.key==="Enter")doLogin();});
     $("btnLogout").onclick=doLogout;
