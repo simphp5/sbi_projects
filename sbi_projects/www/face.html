@@ -1,0 +1,554 @@
+{% raw %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>SBI Site Attendance</title>
+<style>
+  :root{
+    --brand:#be1e2d; --ink:#141414; --soft:#6b7280; --line:#e5e7eb;
+    --bg:#f5f6f8; --card:#fff; --ok:#137a3f; --okbg:#e7f5ec;
+    --warn:#8a5a00; --warnbg:#fff4e0; --err:#a11; --errbg:#fdecec;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:560px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column}
+
+  .bar{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--brand);color:#fff}
+  .bar img{height:30px;background:#fff;padding:3px 6px;border-radius:4px}
+  .bar .site{font-weight:700;font-size:15px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bar button{background:rgba(255,255,255,.16);color:#fff;border:0;border-radius:4px;
+    padding:8px 12px;font-weight:700;font-size:13px}
+
+  main{flex:1;padding:14px}
+  .hidden{display:none !important}
+
+  /* camera stage */
+  .stage{position:relative;background:#000;border-radius:14px;overflow:hidden;aspect-ratio:3/4}
+  .stage video,.stage img.frame{width:100%;height:100%;object-fit:cover;display:block}
+  .ring{position:absolute;inset:0;pointer-events:none;border:4px solid transparent;border-radius:14px;
+    transition:border-color .15s}
+  .stage[data-face="yes"] .ring{border-color:#22c55e}
+  .stage[data-face="near"] .ring{border-color:#f59e0b}
+  .badge{position:absolute;left:0;right:0;bottom:0;padding:14px;
+    background:linear-gradient(transparent,rgba(0,0,0,.75));color:#fff}
+  .badge .who{font-size:22px;font-weight:800;line-height:1.15}
+  .badge .sub{font-size:14px;opacity:.9;margin-top:2px}
+  .count{position:absolute;top:12px;right:12px;background:rgba(0,0,0,.6);color:#fff;
+    width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-size:26px;font-weight:800}
+
+  .note{margin-top:12px;padding:12px 14px;border-radius:10px;font-size:15px;font-weight:600;
+    background:var(--card);border:1px solid var(--line)}
+  .note[data-tone="ok"]{background:var(--okbg);color:var(--ok);border-color:transparent}
+  .note[data-tone="warn"]{background:var(--warnbg);color:var(--warn);border-color:transparent}
+  .note[data-tone="err"]{background:var(--errbg);color:var(--err);border-color:transparent}
+
+  .row{display:flex;gap:10px;margin-top:12px}
+  .btn{flex:1;min-height:58px;border:0;border-radius:10px;font-size:16px;font-weight:800;
+    background:var(--brand);color:#fff}
+  .btn.ghost{background:var(--card);color:var(--ink);border:2px solid var(--line)}
+  .btn:disabled{opacity:.5}
+
+  /* today strip */
+  .today{margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .today h3{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--soft)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{background:var(--bg);border:1px solid var(--line);border-radius:20px;padding:5px 12px;font-size:13px;font-weight:700}
+  .chip.done{background:var(--okbg);color:var(--ok);border-color:transparent}
+
+  /* modal */
+  .back{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center}
+  .sheet{background:var(--card);width:100%;max-width:560px;border-radius:16px 16px 0 0;max-height:94dvh;
+    overflow:auto;display:flex;flex-direction:column}
+  .sheet h2{margin:0;padding:16px 18px;font-size:18px;border-bottom:1px solid var(--line);
+    position:sticky;top:0;background:var(--card)}
+  .sheet .body{padding:16px 18px}
+  .sheet .foot{padding:14px 18px;border-top:1px solid var(--line);display:flex;gap:10px;
+    position:sticky;bottom:0;background:var(--card)}
+  label{display:block;font-size:13px;font-weight:700;color:var(--soft);margin:12px 0 5px}
+  input,select{width:100%;min-height:52px;border:2px solid var(--line);border-radius:10px;
+    padding:0 14px;font-size:16px;background:#fff;color:var(--ink)}
+
+  .seg{display:flex;gap:8px;margin-bottom:6px}
+  .seg button{flex:1;min-height:52px;border:2px solid var(--line);background:#fff;border-radius:10px;
+    font-size:15px;font-weight:800;color:var(--soft)}
+  .seg button[aria-pressed="true"]{border-color:var(--brand);color:var(--brand)}
+
+  .tiny{font-size:13px;color:var(--soft);margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="bar">
+    <img src="/assets/sbi_projects/site_app/sbi-logo-full.png" alt="SBI">
+    <span class="site" id="siteName">Site</span>
+    <button id="btnMode" type="button">Add worker</button>
+  </div>
+
+  <main>
+    <!-- ATTENDANCE (default) -->
+    <section id="attend">
+      <div class="stage" id="stageA" data-face="no">
+        <video id="camA" playsinline muted autoplay></video>
+        <div class="ring"></div>
+        <div class="count hidden" id="countA">3</div>
+        <div class="badge">
+          <div class="who" id="whoA">Looking for a faceâ€¦</div>
+          <div class="sub" id="subA">Look at the camera and hold still.</div>
+        </div>
+      </div>
+      <div class="note" id="noteA" data-tone="">Point the camera at a worker's face.</div>
+      <div class="today hidden" id="todayA">
+        <h3 id="todayName">Today</h3>
+        <div class="chips" id="todayChips"></div>
+      </div>
+    </section>
+
+    <!-- ENROLL -->
+    <section id="enroll" class="hidden">
+      <div class="seg">
+        <button type="button" data-wt="Labour" aria-pressed="true" id="segLabour">Labour</button>
+        <button type="button" data-wt="Employee" aria-pressed="false" id="segEmp">Employee</button>
+      </div>
+      <div class="stage" id="stageE" data-face="no">
+        <video id="camE" playsinline muted autoplay></video>
+        <img class="frame hidden" id="frameE" alt="">
+        <div class="ring"></div>
+        <div class="count hidden" id="countE"></div>
+        <div class="badge">
+          <div class="who" id="whoE">Position the face</div>
+          <div class="sub" id="subE">Hold steady inside the ring.</div>
+        </div>
+      </div>
+      <div class="note" id="noteE" data-tone="">A clear, close face captures on its own.</div>
+      <div class="row">
+        <button class="btn ghost" id="btnRetake" type="button">Retake</button>
+        <button class="btn" id="btnBackToAttend" type="button">Done</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- modal host -->
+<div class="back hidden" id="back">
+  <div class="sheet">
+    <h2 id="sheetTitle">Details</h2>
+    <div class="body" id="sheetBody"></div>
+    <div class="foot" id="sheetFoot"></div>
+  </div>
+</div>
+
+<canvas id="cv" class="hidden"></canvas>
+
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" crossorigin="anonymous"></script>
+<script>
+(function(){
+  "use strict";
+  var $=function(id){return document.getElementById(id);};
+  var CSRF="{{ csrf_token }}";
+  var PROJECT="{{ project }}";
+  var PROJECT_NAME="{{ project_name }}";
+  var MODELS="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model";
+
+  // ---- tuning (client) ----
+  var MIN_SCORE=0.82;      // face-api detection confidence to accept a frame
+  var MIN_FACE=0.30;       // face box width / video width â€” must be reasonably close
+  var STABLE_FRAMES=3;     // consecutive good frames before we act
+  var PUNCH_COUNTDOWN=2;   // seconds before an auto punch
+  // -------------------------
+
+  var S={
+    mode:"attend", ready:false, wt:"Labour",
+    gps:null, lastId:null, opts:{}
+  };
+
+  function api(method,args){
+    return fetch("/api/method/sbi_projects.sbi_projects.face_api."+method,{
+      method:"POST", credentials:"same-origin",
+      headers:{"Content-Type":"application/json","X-Frappe-CSRF-Token":CSRF},
+      body:JSON.stringify(args||{})
+    }).then(function(r){
+      if(!r.ok) return r.text().then(function(t){throw new Error("Server "+r.status);});
+      return r.json();
+    }).then(function(j){return j.message;});
+  }
+
+  function note(el,tone,msg){el.setAttribute("data-tone",tone||"");el.textContent=msg;}
+  function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+
+  // ---- sound + vibration ----
+  var actx=null;
+  function unlock(){ if(actx)return; try{actx=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} }
+  document.addEventListener("touchstart",unlock,{once:true,passive:true});
+  document.addEventListener("click",unlock,{once:true});
+  function beep(kind){
+    try{
+      if(!actx)actx=new (window.AudioContext||window.webkitAudioContext)();
+      if(actx.state==="suspended")actx.resume();
+      var o=actx.createOscillator(),g=actx.createGain(),t=actx.currentTime;
+      var f=kind==="ok"?[660,990]:kind==="warn"?[440]:[200];
+      f.forEach(function(x,i){o.frequency.setValueAtTime(x,t+i*0.1);});
+      o.connect(g);g.connect(actx.destination);
+      g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.3,t+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+f.length*0.1+0.05);
+      o.start(t);o.stop(t+f.length*0.1+0.08);
+    }catch(e){}
+    if(navigator.vibrate)navigator.vibrate(kind==="ok"?[60,40,60]:kind==="warn"?[120]:[200,80,200]);
+  }
+
+  // ---- camera ----
+  var streams={};
+  function startCam(video,key,facing){
+    return navigator.mediaDevices.getUserMedia({
+      video:{facingMode:facing||"user",width:{ideal:640},height:{ideal:480}},audio:false
+    }).then(function(st){
+      streams[key]=st;video.srcObject=st;return video.play().catch(function(){});
+    });
+  }
+  function stopCam(key){var st=streams[key];if(st){st.getTracks().forEach(function(t){t.stop();});delete streams[key];}}
+
+  function snapshot(video){
+    var c=$("cv");c.width=video.videoWidth||480;c.height=video.videoHeight||640;
+    c.getContext("2d").drawImage(video,0,0,c.width,c.height);
+    return c.toDataURL("image/jpeg",0.85);
+  }
+
+  // ---- face detection (one clean helper) ----
+  var detOpts=null;
+  function detect(video){
+    if(!detOpts)detOpts=new faceapi.TinyFaceDetectorOptions({inputSize:320,scoreThreshold:0.5});
+    return faceapi.detectSingleFace(video,detOpts).withFaceLandmarks(true).withFaceDescriptor();
+  }
+  function quality(res,video){
+    if(!res)return {ok:false,near:false};
+    var score=(res.detection&&res.detection.score)||0;
+    var box=res.detection&&res.detection.box;
+    var frac=box&&video.videoWidth?box.width/video.videoWidth:0;
+    if(score>=MIN_SCORE&&frac>=MIN_FACE)return {ok:true,near:false,score:score};
+    if(score>=0.6&&frac>=MIN_FACE*0.7)return {ok:false,near:true,score:score};
+    return {ok:false,near:false,score:score};
+  }
+
+  // =====================================================================
+  // ATTENDANCE LOOP
+  // =====================================================================
+  var aGood=0, aBusy=false, aCountTimer=null, aCountVal=0, aPending=null;
+
+  function attendLoop(){
+    if(S.mode!=="attend"||!S.ready){return setTimeout(attendLoop,400);}
+    if(aBusy){return setTimeout(attendLoop,300);}
+    var v=$("camA");
+    detect(v).then(function(res){
+      var q=quality(res,v);
+      var stage=$("stageA");
+      if(q.ok){
+        aGood++;
+        stage.setAttribute("data-face","yes");
+        if(aGood>=STABLE_FRAMES){
+          aBusy=true;
+          var desc=Array.prototype.slice.call(res.descriptor);
+          matchAndPunch(desc);
+        }
+      }else if(q.near){
+        aGood=0;stage.setAttribute("data-face","near");
+        $("whoA").textContent="Come a little closer";
+        $("subA").textContent="Fill the ring with your face.";
+        cancelCount();
+      }else{
+        aGood=0;stage.setAttribute("data-face","no");
+        $("whoA").textContent="Looking for a faceâ€¦";
+        $("subA").textContent="Look at the camera and hold still.";
+        S.lastId=null;cancelCount();hideToday();
+      }
+    }).catch(function(){}).then(function(){setTimeout(attendLoop,220);});
+  }
+
+  function matchAndPunch(desc){
+    api("face_api.match",{embedding:desc,project:PROJECT}).then(function(m){
+      if(!m){
+        $("whoA").textContent="Not recognized";
+        $("subA").textContent="Not enrolled here. Use Add worker.";
+        note($("noteA"),"warn","Face not recognized at this site.");
+        aBusy=false;aGood=0;return;
+      }
+      $("whoA").textContent=m.name;
+      $("subA").textContent=m.type+" Â· match "+Math.round(m.confidence*100)+"%";
+      return api("face_api.day_status",{worker_type:m.type,worker_id:m.id,project:PROJECT})
+        .then(function(ds){
+          showToday(m.name,ds);
+          if(ds.finished){
+            note($("noteA"),"ok",m.name+" has completed all punches today.");
+            beep("ok");aBusy=false;return;
+          }
+          startCount(m,ds.next);
+        });
+    }).catch(function(e){note($("noteA"),"err",e.message);aBusy=false;});
+  }
+
+  function startCount(m,next){
+    cancelCount();aPending=m;aCountVal=PUNCH_COUNTDOWN;
+    $("countA").classList.remove("hidden");$("countA").textContent=aCountVal;
+    note($("noteA"),"",next+" â€” hold stillâ€¦");
+    aCountTimer=setInterval(function(){
+      aCountVal--;
+      if(aCountVal<=0){cancelCount();doPunch(m,next);}
+      else{$("countA").textContent=aCountVal;}
+    },1000);
+  }
+  function cancelCount(){
+    if(aCountTimer){clearInterval(aCountTimer);aCountTimer=null;}
+    $("countA").classList.add("hidden");aPending=null;
+  }
+  function doPunch(m,next){
+    api("face_api.punch",{worker_type:m.type,worker_id:m.id,project:PROJECT,
+      log_type:next,latitude:S.gps&&S.gps.lat,longitude:S.gps&&S.gps.lng})
+      .then(function(r){
+        if(r.already){note($("noteA"),"warn",r.name+" already has "+r.log_type+" today.");beep("warn");}
+        else{
+          var extra=r.within_geofence?"":" (off-site "+Math.round(r.distance)+"m)";
+          note($("noteA"),r.within_geofence?"ok":"warn",r.name+" â€” "+r.log_type+" at "+r.time+extra);
+          beep(r.within_geofence?"ok":"warn");
+        }
+        return api("face_api.day_status",{worker_type:m.type,worker_id:m.id,project:PROJECT})
+          .then(function(ds){showToday(r.name,ds);});
+      }).catch(function(e){note($("noteA"),"err",e.message);})
+      .then(function(){
+        // brief pause so the same face doesn't immediately re-trigger
+        setTimeout(function(){aBusy=false;aGood=0;},1500);
+      });
+  }
+
+  function showToday(name,ds){
+    $("todayA").classList.remove("hidden");
+    $("todayName").textContent=name+" â€” today";
+    var seq=["IN","LUNCH OUT","LUNCH IN","OUT"];
+    var done={};ds.punches.forEach(function(p){done[p.log_type]=p.time;});
+    $("todayChips").innerHTML=seq.map(function(s){
+      var t=done[s];
+      return '<span class="chip'+(t?' done':'')+'">'+s+(t?' '+t:'')+'</span>';
+    }).join("");
+  }
+  function hideToday(){$("todayA").classList.add("hidden");}
+
+  // =====================================================================
+  // ENROLLMENT LOOP  (accurate capture -> details -> aadhaar)
+  // =====================================================================
+  var eGood=0, eFrozen=false, eDesc=null, eImg=null;
+
+  function enrollLoop(){
+    if(S.mode!=="enroll"||!S.ready||eFrozen){return setTimeout(enrollLoop,400);}
+    var v=$("camE");
+    detect(v).then(function(res){
+      var q=quality(res,v);var stage=$("stageE");
+      if(q.ok){
+        eGood++;
+        stage.setAttribute("data-face","yes");
+        $("whoE").textContent="Hold stillâ€¦";
+        $("subE").textContent=eGood+" / "+STABLE_FRAMES;
+        if(eGood>=STABLE_FRAMES){freeze(res,v);return;}
+      }else if(q.near){
+        eGood=0;stage.setAttribute("data-face","near");
+        $("whoE").textContent="Come closer";$("subE").textContent="Fill the ring.";
+      }else{
+        eGood=0;stage.setAttribute("data-face","no");
+        $("whoE").textContent="Position the face";$("subE").textContent="Inside the ring, look ahead.";
+      }
+    }).catch(function(){}).then(function(){setTimeout(enrollLoop,220);});
+  }
+
+  function freeze(res,video){
+    eFrozen=true;eGood=0;
+    eDesc=Array.prototype.slice.call(res.descriptor);
+    eImg=snapshot(video);
+    $("frameE").src=eImg;$("frameE").classList.remove("hidden");$("camE").classList.add("hidden");
+    $("stageE").setAttribute("data-face","yes");
+    $("whoE").textContent="\u2713 Captured";$("subE").textContent="Enter the details.";
+    beep("ok");
+    openDetails();
+  }
+
+  function resetEnroll(){
+    eFrozen=false;eGood=0;eDesc=null;eImg=null;
+    $("frameE").classList.add("hidden");$("camE").classList.remove("hidden");
+    $("whoE").textContent="Position the face";$("subE").textContent="Hold steady inside the ring.";
+    $("stageE").setAttribute("data-face","no");
+  }
+
+  // ---- modal ----
+  function modal(title,bodyHtml,buttons){
+    $("sheetTitle").textContent=title;$("sheetBody").innerHTML=bodyHtml;
+    var foot=$("sheetFoot");foot.innerHTML="";
+    buttons.forEach(function(b){
+      var el=document.createElement("button");
+      el.type="button";el.textContent=b.label;
+      el.className="btn"+(b.ghost?" ghost":"");el.onclick=b.onClick;foot.appendChild(el);
+    });
+    $("back").classList.remove("hidden");
+  }
+  function closeModal(){$("back").classList.add("hidden");$("sheetBody").innerHTML="";}
+  function optList(a){return (a||[]).map(function(s){return '<option value="'+esc(s)+'">'+esc(s)+'</option>';}).join("");}
+
+  function openDetails(){
+    var isLab=S.wt==="Labour";
+    var body='<label>Full name</label><input id="dName" placeholder="Full name">'+
+      '<label>Gender</label><select id="dGender"><option value="">â€”</option>'+optList(S.opts.gender)+'</select>'+
+      '<label>Phone</label><input id="dPhone" inputmode="tel" placeholder="Optional">';
+    if(isLab){
+      body+='<label>Skill</label><select id="dSkill"><option value="">â€”</option>'+optList(S.opts.skill)+'</select>'+
+        '<label>Wage type</label><select id="dWage"><option value="">â€”</option>'+optList(S.opts.wage_types)+'</select>'+
+        '<label>Wage rate</label><input id="dRate" inputmode="decimal" placeholder="0">';
+    }
+    modal("New "+S.wt,body,[
+      {label:"Retake",ghost:true,onClick:function(){closeModal();resetEnroll();}},
+      {label:"Add worker",onClick:function(){
+        var name=($("dName").value||"").trim();
+        if(!name){$("dName").focus();beep("warn");return;}
+        var payload={worker_type:S.wt,name:name,embedding:eDesc,photo:eImg,project:PROJECT,
+          gender:val("dGender"),phone:val("dPhone"),
+          skill:val("dSkill"),wage_type:val("dWage"),wage_rate:val("dRate")};
+        closeModal();
+        note($("noteE"),"","Adding "+name+"â€¦");
+        api("face_api.enroll",payload).then(function(r){
+          if(r&&r.duplicate){
+            note($("noteE"),"warn","Already enrolled as "+r.name+" ("+r.type+").");
+            beep("warn");resetEnroll();return;
+          }
+          beep("ok");
+          note($("noteE"),"ok",r.name+" added. Capture Aadhaar next.");
+          openAadhaar(r);
+        }).catch(function(e){note($("noteE"),"err",e.message);beep("err");resetEnroll();});
+      }}
+    ]);
+    setTimeout(function(){var n=$("dName");if(n)n.focus();},80);
+  }
+  function val(id){var e=$(id);return e?e.value:null;}
+
+  function openAadhaar(worker){
+    modal("Aadhaar â€” "+worker.name,
+      '<div class="stage" style="aspect-ratio:16/10">'+
+        '<video id="aaCam" playsinline muted autoplay></video>'+
+        '<img class="frame hidden" id="aaImg" alt="">'+
+      '</div>'+
+      '<button class="btn" id="aaShot" style="margin-top:10px">Capture front</button>'+
+      '<div class="tiny" id="aaMsg">Point at the front of the Aadhaar card.</div>'+
+      '<label>Aadhaar number</label>'+
+      '<input id="aaNum" inputmode="numeric" maxlength="14" placeholder="Reads from photo â€” check it">',
+      [
+        {label:"Skip",ghost:true,onClick:function(){closeModal();stopCam("aa");finishEnroll(worker,null,null,null);}},
+        {label:"Save",onClick:function(){
+          var num=($("aaNum").value||"").replace(/\D/g,"");
+          if(num&&num.length!==12){$("aaMsg").textContent="Aadhaar must be 12 digits.";beep("warn");return;}
+          closeModal();stopCam("aa");
+          finishEnroll(worker,num||null,S._aaFront,S._aaBack);
+        }}
+      ]);
+    S._aaFront=null;S._aaBack=null;S._aaStep="front";
+    var cam=$("aaCam");
+    startCam(cam,"aa","environment").catch(function(){$("aaMsg").textContent="Camera unavailable.";});
+    $("aaShot").onclick=function(){
+      var btn=this,v=$("aaCam"),img=$("aaImg");
+      var data=snapshot(v);
+      if(S._aaStep==="front"){
+        S._aaFront=data;S._aaStep="back";
+        img.src=data;img.classList.remove("hidden");v.classList.add("hidden");beep("ok");
+        $("aaMsg").textContent="Reading numberâ€¦";ocr(data);
+        setTimeout(function(){img.classList.add("hidden");v.classList.remove("hidden");
+          btn.textContent="Capture back";$("aaMsg").textContent="Now the back, then Capture.";},1400);
+      }else{
+        S._aaBack=data;beep("ok");img.src=data;img.classList.remove("hidden");v.classList.add("hidden");
+        $("aaMsg").textContent="Both sides captured. Save when ready.";btn.disabled=true;
+      }
+    };
+  }
+
+  function ocr(dataUrl){
+    if(typeof Tesseract==="undefined")return;
+    Tesseract.recognize(dataUrl,"eng").then(function(res){
+      var d=((res.data&&res.data.text)||"").replace(/\D/g,"");
+      var m=d.match(/\d{12}/);var inp=$("aaNum");
+      if(m&&inp){inp.value=m[0].replace(/(\d{4})(\d{4})(\d{4})/,"$1 $2 $3");
+        $("aaMsg").textContent="Number read â€” check it.";}
+      else $("aaMsg").textContent="Could not read â€” type it.";
+    }).catch(function(){});
+  }
+
+  function finishEnroll(worker,num,front,back){
+    // save aadhaar via a dedicated call if any data was captured
+    if(num||front||back){
+      fetch("/api/method/sbi_projects.sbi_projects.site_api.save_worker_aadhaar",{
+        method:"POST",credentials:"same-origin",
+        headers:{"Content-Type":"application/json","X-Frappe-CSRF-Token":CSRF},
+        body:JSON.stringify({worker_type:worker.type,worker_id:worker.id,
+          aadhaar_number:num,front_image:front,back_image:back})
+      }).catch(function(){});
+    }
+    beep("ok");
+    note($("noteE"),"ok",worker.name+" saved. Ready for the next worker.");
+    resetEnroll();
+  }
+
+  // =====================================================================
+  // mode switch + boot
+  // =====================================================================
+  function setMode(m){
+    S.mode=m;
+    $("attend").classList.toggle("hidden",m!=="attend");
+    $("enroll").classList.toggle("hidden",m!=="enroll");
+    $("btnMode").textContent=m==="attend"?"Add worker":"Attendance";
+    if(m==="attend"){
+      stopCam("e");resetEnroll();
+      startCam($("camA"),"a","user").then(function(){aBusy=false;aGood=0;attendLoop();});
+    }else{
+      stopCam("a");cancelCount();
+      startCam($("camE"),"e","user").then(function(){resetEnroll();enrollLoop();});
+    }
+  }
+
+  function boot(){
+    $("siteName").textContent=PROJECT_NAME||"Site";
+    $("btnMode").onclick=function(){setMode(S.mode==="attend"?"enroll":"attend");};
+    $("btnBackToAttend").onclick=function(){setMode("attend");};
+    $("btnRetake").onclick=function(){resetEnroll();};
+    document.querySelectorAll(".seg button").forEach(function(b){
+      b.onclick=function(){S.wt=b.getAttribute("data-wt");
+        document.querySelectorAll(".seg button").forEach(function(x){
+          x.setAttribute("aria-pressed",x===b?"true":"false");});};
+    });
+    $("back").onclick=function(e){if(e.target===$("back")){closeModal();stopCam("aa");}};
+
+    // GPS (non-blocking)
+    if(navigator.geolocation){
+      navigator.geolocation.watchPosition(function(p){
+        S.gps={lat:p.coords.latitude,lng:p.coords.longitude};
+      },function(){},{enableHighAccuracy:true,maximumAge:15000,timeout:12000});
+    }
+
+    // load models + options, then start
+    note($("noteA"),"","Loading face modelsâ€¦");
+    Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri(MODELS),
+      faceapi.nets.faceLandmark68Net.loadFromUri(MODELS),
+      faceapi.nets.faceRecognitionNet.loadFromUri(MODELS)
+    ]).then(function(){
+      return api("face_api.enroll_options",{}).then(function(o){S.opts=o||{};});
+    }).then(function(){
+      S.ready=true;
+      note($("noteA"),"","Point the camera at a worker's face.");
+      setMode("attend");
+    }).catch(function(e){
+      note($("noteA"),"err","Could not load face models. Reload the page. ("+(e&&e.message||e)+")");
+    });
+  }
+
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot);
+  else boot();
+})();
+</script>
+</body>
+</html>
+{% endraw %}
