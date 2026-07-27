@@ -43,12 +43,25 @@ frappe.ui.form.on("Building Enquiry", {
 			);
 		}
 
-		// Portal link actions (Phase 2B wires the actual sending)
-		if (["Draft", "Sent to Client"].includes(frm.doc.status)) {
+		// Portal link actions
+		if (["Draft", "Sent to Client", "Client Submitted", "Under Review"].includes(frm.doc.status)) {
 			frm.add_custom_button(
-				__("Send Link to Client"),
+				frm.doc.access_token ? __("Resend Link") : __("Send Link to Client"),
 				() => frm.trigger("send_link"),
 				__("Portal")
+			);
+		}
+		if (frm.doc.access_token) {
+			frm.add_custom_button(__("Extend Link"), () => frm.trigger("extend_link"), __("Portal"));
+			frm.add_custom_button(__("Copy Link"), () => frm.trigger("copy_link"), __("Portal"));
+		}
+
+		// Highlight rows the client changed (override-with-audit)
+		const changed = (frm.doc.parameters || []).filter((r) => r.value_changed);
+		if (changed.length) {
+			frm.dashboard.add_indicator(
+				__("{0} value(s) changed by client", [changed.length]),
+				"orange"
 			);
 		}
 	},
@@ -105,14 +118,98 @@ frappe.ui.form.on("Building Enquiry", {
 	},
 
 	send_link(frm) {
-		// Phase 2B replaces this stub with the real OTP + email flow.
-		frappe.msgprint({
-			title: __("Coming in Phase 2B"),
-			message: __(
-				"Client portal link generation (secure token + email OTP) is delivered in Phase 2B. " +
-				"This enquiry is ready to hold parameter, BOQ, and drawing data now."
-			),
-			indicator: "blue",
+		if (frm.is_dirty()) {
+			frappe.msgprint(__("Please save the enquiry before sending the link."));
+			return;
+		}
+		const d = new frappe.ui.Dialog({
+			title: __("Send Link to Client"),
+			fields: [
+				{
+					fieldname: "valid_days",
+					label: __("Link Valid (days)"),
+					fieldtype: "Int",
+					default: frm.doc.link_valid_days || 15,
+					reqd: 1,
+				},
+				{
+					fieldname: "send_email",
+					label: __("Email the link to {0}", [frm.doc.contact_email || __("client")]),
+					fieldtype: "Check",
+					default: 1,
+				},
+				{
+					fieldname: "note",
+					fieldtype: "HTML",
+					options:
+						"<p class='text-muted small'>A fresh secure link is generated. Any previously sent link stops working.</p>",
+				},
+			],
+			primary_action_label: __("Generate & Send"),
+			primary_action(values) {
+				frm.call({
+					doc: frm.doc,
+					method: "generate_link",
+					args: { valid_days: values.valid_days, send_email: values.send_email ? 1 : 0 },
+					freeze: true,
+					freeze_message: __("Generating link..."),
+					callback(r) {
+						d.hide();
+						frm.reload_doc();
+						if (r.message && r.message.url) {
+							frappe.msgprint({
+								title: __("Link Ready"),
+								message: __(
+									"Valid until <b>{0}</b>.<br><br><a href='{1}' target='_blank'>{1}</a>",
+									[r.message.expires_on, r.message.url]
+								),
+								indicator: "green",
+							});
+						}
+					},
+				});
+			},
 		});
+		d.show();
+	},
+
+	extend_link(frm) {
+		frappe.prompt(
+			{
+				fieldname: "extra_days",
+				label: __("Extend by (days)"),
+				fieldtype: "Int",
+				default: 15,
+				reqd: 1,
+			},
+			(values) => {
+				frm.call({
+					doc: frm.doc,
+					method: "extend_link",
+					args: { extra_days: values.extra_days },
+					freeze: true,
+					callback(r) {
+						frm.reload_doc();
+						frappe.show_alert({
+							message: __("Link now valid until {0}", [r.message.expires_on]),
+							indicator: "green",
+						});
+					},
+				});
+			},
+			__("Extend Link"),
+			__("Extend")
+		);
+	},
+
+	copy_link(frm) {
+		const url =
+			frappe.urllib.get_base_url() +
+			"/building-enquiry?id=" +
+			encodeURIComponent(frm.doc.name) +
+			"&key=" +
+			encodeURIComponent(frm.doc.access_token);
+		frappe.utils.copy_to_clipboard(url);
+		frappe.show_alert({ message: __("Link copied"), indicator: "green" });
 	},
 });

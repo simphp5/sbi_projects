@@ -97,3 +97,89 @@ class BuildingEnquiry(Document):
 			added += 1
 		self.compute_counts()
 		return added
+
+	# ------------------------------------------------------------------ #
+	# Client portal link (SBI side)
+	# ------------------------------------------------------------------ #
+	@frappe.whitelist()
+	def generate_link(self, valid_days=None, send_email=True):
+		"""Create/refresh the access token, set expiry, optionally email the client.
+
+		Called from the desk 'Send Link to Client' button.
+		"""
+		from frappe.utils import add_to_date, now_datetime, today, add_days
+
+		if not self.contact_email:
+			frappe.throw(_("Set Contact Email before sending the link."))
+
+		valid_days = int(valid_days or self.link_valid_days or 15)
+		if valid_days < 1:
+			frappe.throw(_("Link validity must be at least 1 day."))
+
+		# fresh token each time a link is (re)sent -- invalidates any old link
+		self.access_token = frappe.generate_hash(length=32)
+		self.link_valid_days = valid_days
+		self.link_sent_on = now_datetime()
+		self.link_expires_on = add_days(today(), valid_days)
+		if self.status == "Draft":
+			self.status = "Sent to Client"
+		self.flags.ignore_permissions = True
+		self.save(ignore_permissions=True)
+		frappe.db.commit()
+
+		url = self.get_portal_url()
+
+		if send_email:
+			self._send_link_email(url, valid_days)
+
+		return {"url": url, "expires_on": str(self.link_expires_on)}
+
+	@frappe.whitelist()
+	def extend_link(self, extra_days=15):
+		"""Push the expiry out without changing the token."""
+		from frappe.utils import add_days, getdate, today
+
+		extra_days = int(extra_days or 15)
+		base = getdate(self.link_expires_on) if self.link_expires_on else getdate(today())
+		if base < getdate(today()):
+			base = getdate(today())
+		self.link_expires_on = add_days(base, extra_days)
+		self.flags.ignore_permissions = True
+		self.save(ignore_permissions=True)
+		frappe.db.commit()
+		return {"expires_on": str(self.link_expires_on)}
+
+	def get_portal_url(self):
+		from frappe.utils import get_url
+
+		return get_url(
+			"/building-enquiry?id={0}&key={1}".format(self.name, self.access_token)
+		)
+
+	def _send_link_email(self, url, valid_days):
+		try:
+			frappe.sendmail(
+				recipients=[self.contact_email],
+				subject=_("Building Enquiry from SBI - please provide your requirements"),
+				message=_(
+					"<p>Dear {contact},</p>"
+					"<p>Please provide the requirements for your building project "
+					"<b>{project}</b> using the secure link below:</p>"
+					"<p><a href='{url}'>Open the enquiry form</a></p>"
+					"<p>This link is valid for {days} days. You may optionally verify "
+					"your email on the form for added security.</p>"
+					"<p>Regards,<br>Shiv Bharat Infrastructures</p>"
+				).format(
+					contact=frappe.utils.escape_html(self.contact_person or ""),
+					project=frappe.utils.escape_html(self.project_name or self.customer_name or ""),
+					url=url,
+					days=valid_days,
+				),
+				now=True,
+			)
+		except Exception:
+			frappe.log_error(frappe.get_traceback(), "Enquiry link email failed")
+			frappe.msgprint(
+				_("Link generated, but the email could not be sent. "
+				  "Copy the link manually: {0}").format(url)
+			)

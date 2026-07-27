@@ -11,7 +11,9 @@
   "section",
   "section_no",
   "fieldtype",
+  "sbi_value",
   "value",
+  "value_changed",
   "uom",
   "filled_by",
   "is_mandatory",
@@ -63,11 +65,25 @@
    "read_only": 1
   },
   {
+   "description": "Value SBI pre-filled. Preserved even if the client overrides it.",
+   "fieldname": "sbi_value",
+   "fieldtype": "Data",
+   "label": "SBI Value",
+   "read_only": 1
+  },
+  {
    "columns": 2,
    "fieldname": "value",
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Value"
+  },
+  {
+   "fieldname": "value_changed",
+   "fieldtype": "Check",
+   "in_list_view": 0,
+   "label": "Changed by Client",
+   "read_only": 1
   },
   {
    "columns": 1,
