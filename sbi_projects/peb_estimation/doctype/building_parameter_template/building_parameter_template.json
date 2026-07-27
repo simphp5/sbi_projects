@@ -85,8 +85,7 @@
   {
    "fieldname": "parameters",
    "fieldtype": "Table",
-   "options": "Building Parameter Template Item",
-   "reqd": 1
+   "options": "Building Parameter Template Item"
   },
   {
    "fieldname": "section_break_totals",
