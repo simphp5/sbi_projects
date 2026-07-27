@@ -630,6 +630,8 @@ def get_site_fence(project):
 	}
 
 
+
+
 # ======================================================================
 # Two worker types: Labour (outsourced, weekly) + Employee (SBI staff).
 # Both do face attendance.  These endpoints work across both masters.
@@ -639,12 +641,19 @@ import json
 from frappe.utils import flt, now_datetime, today
 
 
-def _all_face_records():
-	"""Every enrolled face across Labour and Employee, with a type tag."""
+def _all_face_records(project=None):
+	"""Enrolled faces across Labour and Employee.
+
+	When a project is given, only workers assigned to that site are returned,
+	so a worker enrolled at one site cannot be marked present at another.
+	"""
 	out = []
+	lab_filters = {"face_enrolled": 1, "status": "Active"}
+	if project:
+		lab_filters["default_project"] = project
 	for r in frappe.get_all(
 		"Labour",
-		filters={"face_enrolled": 1, "status": "Active"},
+		filters=lab_filters,
 		fields=["name", "labour_name", "face_embedding", "default_project"],
 	):
 		if r.face_embedding:
@@ -653,14 +662,18 @@ def _all_face_records():
 
 	meta = frappe.get_meta("Employee")
 	if meta.has_field("sbi_face_embedding"):
+		emp_filters = {"sbi_face_enrolled": 1, "status": "Active"}
+		if project and meta.has_field("sbi_default_project"):
+			emp_filters["sbi_default_project"] = project
 		for r in frappe.get_all(
 			"Employee",
-			filters={"sbi_face_enrolled": 1, "status": "Active"},
-			fields=["name", "employee_name", "sbi_face_embedding"],
+			filters=emp_filters,
+			fields=["name", "employee_name", "sbi_face_embedding", "sbi_default_project"],
 		):
 			if r.sbi_face_embedding:
 				out.append({"type": "Employee", "id": r.name, "name": r.employee_name,
-				            "embedding": r.sbi_face_embedding, "project": None})
+				            "embedding": r.sbi_face_embedding,
+				            "project": r.get("sbi_default_project")})
 	return out
 
 
@@ -682,7 +695,7 @@ def match_worker(embedding, project=None, threshold=0.62):
 
 	best = None
 	best_score = 0.0
-	for rec in _all_face_records():
+	for rec in _all_face_records(project=project):
 		try:
 			stored = json.loads(rec["embedding"]) if isinstance(rec["embedding"], str) else rec["embedding"]
 		except Exception:
@@ -736,6 +749,8 @@ def enroll_worker(worker_type, name, embedding, photo=None, project=None,
 		doc.sbi_face_embedding = emb
 		doc.sbi_face_enrolled = 1
 		doc.sbi_enrolled_on = now_datetime()
+		if project and doc.meta.has_field("sbi_default_project"):
+			doc.sbi_default_project = project
 		if photo:
 			doc.sbi_face_photo = _save_photo(photo, "Employee", name, name + "-face.jpg")
 		doc.flags.ignore_mandatory = True
@@ -873,3 +888,39 @@ def reenroll_face(worker_type, worker_id, embedding, photo=None):
 	frappe.db.set_value(dt, worker_id, vals)
 	frappe.db.commit()
 	return {"reenrolled": True}
+
+
+@frappe.whitelist()
+def save_worker_aadhaar(worker_type, worker_id, aadhaar_number=None,
+                        front_image=None, back_image=None):
+	"""Store Aadhaar for a Labour or Employee. Full value is permlevel-1."""
+	dt = "Employee" if worker_type == "Employee" else "Labour"
+	if not frappe.db.exists(dt, worker_id):
+		frappe.throw("Worker not found.")
+
+	num = "".join(ch for ch in (aadhaar_number or "") if ch.isdigit())
+	if num and len(num) != 12:
+		frappe.throw("An Aadhaar number must be 12 digits.")
+
+	meta = frappe.get_meta(dt)
+	pfx = "sbi_aadhaar_" if dt == "Employee" else "aadhaar_"
+	num_field = pfx + "number"
+	last4_field = pfx + "last4"
+	front_field = pfx + "front"
+	back_field = pfx + "back"
+
+	updates = {}
+	if num:
+		if meta.has_field(num_field):
+			updates[num_field] = num
+		if meta.has_field(last4_field):
+			updates[last4_field] = num[-4:]
+	if front_image and meta.has_field(front_field):
+		updates[front_field] = _save_photo(front_image, dt, worker_id, worker_id + "-aadhaar-front.jpg")
+	if back_image and meta.has_field(back_field):
+		updates[back_field] = _save_photo(back_image, dt, worker_id, worker_id + "-aadhaar-back.jpg")
+
+	if updates:
+		frappe.db.set_value(dt, worker_id, updates, update_modified=True)
+		frappe.db.commit()
+	return {"saved": True, "last4": num[-4:] if num else None}

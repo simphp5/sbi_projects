@@ -140,6 +140,11 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
 .person .nm small{display:block;font-weight:500;color:var(--ink-soft);font-size:13px}
 .chk{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:16px;font-weight:700}
 .chk input{width:26px;height:26px;min-height:0}
+.master-head .tabs{border-bottom:2px solid var(--ink)}
+.worker-item .act{display:flex;gap:6px}
+.worker-item .act button{border:1px solid var(--rule);background:var(--card);font-size:12px;
+  font-weight:700;padding:6px 8px;color:var(--ink)}
+.worker-item .act button.off{color:var(--brand);border-color:var(--brand)}
 .wtype{display:flex;gap:8px;margin-bottom:4px}
 .wtype-btn{flex:1;min-height:52px;border:2px solid var(--rule);background:var(--card);
   font-size:15px;font-weight:700;color:var(--ink-soft)}
@@ -242,8 +247,27 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
       <div class="note" id="punchNote" data-tone="">Hold the phone steady and look at the camera.</div>
     </section>
 
-    <!-- ENROLL + AADHAAR -->
+    <!-- ENROLL + AADHAAR (Labour & Employee master) -->
     <section id="enrollScreen" class="hidden">
+      <div class="master-head">
+        <div class="tabs" style="margin-bottom:10px">
+          <button id="tabList" type="button" aria-selected="true">Worker list</button>
+          <button id="tabAdd" type="button" aria-selected="false">Add new</button>
+        </div>
+      </div>
+
+      <div id="workerListWrap">
+        <div class="entry-row" style="margin-top:0">
+          <div><input id="wlSearch" type="text" placeholder="Search name..."></div>
+          <button class="rm" id="wlRefresh" type="button" style="width:54px">â†»</button>
+        </div>
+        <label class="chk" style="margin-top:10px;font-size:14px">
+          <input type="checkbox" id="wlInactive"> Show inactive too
+        </label>
+        <div class="roster" id="workerList" style="margin-top:12px"></div>
+      </div>
+
+      <div id="workerAddWrap" class="hidden">
       <div class="stage" id="stage2" data-face="no">
         <video id="video2" playsinline muted autoplay class="mirror"></video>
         <img id="frozen2" class="frozen hidden" alt="">
@@ -302,6 +326,7 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
         <button class="primary" id="btnSaveAadhaar" type="button">Save Aadhaar</button>
         <div class="note" id="aadhaarNote" data-tone="">Capture the front; the number is read for you to check.</div>
       </section>
+      </div><!-- /workerAddWrap -->
     </section>
 
     <!-- DAILY ENTRY -->
@@ -531,16 +556,20 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
     detect($("video")).then(function(res){
       var stage=$("stage");
       if(!res){stage.setAttribute("data-face","no");$("who").textContent="Looking for a face";
-        $("score").textContent="";S.descriptor=null;S.labour=null;renderPunches([]);return;}
+        $("score").textContent="";S.descriptor=null;S.labour=null;cancelCountdown();renderPunches([]);return;}
       stage.setAttribute("data-face","yes");
       S.descriptor=Array.prototype.slice.call(res.descriptor);
       var now=Date.now();if(now-lastLookup<1800)return;lastLookup=now;
       call("site_api.match_worker",{embedding:S.descriptor,project:S.project}).then(function(m){
         if(!m){$("who").textContent="Not enrolled";$("score").textContent="";S.labour=null;
-          renderPunches([]);note($("punchNote"),"warn","This face is not enrolled. Use Add worker.");return;}
+          cancelCountdown();renderPunches([]);
+          note($("punchNote"),"warn","This face is not enrolled. Use Add worker.");return;}
+        var changed = S.labour !== m.id;
         S.labour=m.id;S.labourName=m.name;S.labourType=m.type;
         $("who").textContent=m.name+" ("+m.type+")";$("score").textContent="match "+Math.round(m.score*100)+"%";
-        return refreshDay(m.id);
+        return refreshDay(m.id).then(function(){
+          if(S.allowed && S.allowed.length){ startAutoPunch(changed); }
+        });
       }).catch(function(e){note($("punchNote"),"err",e.message);});
     }).catch(function(){}).then(function(){setTimeout(punchLoop,700);});
   }
@@ -585,6 +614,23 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
   }
   function deviceId(){var k="sbi_device_id";var v=localStorage.getItem(k);
     if(!v){v="dev-"+Math.random().toString(36).slice(2,10);localStorage.setItem(k,v);}return v;}
+
+  // -------- auto punch with a short countdown --------
+  var autoTimer=null, autoFor=null, autoCount=0;
+  function cancelCountdown(){ if(autoTimer){clearInterval(autoTimer);autoTimer=null;} autoFor=null; }
+  function startAutoPunch(restart){
+    if(autoTimer && autoFor===S.labour && !restart) return;
+    cancelCountdown();
+    autoFor=S.labour; autoCount=3;
+    var next=S.allowed[0];
+    note($("punchNote"),"","Punching "+S.labourName+" \u2014 "+next+" in "+autoCount+"\u2026 (move away to cancel)");
+    autoTimer=setInterval(function(){
+      autoCount--;
+      if(autoFor!==S.labour){cancelCountdown();return;}
+      if(autoCount<=0){cancelCountdown();doPunch(next);}
+      else{note($("punchNote"),"","Punching "+S.labourName+" \u2014 "+next+" in "+autoCount+"\u2026 (move away to cancel)");}
+    },1000);
+  }
 
   // -------- offline queue --------
   function queueRead(){try{return JSON.parse(localStorage.getItem(QKEY)||"[]");}catch(e){return[];}}
@@ -675,15 +721,16 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
     }).catch(function(){$("aaOcrNote").textContent="Could not read the number. Please type it.";});
   }
   function saveAadhaar(){
-    if(!S.newLabour){note($("aadhaarNote"),"warn","Add the worker first.");return;}
+    if(!S.newLabour){note($("aadhaarNote"),"warn","Add the worker first.");beep("warn");return;}
     var num=$("aaNumber").value.replace(/[^0-9]/g,"");
-    if(num&&num.length!==12){note($("aadhaarNote"),"warn","An Aadhaar number is 12 digits.");return;}
+    if(num&&num.length!==12){note($("aadhaarNote"),"warn","An Aadhaar number is 12 digits.");beep("warn");return;}
     $("btnSaveAadhaar").disabled=true;note($("aadhaarNote"),"","Saving Aadhaar...");
-    call("site_api.save_aadhaar",{labour:S.newLabour,aadhaar_number:num||null,
+    call("site_api.save_worker_aadhaar",{worker_type:S.newLabourType||"Labour",
+      worker_id:S.newLabour,aadhaar_number:num||null,
       front_image:S.aaFront,back_image:S.aaBack}).then(function(r){
-      note($("aadhaarNote"),"ok","Aadhaar saved. You can add another worker.");
-      resetEnroll();
-    }).catch(function(e){note($("aadhaarNote"),"err",e.message);})
+      note($("aadhaarNote"),"ok","Aadhaar saved. You can add another worker.");beep("ok");
+      resetEnroll();showMasterTab("list");
+    }).catch(function(e){note($("aadhaarNote"),"err",e.message);beep("err");})
     .then(function(){$("btnSaveAadhaar").disabled=false;});
   }
   function resetEnroll(){
@@ -693,6 +740,50 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
     $("aaVideo").classList.remove("hidden");$("aaVideoB").classList.remove("hidden");
     $("aaBackWrap").classList.add("hidden");$("aadhaarBlock").classList.add("hidden");
     unfreezeEnroll();stopCamera("aaF");stopCamera("aaB");
+  }
+
+  // -------- worker master (list + tabs) --------
+  function loadWorkerList(){
+    var box=$("workerList");
+    box.innerHTML='<div class="person"><span class="nm muted">Loading...</span></div>';
+    call("site_api.list_workers",{project:S.project,include_inactive:$("wlInactive").checked?1:0})
+      .then(function(rows){
+        var q=($("wlSearch").value||"").toLowerCase();
+        if(q) rows=rows.filter(function(r){return (r.wname||"").toLowerCase().indexOf(q)>=0;});
+        box.innerHTML="";
+        if(!rows.length){box.innerHTML='<div class="person"><span class="nm muted">No workers. Tap Add new.</span></div>';return;}
+        rows.forEach(function(r){
+          var d=document.createElement("div");d.className="person worker-item";
+          var img=r.photo?'<img class="avatar" src="'+r.photo+'" alt="">':'<span class="avatar"></span>';
+          var inactive=r.status!=="Active";
+          var typePill='<span class="pill '+(r.type==="Employee"?"new":"off")+'">'+r.type+'</span>';
+          var facePill=r.face_enrolled?'':'<span class="pill new">NO FACE</span>';
+          d.innerHTML=img+
+            '<span class="nm">'+esc(r.wname)+'<small>'+esc(r.skill||"")+(r.aadhaar_last4?" Â· Aadhaar ****"+esc(r.aadhaar_last4):"")+'</small></span>'+
+            typePill+facePill+
+            '<span class="act">'+
+              '<button class="'+(inactive?"":"off")+'" data-act="toggle" data-t="'+r.type+'" data-id="'+esc(r.name)+'" data-s="'+(inactive?"Active":"Inactive")+'">'+(inactive?"Activate":"Set inactive")+'</button>'+
+            '</span>';
+          box.appendChild(d);
+        });
+        box.querySelectorAll('[data-act="toggle"]').forEach(function(b){
+          b.onclick=function(){
+            call("site_api.set_worker_status",{worker_type:b.getAttribute("data-t"),
+              worker_id:b.getAttribute("data-id"),status:b.getAttribute("data-s")})
+              .then(function(){beep("ok");loadWorkerList();});
+          };
+        });
+      }).catch(function(e){box.innerHTML='<div class="person"><span class="nm">'+esc(e.message)+'</span></div>';});
+  }
+
+  function showMasterTab(which){
+    var list=which==="list";
+    $("workerListWrap").classList.toggle("hidden",!list);
+    $("workerAddWrap").classList.toggle("hidden",list);
+    $("tabList").setAttribute("aria-selected",list?"true":"false");
+    $("tabAdd").setAttribute("aria-selected",list?"false":"true");
+    if(list){loadWorkerList();stopCamera("en2");}
+    else{startCamera($("video2"),S.facing2,"en2").catch(function(){});}
   }
 
   // -------- daily entry --------
@@ -784,10 +875,13 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
       if(pw) pw.style.display = showProg?"":"none";
       if(cw) cw.style.display = showCash?"":"none";
     }
-    if(screen==="enroll"){startCamera($("video2"),S.facing2,"en2").catch(function(){});}
+    if(screen==="enroll"){
+      // master: default to the worker list, camera only starts on "Add new"
+      showMasterTab("list");
+    }
     else{stopCamera("en2");}
     if(screen==="attend"){startCamera($("video"),S.facing,"att").catch(function(){});loadFence();}
-    else{stopCamera("att");}
+    else{stopCamera("att");cancelCountdown();}
     if(screen!=="enroll"){resetEnroll();}
   }
 
@@ -852,6 +946,11 @@ input:focus,select:focus,button:focus-visible{outline:3px solid var(--brand);out
       };
     });
     $("btnEnroll").onclick=doEnroll;
+    $("tabList").onclick=function(){showMasterTab("list");};
+    $("tabAdd").onclick=function(){showMasterTab("add");};
+    $("wlRefresh").onclick=loadWorkerList;
+    $("wlInactive").onchange=loadWorkerList;
+    var wlt=null;$("wlSearch").oninput=function(){clearTimeout(wlt);wlt=setTimeout(loadWorkerList,300);};
     $("aaFreeze").onclick=function(){captureAadhaar("front");};
     $("aaFreezeB").onclick=function(){captureAadhaar("back");};
     $("btnSaveAadhaar").onclick=saveAadhaar;
