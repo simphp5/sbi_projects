@@ -310,3 +310,34 @@ def enroll_options():
 		"skill": sel("Labour", "skill"),
 		"wage_types": wage_types,
 	}
+
+
+@frappe.whitelist()
+def save_aadhaar(worker_type, worker_id, aadhaar_number=None,
+                 front_image=None, back_image=None):
+	"""Store Aadhaar on a Labour or Employee. Full number is permlevel-1."""
+	dt = "Employee" if worker_type == "Employee" else "Labour"
+	if not frappe.db.exists(dt, worker_id):
+		frappe.throw("Worker not found.")
+
+	num = "".join(ch for ch in (aadhaar_number or "") if ch.isdigit())
+	if num and len(num) != 12:
+		frappe.throw("An Aadhaar number must be 12 digits.")
+
+	meta = frappe.get_meta(dt)
+	pfx = "sbi_aadhaar_" if dt == "Employee" else "aadhaar_"
+	updates = {}
+	if num:
+		if meta.has_field(pfx + "number"):
+			updates[pfx + "number"] = num
+		if meta.has_field(pfx + "last4"):
+			updates[pfx + "last4"] = num[-4:]
+	if front_image and meta.has_field(pfx + "front"):
+		updates[pfx + "front"] = _save_photo(front_image, dt, worker_id)
+	if back_image and meta.has_field(pfx + "back"):
+		updates[pfx + "back"] = _save_photo(back_image, dt, worker_id)
+
+	if updates:
+		frappe.db.set_value(dt, worker_id, updates, update_modified=True)
+		frappe.db.commit()
+	return {"saved": True, "last4": num[-4:] if num else None}

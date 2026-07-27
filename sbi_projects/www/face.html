@@ -190,7 +190,9 @@
   };
 
   function api(method,args){
-    return fetch("/api/method/sbi_projects.sbi_projects.face_api."+method,{
+    // method may be "enroll_options" or "face_api.enroll_options"; normalise to just the fn
+    var fn = method.indexOf(".")>=0 ? method.split(".").pop() : method;
+    return fetch("/api/method/sbi_projects.sbi_projects.face_api."+fn,{
       method:"POST", credentials:"same-origin",
       headers:{"Content-Type":"application/json","X-Frappe-CSRF-Token":CSRF},
       body:JSON.stringify(args||{})
@@ -226,11 +228,33 @@
 
   // ---- camera ----
   var streams={};
+  function stopAllCams(){
+    Object.keys(streams).forEach(function(k){
+      try{streams[k].getTracks().forEach(function(t){t.stop();});}catch(e){}
+      delete streams[k];
+    });
+  }
   function startCam(video,key,facing){
-    return navigator.mediaDevices.getUserMedia({
-      video:{facingMode:facing||"user",width:{ideal:640},height:{ideal:480}},audio:false
-    }).then(function(st){
-      streams[key]=st;video.srcObject=st;return video.play().catch(function(){});
+    // release any camera first, then wait a beat so the device is free
+    stopAllCams();
+    return new Promise(function(resolve,reject){
+      setTimeout(function(){
+        navigator.mediaDevices.getUserMedia({
+          video:{facingMode:facing||"user",width:{ideal:640},height:{ideal:480}},audio:false
+        }).then(function(st){
+          streams[key]=st;video.srcObject=st;
+          video.play().catch(function(){});
+          resolve();
+        }).catch(function(err){
+          // retry once after a longer wait (device may still be releasing)
+          setTimeout(function(){
+            navigator.mediaDevices.getUserMedia({
+              video:{facingMode:facing||"user",width:{ideal:640},height:{ideal:480}},audio:false
+            }).then(function(st){streams[key]=st;video.srcObject=st;video.play().catch(function(){});resolve();})
+              .catch(reject);
+          },500);
+        });
+      },200);
     });
   }
   function stopCam(key){var st=streams[key];if(st){st.getTracks().forEach(function(t){t.stop();});delete streams[key];}}
@@ -553,12 +577,8 @@
   function finishEnroll(worker,num,front,back){
     // save aadhaar via a dedicated call if any data was captured
     if(num||front||back){
-      fetch("/api/method/sbi_projects.sbi_projects.site_api.save_worker_aadhaar",{
-        method:"POST",credentials:"same-origin",
-        headers:{"Content-Type":"application/json","X-Frappe-CSRF-Token":CSRF},
-        body:JSON.stringify({worker_type:worker.type,worker_id:worker.id,
-          aadhaar_number:num,front_image:front,back_image:back})
-      }).catch(function(){});
+      api("save_aadhaar",{worker_type:worker.type,worker_id:worker.id,
+          aadhaar_number:num,front_image:front,back_image:back}).catch(function(){});
     }
     beep("ok");
     note($("noteE"),"ok",worker.name+" saved. Ready for the next worker.");
