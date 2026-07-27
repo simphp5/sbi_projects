@@ -196,7 +196,7 @@ def _worker_field_values(worker_type, worker_id):
 
 @frappe.whitelist()
 def day_status(worker_type, worker_id, project=None):
-	"""Today's punches for a worker and what the next allowed punch is."""
+	"""Today's punches for a worker and the next expected punch, per the shift."""
 	filters = {"log_date": today()}
 	if worker_type == "Employee":
 		filters["employee"] = worker_id
@@ -206,8 +206,15 @@ def day_status(worker_type, worker_id, project=None):
 	punches = frappe.get_all("Labour Attendance Log", filters=filters,
 		fields=["log_type", "log_datetime"], order_by="log_datetime asc")
 	done = [p.log_type for p in punches]
+
+	# sequence comes from the project's shift (falls back to the default four)
+	seq = _SEQUENCE
+	if project:
+		shift = get_shift(project)
+		seq = [s["key"] for s in shift.get("steps", [])] or _SEQUENCE
+
 	next_punch = None
-	for step in _SEQUENCE:
+	for step in seq:
 		if step not in done:
 			next_punch = step
 			break
@@ -216,6 +223,7 @@ def day_status(worker_type, worker_id, project=None):
 		             "time": str(p.log_datetime)[11:16]} for p in punches],
 		"next": next_punch,
 		"finished": next_punch is None,
+		"sequence": seq,
 	}
 
 
@@ -361,3 +369,61 @@ def get_token():
 	even if the server-rendered one went stale.
 	"""
 	return {"csrf_token": frappe.sessions.get_csrf_token()}
+
+
+@frappe.whitelist()
+def match_any(embedding):
+	"""Match a face across ALL sites (for the enroll duplicate check at capture time)."""
+	embedding = _parse(embedding)
+	if not embedding:
+		return None
+	best, dist = _best_match(embedding, project=None)
+	if best and dist <= DUPLICATE_THRESHOLD:
+		return {"type": best["type"], "id": best["id"], "name": best["name"],
+		        "distance": round(dist, 3)}
+	return None
+
+
+@frappe.whitelist()
+def get_shift(project):
+	"""The shift for a project: the ordered punch steps with their expected times."""
+	shift_name = frappe.db.get_value("Project", project, "sbi_shift")
+	if not shift_name or not frappe.db.exists("Shift Type", shift_name):
+		# no shift set -> default sequence, no expected times
+		return {
+			"shift": None,
+			"steps": [
+				{"key": "IN", "label": "In", "time": None},
+				{"key": "LUNCH OUT", "label": "Lunch out", "time": None},
+				{"key": "LUNCH IN", "label": "Lunch in", "time": None},
+				{"key": "OUT", "label": "Out", "time": None},
+			],
+			"late_grace": 0,
+		}
+
+	s = frappe.db.get_value("Shift Type", shift_name, [
+		"start_time", "end_time", "sbi_lunch_out", "sbi_lunch_in",
+		"sbi_tea_out", "sbi_tea_in", "enable_late_entry_marking", "late_entry_grace_period",
+	], as_dict=True) or {}
+
+	def hhmm(v):
+		if not v:
+			return None
+		return str(v)[:5]  # "HH:MM"
+
+	steps = [{"key": "IN", "label": "In", "time": hhmm(s.get("start_time"))}]
+	if s.get("sbi_lunch_out"):
+		steps.append({"key": "LUNCH OUT", "label": "Lunch out", "time": hhmm(s.get("sbi_lunch_out"))})
+	if s.get("sbi_lunch_in"):
+		steps.append({"key": "LUNCH IN", "label": "Lunch in", "time": hhmm(s.get("sbi_lunch_in"))})
+	if s.get("sbi_tea_out"):
+		steps.append({"key": "TEA OUT", "label": "Tea out", "time": hhmm(s.get("sbi_tea_out"))})
+	if s.get("sbi_tea_in"):
+		steps.append({"key": "TEA IN", "label": "Tea in", "time": hhmm(s.get("sbi_tea_in"))})
+	steps.append({"key": "OUT", "label": "Out", "time": hhmm(s.get("end_time"))})
+
+	return {
+		"shift": shift_name,
+		"steps": steps,
+		"late_grace": int(s.get("late_entry_grace_period") or 0) if s.get("enable_late_entry_marking") else 0,
+	}

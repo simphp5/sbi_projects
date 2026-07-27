@@ -202,7 +202,8 @@
   var S={
     mode:"attend", ready:false, wt:"Labour",
     gps:null, lastId:null, opts:{},
-    facingA:"user", facingE:"user", darkA:true, darkE:true
+    facingA:"user", facingE:"user", darkA:true, darkE:true,
+    shift:null
   };
 
   function api(method,args,_retried){
@@ -213,7 +214,7 @@
       body:JSON.stringify(args||{})
     }).then(function(r){
       if(r.status===400 && !_retried){
-        // likely a stale CSRF token â€” get a fresh one and retry once
+        // likely a stale CSRF token - get a fresh one and retry once
         return fetch("/api/method/sbi_projects.sbi_projects.face_api.get_token",{credentials:"same-origin"})
           .then(function(x){return x.json();})
           .then(function(j){ if(j&&j.message&&j.message.csrf_token) CSRF=j.message.csrf_token;
@@ -454,8 +455,9 @@
         if(r.already){note($("noteA"),"warn",r.name+" already has "+r.log_type+" today.");beep("warn");}
         else{
           var extra=r.within_geofence?"":" (off-site "+Math.round(r.distance)+"m)";
+          var lateMsg=lateFlag(r.log_type);
           note($("noteA"),r.within_geofence?"ok":"warn",
-            r.name+" - "+r.log_type+"  "+stamp()+extra);
+            r.name+" - "+r.log_type+"  "+stamp()+extra+lateMsg);
           beep(r.within_geofence?"ok":"warn");
         }
         return api("face_api.day_status",{worker_type:m.type,worker_id:m.id,project:PROJECT})
@@ -467,14 +469,35 @@
       });
   }
 
+  function lateFlag(logType){
+    if(logType!=="IN"||!S.shift||!S.shift.steps)return "";
+    var inStep=S.shift.steps[0];
+    if(!inStep||!inStep.time)return "";
+    var now=new Date();
+    var parts=inStep.time.split(":");
+    var start=new Date(now); start.setHours(+parts[0], +parts[1], 0, 0);
+    var graceMs=(S.shift.late_grace||0)*60000;
+    if(now.getTime() > start.getTime()+graceMs){
+      var mins=Math.round((now.getTime()-start.getTime())/60000);
+      return "  LATE by "+mins+" min";
+    }
+    return "  (on time)";
+  }
+
   function showToday(name,ds){
     $("todayA").classList.remove("hidden");
-    $("todayName").textContent=name+" - today";
-    var seq=["IN","LUNCH OUT","LUNCH IN","OUT"];
+    var shiftName=S.shift&&S.shift.shift?(" - "+S.shift.shift):"";
+    $("todayName").textContent=name+" - today"+shiftName;
+    // steps from the shift (with expected times) if we have them
+    var steps=(S.shift&&S.shift.steps&&S.shift.steps.length)?S.shift.steps
+      :(ds.sequence||["IN","LUNCH OUT","LUNCH IN","OUT"]).map(function(k){return {key:k,label:k,time:null};});
     var done={};ds.punches.forEach(function(p){done[p.log_type]=p.time;});
-    $("todayChips").innerHTML=seq.map(function(s){
-      var t=done[s];
-      return '<span class="chip'+(t?' done':'')+'">'+s+(t?' '+t:'')+'</span>';
+    $("todayChips").innerHTML=steps.map(function(s){
+      var actual=done[s.key];
+      var label=s.label||s.key;
+      var exp=s.time?" ("+s.time+")":"";
+      var shown=actual?(" "+actual):exp;
+      return '<span class="chip'+(actual?' done':'')+'">'+label+shown+'</span>';
     }).join("");
   }
   function hideToday(){$("todayA").classList.add("hidden");}
@@ -513,9 +536,27 @@
     eImg=snapshot(video);
     $("frameE").src=eImg;$("frameE").classList.remove("hidden");$("camE").classList.add("hidden");
     $("stageE").setAttribute("data-face","yes");
-    $("whoE").textContent="OK  Captured";$("subE").textContent="Enter the details.";
+    $("whoE").textContent="Checking...";$("subE").textContent="Please wait.";
     beep("ok");
-    openDetails();
+    // check if this face is already enrolled (anywhere) BEFORE asking for details
+    api("match_any",{embedding:eDesc}).then(function(m){
+      if(m){
+        // already in the system - tell them, do not open the form
+        $("whoE").textContent="Already enrolled";
+        $("subE").textContent=m.name+" ("+m.type+")";
+        note($("noteE"),"warn","This face is already enrolled as "+m.name+" ("+m.type+"). No need to add again.");
+        beep("warn");
+        setTimeout(resetEnroll,2500);   // back to the camera after a moment
+        return;
+      }
+      // new face -> collect details
+      $("whoE").textContent="OK Captured";$("subE").textContent="Enter the details.";
+      openDetails();
+    }).catch(function(){
+      // if the check fails, fall back to opening the form (server still guards duplicates)
+      $("whoE").textContent="OK Captured";$("subE").textContent="Enter the details.";
+      openDetails();
+    });
   }
 
   function resetEnroll(){
@@ -666,6 +707,7 @@
     stopCam("a");stopCam("e");cancelCount();clearBox("trackA");clearBox("trackE");
     if(m==="attend"){
       resetEnroll();
+      if(!S.shift){api("get_shift",{project:PROJECT}).then(function(sh){S.shift=sh||{};});}
       startCam($("camA"),"a",S.facingA).then(function(){aBusy=false;aGood=0;attendLoop();});
     }else if(m==="enroll"){
       startCam($("camE"),"e",S.facingE).then(function(){resetEnroll();enrollLoop();});
