@@ -78,3 +78,5 @@ def get_context(context):
 		frappe.log_error(frappe.get_traceback(), "Building Enquiry portal context")
 		context.error = _("Something went wrong opening this link. Please contact SBI.")
 		return context
+
+# rebuild trigger 20260728114333
