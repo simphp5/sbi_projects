@@ -22,6 +22,17 @@ frappe.ui.form.on("Estimation Sheet BOQ", {
 		}).addClass("btn-primary");
 
 
+
+		// ---- quotation ----
+		if (frm.doc.quotation) {
+			frm.add_custom_button(__("View Quotation"), () => {
+				frappe.set_route("Form", "Quotation", frm.doc.quotation);
+			}).addClass("btn-primary");
+		} else if ((frm.doc.lines || []).length) {
+			frm.add_custom_button(__("Create Quotation"), () => frm.trigger("create_quotation"))
+				.addClass("btn-primary");
+		}
+
 		// ---- stages ----
 		frm.add_custom_button(__("Load Stages"), () => frm.trigger("load_stages"), __("Stages"));
 
@@ -52,6 +63,59 @@ frappe.ui.form.on("Estimation Sheet BOQ", {
 				"blue", true
 			);
 		}
+	},
+
+	create_quotation(frm) {
+		const d = new frappe.ui.Dialog({
+			title: __("Create Quotation"),
+			fields: [
+				{
+					fieldname: "group_by",
+					label: __("Show on quotation as"),
+					fieldtype: "Select",
+					options: ["Line", "Category", "Stage"].join("\n"),
+					default: "Line",
+					reqd: 1,
+					description: __("Line keeps every BOQ row. Category or Stage rolls them into lump sums."),
+				},
+				{
+					fieldname: "valid_days",
+					label: __("Valid for (days)"),
+					fieldtype: "Int",
+					default: 30,
+					reqd: 1,
+				},
+				{
+					fieldname: "note",
+					fieldtype: "HTML",
+					options:
+						"<p class='text-muted small'>Markup is folded into the selling rates, "
+						+ "so the quotation carries clean prices and no internal build-up.</p>",
+				},
+			],
+			primary_action_label: __("Create"),
+			primary_action(values) {
+				frm.call({
+					doc: frm.doc,
+					method: "create_quotation",
+					args: { group_by: values.group_by, valid_days: values.valid_days },
+					freeze: true,
+					freeze_message: __("Creating quotation..."),
+					callback(r) {
+						d.hide();
+						const m = r.message || {};
+						frappe.show_alert({
+							message: __("{0} created ({1} row(s), {2}).", [
+								m.quotation, m.rows, format_currency(m.total, frm.doc.currency),
+							]),
+							indicator: "green",
+						});
+						if (m.quotation) frappe.set_route("Form", "Quotation", m.quotation);
+					},
+				});
+			},
+		});
+		d.show();
 	},
 
 	load_stages(frm) {

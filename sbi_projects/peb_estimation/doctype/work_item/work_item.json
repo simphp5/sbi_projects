@@ -12,6 +12,7 @@
   "category",
   "column_break_1",
   "uom",
+  "item_code",
   "is_active",
   "section_break_res",
   "resources",
@@ -54,6 +55,13 @@
    "in_list_view": 1,
    "label": "UOM",
    "reqd": 1
+  },
+  {
+   "description": "Sales item used on the Quotation. Left blank, one is created the first time it is needed.",
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "label": "ERPNext Item",
+   "options": "Item"
   },
   {
    "default": "1",

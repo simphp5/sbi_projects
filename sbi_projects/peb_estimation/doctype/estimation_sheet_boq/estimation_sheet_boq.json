@@ -46,6 +46,8 @@
   "column_break_markup",
   "profit_pct",
   "incentive_pct",
+  "section_downstream",
+  "quotation",
   "section_remarks",
   "remarks"
  ],
@@ -288,6 +290,20 @@
    "fieldtype": "Percent",
    "label": "Incentive %",
    "permlevel": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_downstream",
+   "fieldtype": "Section Break",
+   "label": "Downstream"
+  },
+  {
+   "fieldname": "quotation",
+   "fieldtype": "Link",
+   "label": "Quotation",
+   "no_copy": 1,
+   "options": "Quotation",
+   "read_only": 1
   },
   {
    "fieldname": "section_remarks",
