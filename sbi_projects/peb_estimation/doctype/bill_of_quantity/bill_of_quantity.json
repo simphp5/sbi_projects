@@ -266,6 +266,7 @@
  "modified_by": "Administrator",
  "module": "PEB Estimation",
  "name": "Bill of Quantity",
+ "naming_rule": "By \"Naming Series\" field",
  "owner": "Administrator",
  "permissions": [
   {
@@ -305,15 +306,29 @@
    "write": 1
   },
   {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "export": 0,
    "permlevel": 1,
+   "print": 0,
    "read": 1,
+   "report": 0,
    "role": "System Manager",
+   "share": 0,
    "write": 1
   },
   {
+   "create": 0,
+   "delete": 0,
+   "email": 0,
+   "export": 0,
    "permlevel": 1,
+   "print": 0,
    "read": 1,
+   "report": 0,
    "role": "Sales Manager",
+   "share": 0,
    "write": 1
   }
  ],
