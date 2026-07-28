@@ -21,6 +21,18 @@ frappe.ui.form.on("Estimation Sheet BOQ", {
 			});
 		}).addClass("btn-primary");
 
+		// ---- BOQ line import ----
+		frm.add_custom_button(__("Download Template"), () => {
+			window.open(
+				"/api/method/sbi_projects.peb_estimation.doctype.estimation_sheet_boq"
+				+ ".estimation_sheet_boq.download_boq_template"
+			);
+		}, __("BOQ Lines"));
+
+		frm.add_custom_button(__("Upload Lines"), () => {
+			frm.trigger("upload_lines");
+		}, __("BOQ Lines"));
+
 		// stage-wise subtotal hint
 		const byStage = {};
 		(frm.doc.lines || []).forEach((l) => {
@@ -34,6 +46,67 @@ frappe.ui.form.on("Estimation Sheet BOQ", {
 				"blue", true
 			);
 		}
+	},
+
+	upload_lines(frm) {
+		const d = new frappe.ui.Dialog({
+			title: __("Upload BOQ Lines"),
+			fields: [
+				{
+					fieldname: "info",
+					fieldtype: "HTML",
+					options:
+						"<p class='text-muted small'>Use the downloaded template. "
+						+ "Leave <b>Rate</b> blank to price the line from the Rate Card (WA); "
+						+ "fill a Rate to keep it as a Manual price.</p>",
+				},
+				{
+					fieldname: "file",
+					label: __("File (.xlsx or .csv)"),
+					fieldtype: "Attach",
+					reqd: 1,
+				},
+				{
+					fieldname: "replace",
+					label: __("Replace existing lines"),
+					fieldtype: "Check",
+					default: 0,
+					description: __("Unticked, the rows are appended to the current lines."),
+				},
+			],
+			primary_action_label: __("Import"),
+			primary_action(values) {
+				frm.call({
+					doc: frm.doc,
+					method: "import_lines",
+					args: { file_url: values.file, replace: values.replace ? 1 : 0 },
+					freeze: true,
+					freeze_message: __("Importing lines..."),
+					callback(r) {
+						d.hide();
+						frm.reload_doc();
+						const m = r.message || {};
+						let msg = __("{0} line(s) imported.", [m.added || 0]);
+						if (m.skipped) {
+							msg += " " + __("{0} blank row(s) skipped.", [m.skipped]);
+						}
+						if ((m.unknown || []).length) {
+							frappe.msgprint({
+								title: __("Imported with warnings"),
+								indicator: "orange",
+								message:
+									msg
+									+ "<br><br><b>" + __("Unknown Work Item codes (left blank):") + "</b><br>"
+									+ m.unknown.join("<br>"),
+							});
+						} else {
+							frappe.show_alert({ message: msg, indicator: "green" });
+						}
+					},
+				});
+			},
+		});
+		d.show();
 	},
 });
 
