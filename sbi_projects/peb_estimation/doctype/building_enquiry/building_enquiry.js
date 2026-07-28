@@ -205,7 +205,7 @@ frappe.ui.form.on("Building Enquiry", {
 	copy_link(frm) {
 		const url =
 			frappe.urllib.get_base_url() +
-			"/building-enquiry?id=" +
+			"/building_enquiry?id=" +
 			encodeURIComponent(frm.doc.name) +
 			"&key=" +
 			encodeURIComponent(frm.doc.access_token);

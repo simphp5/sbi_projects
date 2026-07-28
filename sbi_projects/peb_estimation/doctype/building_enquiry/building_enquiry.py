@@ -153,7 +153,7 @@ class BuildingEnquiry(Document):
 		from frappe.utils import get_url
 
 		return get_url(
-			"/building-enquiry?id={0}&key={1}".format(self.name, self.access_token)
+			"/building_enquiry?id={0}&key={1}".format(self.name, self.access_token)
 		)
 
 	def _send_link_email(self, url, valid_days):
