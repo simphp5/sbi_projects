@@ -152,8 +152,15 @@
 				</div>
 			</div>
 
+			<!-- work type selector (only when client is allowed to choose) -->
+			<div class="peb-card peb-hidden" id="peb-worktype-card">
+				<strong style="font-size:14px">{{ _("What is the scope of your project?") }}</strong>
+				<div class="peb-muted" style="margin:4px 0 10px">{{ _("Choose one. The questionnaire adapts to your selection.") }}</div>
+				<div class="peb-mode-row" id="peb-worktype-row"></div>
+			</div>
+
 			<!-- input mode selector -->
-			<div class="peb-card">
+			<div class="peb-card" id="peb-inputmode-card">
 				<strong style="font-size:14px">{{ _("How would you like to provide requirements?") }}</strong>
 				<div class="peb-mode-row" style="margin-top:10px">
 					<div class="peb-mode" data-mode="SBI Parameters" onclick="pebSetMode('SBI Parameters')">
@@ -268,6 +275,7 @@ function pebLoad() {
 				document.getElementById("peb-verify-done").classList.remove("peb-hidden");
 				document.getElementById("peb-verified-email").textContent = data.verified_email;
 			}
+			pebRenderWorkTypes();
 			pebSetMode(PEB.mode, true);
 			pebRenderSections();
 			pebRenderBoq();
@@ -280,9 +288,50 @@ function pebLoad() {
 		});
 }
 
+function pebRenderWorkTypes() {
+	if (!PEB.data.client_chooses_work_type) return;
+	const card = document.getElementById("peb-worktype-card");
+	const row = document.getElementById("peb-worktype-row");
+	card.classList.remove("peb-hidden");
+	row.innerHTML = "";
+	(PEB.data.work_types || []).forEach((wt) => {
+		const el = document.createElement("div");
+		el.className = "peb-mode" + (wt.work_type === PEB.data.work_type ? " active" : "");
+		el.setAttribute("data-worktype", wt.work_type);
+		el.onclick = () => pebSelectWorkType(wt.work_type);
+		el.innerHTML =
+			"<h4>" + pebEsc(wt.work_type) + "</h4>" +
+			(wt.description ? "<p>" + pebEsc(wt.description) + "</p>" : "");
+		row.appendChild(el);
+	});
+}
+
+function pebSelectWorkType(wt) {
+	if (wt === PEB.data.work_type) return;
+	const change = (PEB.data.parameters || []).length > 0;
+	const go = () => {
+		pebCall("set_work_type", { enquiry: PEB.enquiry, token: PEB.token, work_type: wt })
+			.then((r) => {
+				pebToast(wt + " \u2013 " + r.count + " questions");
+				return pebCall("get_enquiry", { enquiry: PEB.enquiry, token: PEB.token });
+			})
+			.then((data) => {
+				PEB.data = data;
+				pebRenderWorkTypes();
+				pebRenderSections();
+			})
+			.catch((e) => pebToast(e.message || "Could not change", 3500));
+	};
+	if (change) {
+		if (confirm("Change scope to \"" + wt + "\"? Questions not in the new scope will be cleared.")) go();
+	} else {
+		go();
+	}
+}
+
 function pebSetMode(mode, silent) {
 	PEB.mode = mode;
-	document.querySelectorAll(".peb-mode").forEach((el) => {
+	document.querySelectorAll("[data-mode]").forEach((el) => {
 		el.classList.toggle("active", el.dataset.mode === mode);
 	});
 	document.getElementById("peb-mode-params").classList.toggle("peb-hidden", mode !== "SBI Parameters");

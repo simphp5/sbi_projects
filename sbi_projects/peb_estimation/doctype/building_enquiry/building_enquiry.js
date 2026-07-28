@@ -12,6 +12,14 @@ frappe.ui.form.on("Building Enquiry", {
 	refresh(frm) {
 		frm.trigger("set_indicator");
 
+		if (frm.doc.client_chooses_work_type) {
+			frm.dashboard.add_comment(
+				__("The client will choose the Work Type on the portal. The Work Type set here is only a starting suggestion."),
+				"blue",
+				true
+			);
+		}
+
 		if (frm.is_new()) return;
 
 		// Load parameters from the chosen approved template

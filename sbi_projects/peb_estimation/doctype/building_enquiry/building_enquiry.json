@@ -29,6 +29,7 @@
   "other_work_description",
   "column_break_scope",
   "input_mode",
+  "client_chooses_work_type",
   "section_parameters",
   "parameter_template",
   "column_break_tmpl",
@@ -194,6 +195,12 @@
    "label": "Input Mode",
    "options": "SBI Parameters\nBOQ Upload\nDrawing Upload",
    "reqd": 1
+  },
+  {
+   "description": "If ticked, the client picks the work type on the portal (parameters load accordingly). If unticked, the SBI-selected Work Type is fixed.",
+   "fieldname": "client_chooses_work_type",
+   "fieldtype": "Check",
+   "label": "Let Client Choose Work Type"
   },
   {
    "depends_on": "eval:doc.input_mode=='SBI Parameters'",

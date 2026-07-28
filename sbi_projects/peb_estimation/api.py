@@ -128,6 +128,8 @@ def get_enquiry(enquiry, token):
 		"contact_person": doc.contact_person,
 		"contact_email": doc.contact_email,
 		"work_type": doc.work_type,
+		"client_chooses_work_type": bool(doc.client_chooses_work_type),
+		"work_types": _active_work_types() if doc.client_chooses_work_type else [],
 		"input_mode": doc.input_mode,
 		"link_expires_on": str(doc.link_expires_on) if doc.link_expires_on else None,
 		"submitted": bool(doc.client_submitted_on),
@@ -437,3 +439,62 @@ def portal_upload(enquiry, token):
 	frappe.db.commit()
 
 	return {"file_url": saved.file_url, "file_name": filename}
+
+
+# --------------------------------------------------------------------------- #
+# Client-chosen work type (portal selector)
+# --------------------------------------------------------------------------- #
+def _active_work_types():
+	"""Work types offered to the client on the portal, in display order."""
+	return frappe.get_all(
+		"Building Work Type",
+		filters={"is_active": 1},
+		fields=["name as work_type", "description"],
+		order_by="display_order asc, name asc",
+	)
+
+
+@frappe.whitelist(allow_guest=True)
+def set_work_type(enquiry, token, work_type):
+	"""Client picks a work type on the portal; load that type's parameters.
+
+	Only allowed when the enquiry was flagged 'Let Client Choose Work Type'.
+	Replaces the parameter set (a different work type has a different set), so
+	any previously entered values for parameters not in the new set are dropped.
+	Values for parameters common to both sets are preserved.
+	"""
+	doc = _get_enquiry_by_token(enquiry, token)
+	if doc.client_submitted_on:
+		frappe.throw(_("This enquiry is already submitted."))
+	if not doc.client_chooses_work_type:
+		frappe.throw(_("Work type is fixed for this enquiry."))
+
+	if not frappe.db.exists("Building Work Type", work_type):
+		frappe.throw(_("Unknown work type."))
+
+	# remember current answers so we can carry over the overlap
+	prior = {r.parameter: r.value for r in (doc.parameters or []) if (r.value or "").strip()}
+
+	from sbi_projects.peb_estimation.doctype.building_parameter.building_parameter import (
+		get_parameters_for_work_type,
+	)
+
+	rows = get_parameters_for_work_type(work_type)
+	if not rows:
+		frappe.throw(_("No parameters defined for {0}.").format(work_type))
+
+	doc.work_type = work_type
+	doc.parameters = []
+	for row in rows:
+		doc.append("parameters", {
+			"parameter": row.parameter,
+			"is_mandatory": row.is_mandatory,
+			"filled_by": "Client" if prior.get(row.parameter) else "SBI",
+			"value": prior.get(row.parameter),
+		})
+
+	doc.flags.ignore_permissions = True
+	doc.save(ignore_permissions=True)
+	frappe.db.commit()
+
+	return {"ok": True, "work_type": work_type, "count": len(rows)}
