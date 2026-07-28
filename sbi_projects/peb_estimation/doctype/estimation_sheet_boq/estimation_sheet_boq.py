@@ -4,28 +4,34 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
+from frappe.utils import flt
 
 
-class EstimationSheet(Document):
+class EstimationSheetBOQ(Document):
 	def validate(self):
 		self.compute_amounts()
 		self.compute_totals()
 
 	def compute_amounts(self):
 		for row in (self.lines or []):
-			row.amount = (row.qty or 0) * (row.rate or 0)
+			row.qty = flt(row.qty)
+			row.rate = flt(row.rate)
+			row.amount = flt(row.qty) * flt(row.rate)
 
 	def compute_totals(self):
-		base = sum((r.amount or 0) for r in (self.lines or []))
+		base = sum(flt(r.amount) for r in (self.lines or []))
 		self.base_total = base
-		m = base
+
+		markup = 0.0
 		for pct in (self.site_establishment_pct, self.contingency_pct,
 		            self.overhead_pct, self.profit_pct, self.incentive_pct):
-			m += base * ((pct or 0) / 100.0)
-		self.markup_total = m - base
-		self.grand_total = m
-		if self.built_up_area:
-			self.rate_per_sft = m / self.built_up_area
+			markup += base * (flt(pct) / 100.0)
+
+		self.markup_total = markup
+		self.grand_total = base + markup
+
+		area = flt(self.built_up_area)
+		self.rate_per_sft = (base + markup) / area if area else 0
 
 	@frappe.whitelist()
 	def recalculate_rates(self):
@@ -44,7 +50,7 @@ class EstimationSheet(Document):
 				continue
 			wi = frappe.get_cached_doc("Work Item", row.work_item)
 			row.rate = wi.computed_rate(card)
-			row.amount = (row.qty or 0) * (row.rate or 0)
+			row.amount = flt(row.qty) * flt(row.rate)
 			updated += 1
 		self.compute_totals()
 		self.save(ignore_permissions=True)

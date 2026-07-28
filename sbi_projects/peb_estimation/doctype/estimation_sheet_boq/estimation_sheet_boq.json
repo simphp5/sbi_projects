@@ -164,7 +164,7 @@
    "fieldname": "lines",
    "fieldtype": "Table",
    "label": "Lines",
-   "options": "Estimation Sheet Line"
+   "options": "Estimation Sheet BOQ Line"
   },
   {
    "fieldname": "section_totals",
@@ -265,7 +265,7 @@
  "modified": "2026-07-28 14:00:00.000000",
  "modified_by": "Administrator",
  "module": "PEB Estimation",
- "name": "Estimation Sheet",
+ "name": "Estimation Sheet BOQ",
  "naming_rule": "By \"Naming Series\" field",
  "owner": "Administrator",
  "permissions": [

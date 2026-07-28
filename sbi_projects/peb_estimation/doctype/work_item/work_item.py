@@ -4,6 +4,7 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
+from frappe.utils import flt
 
 
 class WorkItem(Document):
@@ -19,7 +20,7 @@ class WorkItem(Document):
 		if not rate_card:
 			return 0
 		card = frappe.get_cached_doc("Rate Card", rate_card)
-		total = 0
+		total = 0.0
 		for row in (self.resources or []):
-			total += (row.coefficient or 0) * card.resource_rate(row.resource)
+			total += flt(row.coefficient) * flt(card.resource_rate(row.resource))
 		return total

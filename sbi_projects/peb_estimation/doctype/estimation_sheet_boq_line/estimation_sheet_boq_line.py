@@ -6,5 +6,5 @@ from frappe import _
 from frappe.model.document import Document
 
 
-class EstimationSheetLine(Document):
+class EstimationSheetBOQLine(Document):
 	pass
