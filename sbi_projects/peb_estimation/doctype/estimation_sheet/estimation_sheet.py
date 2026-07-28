@@ -6,7 +6,7 @@ from frappe import _
 from frappe.model.document import Document
 
 
-class BillOfQuantity(Document):
+class EstimationSheet(Document):
 	def validate(self):
 		self.compute_amounts()
 		self.compute_totals()

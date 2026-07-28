@@ -6,5 +6,5 @@ from frappe import _
 from frappe.model.document import Document
 
 
-class BillOfQuantityLine(Document):
+class EstimationSheetLine(Document):
 	pass

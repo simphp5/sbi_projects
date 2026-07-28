@@ -1,7 +1,7 @@
 // Copyright (c) 2026, Velmaska and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on("Bill of Quantity", {
+frappe.ui.form.on("Estimation Sheet", {
 	refresh(frm) {
 		if (frm.is_new()) return;
 
@@ -37,7 +37,7 @@ frappe.ui.form.on("Bill of Quantity", {
 	},
 });
 
-frappe.ui.form.on("Bill of Quantity Line", {
+frappe.ui.form.on("Estimation Sheet Line", {
 	rate(frm, cdt, cdn) {
 		// SBI typed a rate manually -> flag as Manual so Recalculate won't overwrite it
 		const row = locals[cdt][cdn];
