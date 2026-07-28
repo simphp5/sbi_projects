@@ -71,6 +71,16 @@
 		.peb-field .uom { color: var(--muted); font-weight: 400; }
 		.peb-field .sbi-hint { font-size: 11px; color: var(--warn); margin-top: 3px; }
 		.peb-field .help { font-size: 11px; color: var(--muted); margin-top: 3px; }
+		.peb-field.peb-invalid input, .peb-field.peb-invalid select, .peb-field.peb-invalid textarea {
+			border-color: var(--sbi-red); background: #fff5f5;
+		}
+		.peb-field .err-tip {
+			font-size: 11px; color: var(--sbi-red); margin-top: 3px; font-weight: 500;
+			display: none;
+		}
+		.peb-field.peb-invalid .err-tip { display: block; }
+		.peb-sec-head.peb-sec-invalid { background: #fff5f5; }
+		.peb-sec-head.peb-sec-invalid .badge { background: #fecaca; color: #991b1b; }
 		.peb-field input, .peb-field select, .peb-field textarea {
 			width: 100%; padding: 9px 10px; border: 1px solid var(--line);
 			border-radius: 8px; font-size: 14px; font-family: inherit;
@@ -368,29 +378,41 @@ function pebRenderSections() {
 function pebField(p) {
 	const d = document.createElement("div");
 	d.className = "peb-field";
+	d.setAttribute("data-field", p.parameter);
+	if (p.is_mandatory) d.setAttribute("data-mandatory", "1");
 	const uom = p.uom ? " <span class='uom'>(" + pebEsc(p.uom) + ")</span>" : "";
 	const req = p.is_mandatory ? " <span class='req'>*</span>" : "";
 	let input;
 	if (p.fieldtype === "Select") {
 		const opts = (p.options || "").split("\n").map((o) => o.trim());
-		input = "<select data-param='" + pebEsc(p.parameter) + "' onchange='pebMark()'>" +
+		input = "<select data-param='" + pebEsc(p.parameter) + "' onchange='pebOnChange(this)'>" +
 			opts.map((o) => "<option " + (o === p.value ? "selected" : "") + ">" + pebEsc(o) + "</option>").join("") +
 			"</select>";
 	} else if (p.fieldtype === "Check") {
-		input = "<select data-param='" + pebEsc(p.parameter) + "' onchange='pebMark()'>" +
+		input = "<select data-param='" + pebEsc(p.parameter) + "' onchange='pebOnChange(this)'>" +
 			["", "Yes", "No"].map((o) => "<option " + (o === p.value ? "selected" : "") + ">" + o + "</option>").join("") +
 			"</select>";
 	} else if (p.fieldtype === "Small Text") {
-		input = "<textarea data-param='" + pebEsc(p.parameter) + "' rows='2' oninput='pebMark()'>" + pebEsc(p.value || "") + "</textarea>";
+		input = "<textarea data-param='" + pebEsc(p.parameter) + "' rows='2' oninput='pebOnChange(this)'>" + pebEsc(p.value || "") + "</textarea>";
 	} else {
 		const type = (p.fieldtype === "Float" || p.fieldtype === "Int") ? "number" : (p.fieldtype === "Date" ? "date" : "text");
-		input = "<input type='" + type + "' data-param='" + pebEsc(p.parameter) + "' value='" + pebEsc(p.value || "") + "' oninput='pebMark()'>";
+		input = "<input type='" + type + "' data-param='" + pebEsc(p.parameter) + "' value='" + pebEsc(p.value || "") + "' oninput='pebOnChange(this)'>";
 	}
 	const sbiHint = (p.sbi_value && p.sbi_value !== p.value)
 		? "<div class='sbi-hint'>SBI suggested: " + pebEsc(p.sbi_value) + "</div>" : "";
 	const help = p.help_text ? "<div class='help'>" + pebEsc(p.help_text) + "</div>" : "";
-	d.innerHTML = "<label>" + pebEsc(p.parameter_name) + uom + req + "</label>" + input + sbiHint + help;
+	const errTip = "<div class='err-tip'>" + (p.is_mandatory ? "This field is required" : "") + "</div>";
+	d.innerHTML = "<label>" + pebEsc(p.parameter_name) + uom + req + "</label>" + input + sbiHint + help + errTip;
 	return d;
+}
+
+// clears the invalid state on the field as soon as the user types something
+function pebOnChange(el) {
+	pebMark();
+	const wrap = el.closest(".peb-field");
+	if (wrap && (el.value || "").trim()) {
+		wrap.classList.remove("peb-invalid");
+	}
 }
 
 function pebToggleSec(el) {
@@ -429,14 +451,71 @@ function pebSave() {
 	  .catch((e) => pebToast(e.message || "Save failed", 3500));
 }
 
+// Highlights every empty mandatory field, expands their sections, and
+// scrolls to + focuses the first one. Returns the count of missing fields.
+function pebValidateMandatory() {
+	// clear previous marks
+	document.querySelectorAll(".peb-field.peb-invalid").forEach((el) => el.classList.remove("peb-invalid"));
+	document.querySelectorAll(".peb-sec-head.peb-sec-invalid").forEach((el) => el.classList.remove("peb-sec-invalid"));
+
+	let first = null;
+	let count = 0;
+
+	document.querySelectorAll(".peb-field[data-mandatory='1']").forEach((wrap) => {
+		const input = wrap.querySelector("[data-param]");
+		const val = input ? (input.value || "").trim() : "";
+		if (!val) {
+			wrap.classList.add("peb-invalid");
+			count += 1;
+			if (!first) first = wrap;
+			// expand its section
+			const secBody = wrap.closest(".peb-sec-body");
+			if (secBody) {
+				secBody.classList.add("open");
+				const head = secBody.previousElementSibling;
+				if (head) head.classList.add("peb-sec-invalid");
+			}
+		}
+	});
+
+	if (first) {
+		first.scrollIntoView({ behavior: "smooth", block: "center" });
+		const input = first.querySelector("[data-param]");
+		if (input) setTimeout(() => input.focus(), 350);
+	}
+	return count;
+}
+
 function pebSubmit() {
+	// client-side check first, so we can point at the exact field
+	if (PEB.mode === "SBI Parameters") {
+		const missing = pebValidateMandatory();
+		if (missing > 0) {
+			pebToast(
+				missing === 1
+					? "1 required field is empty \u2013 highlighted below"
+					: missing + " required fields are empty \u2013 jumping to the first",
+				3500
+			);
+			return;
+		}
+	}
+
 	if (!confirm("Submit your requirements? You won't be able to edit after this.")) return;
+
 	pebCall("save_enquiry", {
 		enquiry: PEB.enquiry, token: PEB.token,
 		payload: JSON.stringify({ input_mode: PEB.mode, parameters: pebCollectParams() }),
 	}).then(() => pebCall("submit_enquiry", { enquiry: PEB.enquiry, token: PEB.token }))
 	  .then(() => pebLockSubmitted())
-	  .catch((e) => pebToast(e.message || "Submit failed", 4000));
+	  .catch((e) => {
+		// server-side mandatory guard (fallback) or other error
+		const msg = e.message || "Submit failed";
+		if (/mandatory|required/i.test(msg)) {
+			pebValidateMandatory();
+		}
+		pebToast(msg, 4500);
+	  });
 }
 
 function pebLockSubmitted() {
