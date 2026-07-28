@@ -25,6 +25,12 @@
   "built_up_area",
   "column_break_bldg",
   "rate_card",
+  "section_stages",
+  "payment_terms_template",
+  "column_break_stages",
+  "stage_count",
+  "section_stage_table",
+  "stages",
   "section_lines",
   "lines",
   "section_totals",
@@ -154,6 +160,39 @@
    "fieldtype": "Link",
    "label": "Rate Card",
    "options": "Rate Card"
+  },
+  {
+   "description": "Stages can be typed in directly, or loaded from a Payment Terms Template or the linked Sales Order.",
+   "fieldname": "section_stages",
+   "fieldtype": "Section Break",
+   "label": "Stages"
+  },
+  {
+   "description": "Optional. Load Stages pulls the terms from here.",
+   "fieldname": "payment_terms_template",
+   "fieldtype": "Link",
+   "label": "Payment Terms Template",
+   "options": "Payment Terms Template"
+  },
+  {
+   "fieldname": "column_break_stages",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "stage_count",
+   "fieldtype": "Int",
+   "label": "Stages Defined",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_stage_table",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "stages",
+   "fieldtype": "Table",
+   "label": "Stages",
+   "options": "Estimation Sheet BOQ Stage"
   },
   {
    "fieldname": "section_lines",

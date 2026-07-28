@@ -11,6 +11,7 @@
   "work_item",
   "category",
   "column_break_1",
+  "payment_terms_template",
   "stage",
   "priority",
   "is_active",
@@ -58,7 +59,14 @@
    "fieldtype": "Column Break"
   },
   {
-   "description": "Stage tag written onto the generated BOQ line",
+   "description": "Optional. Pick a template to choose the stage from its terms instead of typing one.",
+   "fieldname": "payment_terms_template",
+   "fieldtype": "Link",
+   "label": "Payment Terms Template",
+   "options": "Payment Terms Template"
+  },
+  {
+   "description": "Stage tag written onto the generated BOQ line. Type one, or pick from the Payment Terms Template above.",
    "fieldname": "stage",
    "fieldtype": "Data",
    "label": "Default Stage"

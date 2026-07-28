@@ -21,6 +21,12 @@ frappe.ui.form.on("Estimation Sheet BOQ", {
 			});
 		}).addClass("btn-primary");
 
+
+		// ---- stages ----
+		frm.add_custom_button(__("Load Stages"), () => frm.trigger("load_stages"), __("Stages"));
+
+		frm.trigger("apply_stage_options");
+
 		// ---- BOQ line import ----
 		frm.add_custom_button(__("Download Template"), () => {
 			window.open(
@@ -46,6 +52,73 @@ frappe.ui.form.on("Estimation Sheet BOQ", {
 				"blue", true
 			);
 		}
+	},
+
+	load_stages(frm) {
+		const has_so = !!frm.doc.sales_order;
+		const d = new frappe.ui.Dialog({
+			title: __("Load Stages"),
+			fields: [
+				{
+					fieldname: "source",
+					label: __("Load from"),
+					fieldtype: "Select",
+					options: ["Payment Terms Template", "Sales Order"].join("\n"),
+					default: has_so ? "Sales Order" : "Payment Terms Template",
+					reqd: 1,
+				},
+				{
+					fieldname: "note",
+					fieldtype: "HTML",
+					options:
+						"<p class='text-muted small'>Stages are the payment terms. "
+						+ "Loading them here keeps the BOQ, the quotation and the invoices "
+						+ "on the same sequence. You can also type stages in by hand.</p>",
+				},
+				{
+					fieldname: "replace",
+					label: __("Replace existing stages"),
+					fieldtype: "Check",
+					default: 1,
+				},
+			],
+			primary_action_label: __("Load"),
+			primary_action(values) {
+				frm.call({
+					doc: frm.doc,
+					method: "load_stages",
+					args: { source: values.source, replace: values.replace ? 1 : 0 },
+					freeze: true,
+					callback(r) {
+						d.hide();
+						frm.reload_doc();
+						frappe.show_alert({
+							message: __("{0} stage(s) loaded from {1}.", [
+								(r.message || {}).added || 0,
+								(r.message || {}).source || "",
+							]),
+							indicator: "green",
+						});
+					},
+				});
+			},
+		});
+		d.show();
+	},
+
+	apply_stage_options(frm) {
+		// let the line-level Stage field offer the stages defined on this sheet
+		const opts = (frm.doc.stages || []).map((s) => s.stage_name).filter(Boolean);
+		const grid = frm.fields_dict.lines && frm.fields_dict.lines.grid;
+		if (!grid) return;
+		grid.update_docfield_property("stage", "options", opts.join("\n"));
+		grid.update_docfield_property(
+			"stage",
+			"description",
+			opts.length
+				? __("Choose one of the {0} stage(s) defined above.", [opts.length])
+				: __("No stages defined yet - use Stages > Load Stages, or type freely.")
+		);
 	},
 
 	upload_lines(frm) {

@@ -11,6 +11,7 @@ class EstimationSheetBOQ(Document):
 	def validate(self):
 		self.compute_amounts()
 		self.compute_totals()
+		self.check_line_stages()
 
 	def compute_amounts(self):
 		for row in (self.lines or []):
@@ -32,6 +33,89 @@ class EstimationSheetBOQ(Document):
 
 		area = flt(self.built_up_area)
 		self.rate_per_sft = (base + markup) / area if area else 0
+		self.stage_count = len(self.stages or [])
+
+	@frappe.whitelist()
+	def load_stages(self, source=None, replace=1):
+		"""Fill the stage list from a Payment Terms Template or the linked Sales Order.
+
+		Stages are the payment terms -- keeping one source of truth means the BOQ,
+		the quotation and the eventual invoices all speak the same sequence.
+		Typing stages in by hand stays possible; this just saves the typing.
+		"""
+		source = source or ("Sales Order" if self.sales_order else "Payment Terms Template")
+
+		if source == "Sales Order":
+			if not self.sales_order:
+				frappe.throw(_("Link a Sales Order first."))
+			rows = frappe.get_all(
+				"Payment Schedule",
+				filters={"parent": self.sales_order, "parenttype": "Sales Order"},
+				fields=["payment_term", "description", "invoice_portion", "idx"],
+				order_by="idx asc",
+			)
+		else:
+			if not self.payment_terms_template:
+				frappe.throw(_("Select a Payment Terms Template first."))
+			rows = frappe.get_all(
+				"Payment Terms Template Detail",
+				filters={"parent": self.payment_terms_template},
+				fields=["payment_term", "description", "invoice_portion", "idx"],
+				order_by="idx asc",
+			)
+
+		if not rows:
+			frappe.throw(_("No payment terms found in {0}.").format(frappe.bold(source)))
+
+		if replace in (1, "1", True, "true"):
+			self.stages = []
+
+		existing = {(r.stage_name or "").strip().lower() for r in (self.stages or [])}
+		added = 0
+		for r in rows:
+			name = (r.payment_term or r.description or "").strip()
+			if not name or name.lower() in existing:
+				continue
+			self.append("stages", {
+				"stage_name": name,
+				"description": r.description,
+				"invoice_portion": flt(r.invoice_portion),
+				"source": source,
+			})
+			existing.add(name.lower())
+			added += 1
+
+		self.compute_totals()
+		self.save(ignore_permissions=True)
+		frappe.db.commit()
+		return {"added": added, "source": source}
+
+	@frappe.whitelist()
+	def stage_options(self):
+		"""Stage names defined on this sheet, for the line-level picker."""
+		return [r.stage_name for r in (self.stages or []) if r.stage_name]
+
+	def check_line_stages(self):
+		"""Flag BOQ lines whose stage is not one of the defined stages.
+
+		This warns rather than blocks -- a sheet is often drafted before the
+		payment terms are settled, and stopping the save would be unhelpful.
+		"""
+		defined = {(r.stage_name or "").strip().lower() for r in (self.stages or [])}
+		if not defined:
+			return
+		stray = sorted({
+			(l.stage or "").strip() for l in (self.lines or [])
+			if (l.stage or "").strip() and (l.stage or "").strip().lower() not in defined
+		})
+		if stray:
+			frappe.msgprint(
+				_("These line stages are not in the stage list: {0}").format(
+					frappe.bold(", ".join(stray))
+				),
+				title=_("Stage mismatch"),
+				indicator="orange",
+			)
 
 	@frappe.whitelist()
 	def recalculate_rates(self):
