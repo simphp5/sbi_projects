@@ -3,12 +3,16 @@ import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 from sbi_projects.setup.milestone_custom_fields import create_milestone_custom_fields
 from sbi_projects.setup.so_project_field import create_so_project_field
-from sbi_projects.setup.peb_masters import setup_peb_masters
-from sbi_projects.setup.boq_masters import setup_boq_masters
-from sbi_projects.setup.quantity_rules import setup_quantity_rules
 
 
 def after_install():
+	# --- PEB Estimation masters (Phase 1) ---
+	try:
+		from sbi_projects.setup.peb_masters import setup_peb_masters
+		setup_peb_masters()
+	except Exception:
+		frappe.log_error(frappe.get_traceback(), "PEB masters seed failed")
+
 	from sbi_projects.setup.crm_setup import setup_crm
 	from sbi_projects.setup.branding import setup_branding
 
@@ -27,9 +31,6 @@ def after_install():
 		setup_branding,
 		create_milestone_custom_fields,
 		create_so_project_field,
-		setup_peb_masters,
-			setup_boq_masters,
-			setup_quantity_rules,
 	)
 	for step in steps:
 		try:

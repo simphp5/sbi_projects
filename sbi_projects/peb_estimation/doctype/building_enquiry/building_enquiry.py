@@ -6,6 +6,7 @@ import os
 import frappe
 from frappe import _
 from frappe.model.document import Document
+from frappe.utils import flt
 
 BOQ_EXTENSIONS = (".xlsx", ".xls", ".pdf")
 DRAWING_EXTENSIONS = (".pdf", ".jpg", ".jpeg", ".png")
@@ -183,3 +184,124 @@ class BuildingEnquiry(Document):
 				_("Link generated, but the email could not be sent. "
 				  "Copy the link manually: {0}").format(url)
 			)
+
+	# ------------------------------------------------------------------ #
+	# BOQ generation
+	# ------------------------------------------------------------------ #
+	@frappe.whitelist()
+	def create_boq(self):
+		"""Create an Estimation Sheet BOQ from this enquiry.
+
+		How the lines are produced depends on how the client answered:
+		  - SBI Parameters : Quantity Rules are evaluated against the answers
+		  - BOQ Upload     : the client's own BOQ lines are carried over
+		  - Drawing Upload : an empty sheet, for manual take-off against the drawings
+
+		Rates are left on WA so the sheet prices itself from the Rate Card;
+		the estimator can override any line afterwards.
+		"""
+		existing = frappe.db.get_value(
+			"Estimation Sheet BOQ", {"building_enquiry": self.name, "docstatus": ["<", 2]}, "name"
+		)
+		if existing:
+			frappe.throw(
+				_("This enquiry already has a BOQ: {0}").format(
+					frappe.utils.get_link_to_form("Estimation Sheet BOQ", existing)
+				)
+			)
+
+		boq = frappe.new_doc("Estimation Sheet BOQ")
+		boq.boq_type = "Estimate"
+		boq.status = "Draft"
+		boq.building_enquiry = self.name
+		boq.customer = self.customer
+		boq.customer_name = self.customer_name
+		boq.building_name = self.project_name
+
+		if self.input_mode == "SBI Parameters":
+			boq.source = "Parameters"
+			generated, skipped = self._lines_from_parameters(boq)
+		elif self.input_mode == "BOQ Upload":
+			boq.source = "BOQ Upload"
+			generated, skipped = self._lines_from_client_boq(boq), []
+		else:
+			boq.source = "Drawing"
+			generated, skipped = 0, []
+
+		boq.insert(ignore_permissions=True)
+
+		if self.status in ("Client Submitted", "Under Review", "Sent to Client", "Draft"):
+			self.db_set("status", "Costing in Progress")
+		frappe.db.commit()
+
+		return {"boq": boq.name, "lines": generated, "skipped": skipped}
+
+	def _lines_from_parameters(self, boq):
+		"""Evaluate every applicable Quantity Rule against the client's answers."""
+		from sbi_projects.peb_estimation.doctype.quantity_rule.quantity_rule import (
+			build_params_context, get_eval_globals, is_ticked,
+		)
+
+		answers = {r.parameter: r.value for r in (self.parameters or [])}
+		params = build_params_context(answers)
+
+		rules = frappe.get_all(
+			"Quantity Rule",
+			filters={"is_active": 1},
+			fields=["name", "work_item", "stage", "condition", "qty_formula",
+			        "line_description", "work_type", "scope_parameter", "priority"],
+			order_by="priority asc, name asc",
+		)
+
+		generated, skipped = 0, []
+		for rule in rules:
+			# work type gate
+			if rule.work_type and rule.work_type != self.work_type:
+				continue
+
+			# scope gate -- the client must have ticked that scope box
+			if rule.scope_parameter and not is_ticked(answers.get(rule.scope_parameter)):
+				continue
+
+			# condition gate
+			if (rule.condition or "").strip():
+				try:
+					if not frappe.safe_eval(rule.condition, get_eval_globals(params), {}):
+						continue
+				except Exception as e:
+					skipped.append(_("{0}: condition failed ({1})").format(rule.name, e))
+					continue
+
+			try:
+				qty = flt(frappe.safe_eval(rule.qty_formula, get_eval_globals(params), {}))
+			except Exception as e:
+				skipped.append(_("{0}: formula failed ({1})").format(rule.name, e))
+				continue
+
+			if qty <= 0:
+				continue
+
+			boq.append("lines", {
+				"stage": rule.stage,
+				"work_item": rule.work_item,
+				"description": rule.line_description,
+				"qty": qty,
+				"rate_source": "WA",
+			})
+			generated += 1
+
+		return generated, skipped
+
+	def _lines_from_client_boq(self, boq):
+		"""Carry the client's uploaded BOQ rows across, keeping their mapping."""
+		count = 0
+		for row in (self.boq_lines or []):
+			boq.append("lines", {
+				"description": row.client_description,
+				"uom": row.uom,
+				"qty": flt(row.qty),
+				"rate_source": "WA",
+				"remarks": _("From client BOQ, Sl {0}").format(row.sl_no or row.idx),
+			})
+			count += 1
+		return count

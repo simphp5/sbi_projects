@@ -51,6 +51,13 @@ frappe.ui.form.on("Building Enquiry", {
 			);
 		}
 
+
+		// ---- BOQ ----
+		if (["Client Submitted", "Under Review", "Costing in Progress"].includes(frm.doc.status)) {
+			frm.add_custom_button(__("Create BOQ"), () => frm.trigger("create_boq"))
+				.addClass("btn-primary");
+		}
+
 		// Portal link actions
 		if (["Draft", "Sent to Client", "Client Submitted", "Under Review"].includes(frm.doc.status)) {
 			frm.add_custom_button(
@@ -72,6 +79,38 @@ frappe.ui.form.on("Building Enquiry", {
 				"orange"
 			);
 		}
+	},
+
+	create_boq(frm) {
+		frappe.confirm(
+			__("Generate a BOQ from this enquiry ({0})?", [frm.doc.input_mode]),
+			() => {
+				frm.call({
+					doc: frm.doc,
+					method: "create_boq",
+					freeze: true,
+					freeze_message: __("Generating BOQ..."),
+					callback(r) {
+						const m = r.message || {};
+						frm.reload_doc();
+						let msg = __("{0} created with {1} line(s).", [m.boq, m.lines || 0]);
+						if ((m.skipped || []).length) {
+							frappe.msgprint({
+								title: __("BOQ created with warnings"),
+								indicator: "orange",
+								message: msg + "<br><br><b>" + __("Rules skipped:") + "</b><br>"
+									+ m.skipped.join("<br>"),
+							});
+						} else {
+							frappe.show_alert({ message: msg, indicator: "green" });
+						}
+						if (m.boq) {
+							frappe.set_route("Form", "Estimation Sheet BOQ", m.boq);
+						}
+					},
+				});
+			}
+		);
 	},
 
 	set_indicator(frm) {

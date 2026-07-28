@@ -1,0 +1,186 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:rule_name",
+ "creation": "2026-07-28 18:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "rule_name",
+  "work_item",
+  "category",
+  "column_break_1",
+  "stage",
+  "priority",
+  "is_active",
+  "section_applicability",
+  "work_type",
+  "scope_parameter",
+  "column_break_2",
+  "condition",
+  "section_formula",
+  "qty_formula",
+  "uom",
+  "line_description",
+  "section_help",
+  "help_html"
+ ],
+ "fields": [
+  {
+   "fieldname": "rule_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Rule Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "work_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Work Item",
+   "options": "Work Item",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "work_item.category",
+   "fieldname": "category",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Category",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Stage tag written onto the generated BOQ line",
+   "fieldname": "stage",
+   "fieldtype": "Data",
+   "label": "Default Stage"
+  },
+  {
+   "default": "100",
+   "description": "Lower runs first. Controls line order in the BOQ.",
+   "fieldname": "priority",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Priority"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Is Active"
+  },
+  {
+   "fieldname": "section_applicability",
+   "fieldtype": "Section Break",
+   "label": "Applicability"
+  },
+  {
+   "description": "Leave blank to apply to every work type",
+   "fieldname": "work_type",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Work Type",
+   "options": "Building Work Type"
+  },
+  {
+   "description": "Optional. Rule runs only if this scope box is ticked (e.g. SCOPE_ERECTION).",
+   "fieldname": "scope_parameter",
+   "fieldtype": "Link",
+   "label": "Required Scope Parameter",
+   "options": "Building Parameter"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Optional Python expression. Blank = always. Example: params.CRANE_REQD == \"Yes\"",
+   "fieldname": "condition",
+   "fieldtype": "Small Text",
+   "label": "Condition"
+  },
+  {
+   "fieldname": "section_formula",
+   "fieldtype": "Section Break",
+   "label": "Quantity"
+  },
+  {
+   "description": "Python expression returning a number. Example: params.BUILDING_LENGTH * params.BUILDING_WIDTH * 1.05",
+   "fieldname": "qty_formula",
+   "fieldtype": "Small Text",
+   "label": "Qty Formula",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "work_item.uom",
+   "fieldname": "uom",
+   "fieldtype": "Data",
+   "label": "UOM",
+   "read_only": 1
+  },
+  {
+   "description": "Optional. Blank uses the Work Item name.",
+   "fieldname": "line_description",
+   "fieldtype": "Small Text",
+   "label": "Line Description"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_help",
+   "fieldtype": "Section Break",
+   "label": "Reference"
+  },
+  {
+   "fieldname": "help_html",
+   "fieldtype": "HTML",
+   "options": "<div class='text-muted small'><p><b>Available in formulas and conditions</b></p><ul><li><code>params.CODE</code> - any Building Parameter code. Numeric answers come through as numbers, everything else as text. A parameter the client left blank is <code>0</code> (numeric) or <code>\"\"</code> (text), never missing.</li><li><code>flt, round, min, max, abs</code></li></ul><p><b>Examples</b></p><ul><li>Roof area with 5% lap: <code>params.BUILDING_LENGTH * params.BUILDING_WIDTH * 1.05</code></li><li>Crane beam: <code>params.CRANE_SPAN * params.NO_OF_CRANES * 0.22</code></li><li>Only when a crane is asked for - Condition: <code>params.CRANE_REQD == \"Yes\"</code></li><li>Ventilators: <code>params.TURBO_VENT_QTY</code></li></ul></div>"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-28 18:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "PEB Estimation",
+ "name": "Quantity Rule",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "search_fields": "work_item,work_type",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
