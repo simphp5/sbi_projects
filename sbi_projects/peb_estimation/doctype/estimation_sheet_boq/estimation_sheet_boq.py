@@ -117,6 +117,125 @@ class EstimationSheetBOQ(Document):
 				indicator="orange",
 			)
 
+	# ------------------------------------------------------------------ #
+	# Quotation
+	# ------------------------------------------------------------------ #
+	@frappe.whitelist()
+	def create_quotation(self, group_by="Line", valid_days=30):
+		"""Roll this BOQ into a Quotation for the client.
+
+		Markup is absorbed into the line rates, so the quotation shows clean
+		selling rates and the client never sees the internal build-up. The
+		quotation total therefore equals this sheet's grand total exactly --
+		the absorption factor is applied to rates and the last line carries any
+		rounding remainder.
+
+		group_by:
+			Line     - one quotation row per BOQ line (full detail)
+			Category - one row per category (Civil, Structural, ...)
+			Stage    - one row per stage
+		"""
+		if self.quotation and frappe.db.exists("Quotation", self.quotation):
+			frappe.throw(
+				_("This BOQ already has a quotation: {0}").format(
+					frappe.utils.get_link_to_form("Quotation", self.quotation)
+				)
+			)
+		if not (self.lines or []):
+			frappe.throw(_("Add BOQ lines first."))
+		if not self.customer:
+			frappe.throw(_("Set the Customer before creating a quotation."))
+
+		self.compute_amounts()
+		self.compute_totals()
+
+		base = flt(self.base_total)
+		if base <= 0:
+			frappe.throw(_("The BOQ base total is zero, so there is nothing to quote."))
+
+		# markup absorbed into rates
+		factor = flt(self.grand_total) / base
+
+		rows = self._quotation_rows(group_by, factor)
+		if not rows:
+			frappe.throw(_("No priced lines to quote."))
+
+		quo = frappe.new_doc("Quotation")
+		quo.quotation_to = "Customer"
+		quo.party_name = self.customer
+		quo.transaction_date = frappe.utils.today()
+		quo.valid_till = frappe.utils.add_days(frappe.utils.today(), int(valid_days or 30))
+		if self.payment_terms_template:
+			quo.payment_terms_template = self.payment_terms_template
+
+		for r in rows:
+			quo.append("items", r)
+
+		quo.insert(ignore_permissions=True)
+
+		# nudge the total onto the BOQ grand total, absorbing rounding on the last row
+		diff = flt(self.grand_total) - flt(quo.total)
+		if abs(diff) >= 0.01 and quo.items:
+			last = quo.items[-1]
+			last.rate = flt(last.rate) + diff / flt(last.qty or 1)
+			quo.save(ignore_permissions=True)
+
+		self.db_set("quotation", quo.name)
+		self.db_set("status", "Quoted")
+		if self.building_enquiry:
+			frappe.db.set_value("Building Enquiry", self.building_enquiry, {
+				"quotation": quo.name,
+				"status": "Quoted",
+			})
+		frappe.db.commit()
+
+		return {"quotation": quo.name, "rows": len(rows), "total": flt(quo.total)}
+
+	def _quotation_rows(self, group_by, factor):
+		"""Build quotation item rows, with markup already folded into the rate."""
+		if group_by == "Line":
+			rows = []
+			for l in (self.lines or []):
+				if flt(l.amount) <= 0:
+					continue
+				item_code = self._item_for(l)
+				rows.append({
+					"item_code": item_code,
+					"description": l.description or None,
+					"qty": flt(l.qty) or 1,
+					"uom": l.uom or None,
+					"rate": flt(l.rate) * factor,
+				})
+			return rows
+
+		# consolidated: one row per category or per stage, priced as a lump sum
+		key_field = "category" if group_by == "Category" else "stage"
+		buckets = {}
+		for l in (self.lines or []):
+			if flt(l.amount) <= 0:
+				continue
+			key = (getattr(l, key_field, None) or _("Other")).strip()
+			buckets.setdefault(key, 0)
+			buckets[key] += flt(l.amount)
+
+		lump = _lump_sum_item()
+		return [
+			{
+				"item_code": lump,
+				"description": key,
+				"qty": 1,
+				"rate": amount * factor,
+			}
+			for key, amount in buckets.items()
+		]
+
+	def _item_for(self, line):
+		"""Resolve the sales Item for a BOQ line, falling back to a lump-sum item."""
+		if line.work_item:
+			wi = frappe.get_doc("Work Item", line.work_item)
+			return wi.get_or_create_item()
+		return _lump_sum_item()
+
 	@frappe.whitelist()
 	def recalculate_rates(self):
 		"""Refresh WA-source line rates from the Rate Card. Manual lines untouched."""
@@ -319,126 +438,6 @@ def download_boq_template():
 	frappe.response["filename"] = "estimation_sheet_boq_template.xlsx"
 	frappe.response["filecontent"] = buf.getvalue()
 	frappe.response["type"] = "binary"
-
-	# ------------------------------------------------------------------ #
-	# Quotation
-	# ------------------------------------------------------------------ #
-	@frappe.whitelist()
-	def create_quotation(self, group_by="Line", valid_days=30):
-		"""Roll this BOQ into a Quotation for the client.
-
-		Markup is absorbed into the line rates, so the quotation shows clean
-		selling rates and the client never sees the internal build-up. The
-		quotation total therefore equals this sheet's grand total exactly --
-		the absorption factor is applied to rates and the last line carries any
-		rounding remainder.
-
-		group_by:
-			Line     - one quotation row per BOQ line (full detail)
-			Category - one row per category (Civil, Structural, ...)
-			Stage    - one row per stage
-		"""
-		if self.quotation and frappe.db.exists("Quotation", self.quotation):
-			frappe.throw(
-				_("This BOQ already has a quotation: {0}").format(
-					frappe.utils.get_link_to_form("Quotation", self.quotation)
-				)
-			)
-		if not (self.lines or []):
-			frappe.throw(_("Add BOQ lines first."))
-		if not self.customer:
-			frappe.throw(_("Set the Customer before creating a quotation."))
-
-		self.compute_amounts()
-		self.compute_totals()
-
-		base = flt(self.base_total)
-		if base <= 0:
-			frappe.throw(_("The BOQ base total is zero, so there is nothing to quote."))
-
-		# markup absorbed into rates
-		factor = flt(self.grand_total) / base
-
-		rows = self._quotation_rows(group_by, factor)
-		if not rows:
-			frappe.throw(_("No priced lines to quote."))
-
-		quo = frappe.new_doc("Quotation")
-		quo.quotation_to = "Customer"
-		quo.party_name = self.customer
-		quo.transaction_date = frappe.utils.today()
-		quo.valid_till = frappe.utils.add_days(frappe.utils.today(), int(valid_days or 30))
-		if self.payment_terms_template:
-			quo.payment_terms_template = self.payment_terms_template
-
-		for r in rows:
-			quo.append("items", r)
-
-		quo.insert(ignore_permissions=True)
-
-		# nudge the total onto the BOQ grand total, absorbing rounding on the last row
-		diff = flt(self.grand_total) - flt(quo.total)
-		if abs(diff) >= 0.01 and quo.items:
-			last = quo.items[-1]
-			last.rate = flt(last.rate) + diff / flt(last.qty or 1)
-			quo.save(ignore_permissions=True)
-
-		self.db_set("quotation", quo.name)
-		self.db_set("status", "Quoted")
-		if self.building_enquiry:
-			frappe.db.set_value("Building Enquiry", self.building_enquiry, {
-				"quotation": quo.name,
-				"status": "Quoted",
-			})
-		frappe.db.commit()
-
-		return {"quotation": quo.name, "rows": len(rows), "total": flt(quo.total)}
-
-	def _quotation_rows(self, group_by, factor):
-		"""Build quotation item rows, with markup already folded into the rate."""
-		if group_by == "Line":
-			rows = []
-			for l in (self.lines or []):
-				if flt(l.amount) <= 0:
-					continue
-				item_code = self._item_for(l)
-				rows.append({
-					"item_code": item_code,
-					"description": l.description or None,
-					"qty": flt(l.qty) or 1,
-					"uom": l.uom or None,
-					"rate": flt(l.rate) * factor,
-				})
-			return rows
-
-		# consolidated: one row per category or per stage, priced as a lump sum
-		key_field = "category" if group_by == "Category" else "stage"
-		buckets = {}
-		for l in (self.lines or []):
-			if flt(l.amount) <= 0:
-				continue
-			key = (getattr(l, key_field, None) or _("Other")).strip()
-			buckets.setdefault(key, 0)
-			buckets[key] += flt(l.amount)
-
-		lump = _lump_sum_item()
-		return [
-			{
-				"item_code": lump,
-				"description": key,
-				"qty": 1,
-				"rate": amount * factor,
-			}
-			for key, amount in buckets.items()
-		]
-
-	def _item_for(self, line):
-		"""Resolve the sales Item for a BOQ line, falling back to a lump-sum item."""
-		if line.work_item:
-			wi = frappe.get_doc("Work Item", line.work_item)
-			return wi.get_or_create_item()
-		return _lump_sum_item()
-
 
 def _lump_sum_item():
 	"""Generic sales item for consolidated or work-item-less rows."""
