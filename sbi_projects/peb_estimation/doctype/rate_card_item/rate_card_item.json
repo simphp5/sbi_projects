@@ -1,0 +1,82 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-07-28 14:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "resource_type",
+  "resource",
+  "uom",
+  "rate",
+  "wastage_percent",
+  "effective_rate"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "fieldname": "resource_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Type",
+   "options": "Material\nLabour\nMachinery\nTransport\nSubcontractor",
+   "reqd": 1
+  },
+  {
+   "columns": 3,
+   "description": "e.g. Cement, M.Sand, Reinforcement, Mason, JCB",
+   "fieldname": "resource",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Resource",
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "uom",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "UOM"
+  },
+  {
+   "columns": 2,
+   "description": "Weighted-average rate SBI maintains. Update as market moves.",
+   "fieldname": "rate",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Rate",
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "default": "0",
+   "fieldname": "wastage_percent",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "Wastage %"
+  },
+  {
+   "columns": 2,
+   "description": "rate x (1 + wastage/100)",
+   "fieldname": "effective_rate",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Effective Rate",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-07-28 14:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "PEB Estimation",
+ "name": "Rate Card Item",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

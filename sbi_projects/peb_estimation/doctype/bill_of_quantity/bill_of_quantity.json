@@ -1,0 +1,327 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-07-28 14:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "title",
+  "column_break_top",
+  "boq_type",
+  "status",
+  "section_source",
+  "source",
+  "building_enquiry",
+  "sales_order",
+  "column_break_source",
+  "customer",
+  "customer_name",
+  "project",
+  "section_building",
+  "building_name",
+  "built_up_area",
+  "column_break_bldg",
+  "rate_card",
+  "section_lines",
+  "lines",
+  "section_totals",
+  "base_total",
+  "column_break_tot",
+  "markup_total",
+  "grand_total",
+  "rate_per_sft",
+  "section_break_markup",
+  "site_establishment_pct",
+  "contingency_pct",
+  "overhead_pct",
+  "column_break_markup",
+  "profit_pct",
+  "incentive_pct",
+  "section_remarks",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "default": "BOQ-.YY.-.####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "BOQ-.YY.-.####",
+   "reqd": 1
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Title",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_top",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Estimate",
+   "fieldname": "boq_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "BOQ Type",
+   "options": "Estimate\nExecution"
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Draft\nFinalized\nQuoted\nSuperseded"
+  },
+  {
+   "fieldname": "section_source",
+   "fieldtype": "Section Break",
+   "label": "Source"
+  },
+  {
+   "fieldname": "source",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "label": "Source",
+   "options": "Parameters\nBOQ Upload\nDrawing\nManual\nSales Order"
+  },
+  {
+   "fieldname": "building_enquiry",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Building Enquiry",
+   "options": "Building Enquiry"
+  },
+  {
+   "fieldname": "sales_order",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Sales Order",
+   "options": "Sales Order"
+  },
+  {
+   "fieldname": "column_break_source",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "customer_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Customer / Client Name"
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "options": "Project"
+  },
+  {
+   "fieldname": "section_building",
+   "fieldtype": "Section Break",
+   "label": "Building"
+  },
+  {
+   "fieldname": "building_name",
+   "fieldtype": "Data",
+   "label": "Building Name"
+  },
+  {
+   "fieldname": "built_up_area",
+   "fieldtype": "Float",
+   "label": "Built-up Area (SFT)"
+  },
+  {
+   "fieldname": "column_break_bldg",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Leave blank to use the default Rate Card",
+   "fieldname": "rate_card",
+   "fieldtype": "Link",
+   "label": "Rate Card",
+   "options": "Rate Card"
+  },
+  {
+   "fieldname": "section_lines",
+   "fieldtype": "Section Break",
+   "label": "BOQ Lines"
+  },
+  {
+   "fieldname": "lines",
+   "fieldtype": "Table",
+   "label": "Lines",
+   "options": "Bill of Quantity Line"
+  },
+  {
+   "fieldname": "section_totals",
+   "fieldtype": "Section Break",
+   "label": "Totals"
+  },
+  {
+   "fieldname": "base_total",
+   "fieldtype": "Currency",
+   "label": "Base Total",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_tot",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "markup_total",
+   "fieldtype": "Currency",
+   "label": "Markup Total",
+   "permlevel": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "grand_total",
+   "fieldtype": "Currency",
+   "label": "Grand Total",
+   "permlevel": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "rate_per_sft",
+   "fieldtype": "Currency",
+   "label": "Rate per SFT",
+   "permlevel": 1,
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_markup",
+   "fieldtype": "Section Break",
+   "label": "Markup (Owner / Admin only)",
+   "permlevel": 1
+  },
+  {
+   "default": "6.6",
+   "fieldname": "site_establishment_pct",
+   "fieldtype": "Percent",
+   "label": "Site Establishment %",
+   "permlevel": 1
+  },
+  {
+   "default": "2",
+   "fieldname": "contingency_pct",
+   "fieldtype": "Percent",
+   "label": "Contingency %",
+   "permlevel": 1
+  },
+  {
+   "default": "5",
+   "fieldname": "overhead_pct",
+   "fieldtype": "Percent",
+   "label": "Overhead %",
+   "permlevel": 1
+  },
+  {
+   "fieldname": "column_break_markup",
+   "fieldtype": "Column Break",
+   "permlevel": 1
+  },
+  {
+   "default": "15",
+   "description": "Held as Miscellaneous Cost. Never printed as profit.",
+   "fieldname": "profit_pct",
+   "fieldtype": "Percent",
+   "label": "Miscellaneous %",
+   "permlevel": 1
+  },
+  {
+   "default": "2",
+   "fieldname": "incentive_pct",
+   "fieldtype": "Percent",
+   "label": "Incentive %",
+   "permlevel": 1
+  },
+  {
+   "fieldname": "section_remarks",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-28 14:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "PEB Estimation",
+ "name": "Bill of Quantity",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Projects Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "permlevel": 1,
+   "read": 1,
+   "role": "System Manager",
+   "write": 1
+  },
+  {
+   "permlevel": 1,
+   "read": 1,
+   "role": "Sales Manager",
+   "write": 1
+  }
+ ],
+ "search_fields": "customer_name,boq_type",
+ "show_title_field_in_link": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title",
+ "track_changes": 1
+}

@@ -1,0 +1,63 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-07-28 14:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "resource_type",
+  "resource",
+  "coefficient",
+  "uom"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "fieldname": "resource_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Type",
+   "options": "Material\nLabour\nMachinery\nTransport\nSubcontractor",
+   "reqd": 1
+  },
+  {
+   "columns": 4,
+   "description": "Must match a Rate Card resource name",
+   "fieldname": "resource",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Resource",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "description": "Quantity of this resource per 1 unit of the work item",
+   "fieldname": "coefficient",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Coefficient",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "uom",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "UOM"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-07-28 14:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "PEB Estimation",
+ "name": "Work Item Resource",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

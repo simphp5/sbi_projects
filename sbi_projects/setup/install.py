@@ -4,6 +4,7 @@ from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 from sbi_projects.setup.milestone_custom_fields import create_milestone_custom_fields
 from sbi_projects.setup.so_project_field import create_so_project_field
 from sbi_projects.setup.peb_masters import setup_peb_masters
+from sbi_projects.setup.boq_masters import setup_boq_masters
 
 
 def after_install():
@@ -26,6 +27,7 @@ def after_install():
 		create_milestone_custom_fields,
 		create_so_project_field,
 		setup_peb_masters,
+			setup_boq_masters,
 	)
 	for step in steps:
 		try:
