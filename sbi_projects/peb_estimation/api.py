@@ -370,3 +370,70 @@ def _sha256(text):
 	import hashlib
 
 	return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+# --------------------------------------------------------------------------- #
+# Portal file upload (guest-safe, token-gated)
+# --------------------------------------------------------------------------- #
+@frappe.whitelist(allow_guest=True)
+def portal_upload(enquiry, token):
+	"""Accept a client file upload for an enquiry, enforcing type + size.
+
+	Stores the file as a private File attached to the enquiry, and wires it in:
+	- BOQ types -> set as client_boq_file
+	- Drawing types -> appended to the drawings table
+	The token is the only credential; guests never touch the desk upload path.
+	"""
+	doc = _get_enquiry_by_token(enquiry, token)
+	if doc.client_submitted_on:
+		frappe.throw(_("This enquiry is already submitted."))
+
+	files = frappe.request.files
+	if not files or "file" not in files:
+		frappe.throw(_("No file received."))
+
+	filedata = files["file"]
+	filename = filedata.filename or "upload"
+	ext = os.path.splitext(filename)[1].lower()
+
+	allowed = BOQ_EXTENSIONS + DRAWING_EXTENSIONS
+	if ext not in allowed:
+		frappe.throw(
+			_("File type {0} is not allowed. Accepted: {1}").format(
+				ext or _("unknown"), ", ".join(sorted(set(allowed)))
+			)
+		)
+
+	content = filedata.stream.read()
+	max_bytes = 15 * 1024 * 1024  # 15 MB
+	if len(content) > max_bytes:
+		frappe.throw(_("File is too large. Maximum size is 15 MB."))
+
+	saved = frappe.get_doc({
+		"doctype": "File",
+		"file_name": filename,
+		"attached_to_doctype": "Building Enquiry",
+		"attached_to_name": doc.name,
+		"is_private": 1,
+		"content": content,
+	})
+	saved.insert(ignore_permissions=True)
+
+	# wire into the right slot
+	if ext in BOQ_EXTENSIONS and doc.input_mode == "BOQ Upload":
+		doc.client_boq_file = saved.file_url
+	elif ext in DRAWING_EXTENSIONS:
+		doc.append("drawings", {
+			"drawing_no": filename,
+			"drawing_file": saved.file_url,
+			"uploaded_by": "Client",
+		})
+	elif ext in BOQ_EXTENSIONS:
+		# BOQ file uploaded while not strictly in BOQ mode -- still keep it
+		doc.client_boq_file = saved.file_url
+
+	doc.flags.ignore_permissions = True
+	doc.save(ignore_permissions=True)
+	frappe.db.commit()
+
+	return {"file_url": saved.file_url, "file_name": filename}
