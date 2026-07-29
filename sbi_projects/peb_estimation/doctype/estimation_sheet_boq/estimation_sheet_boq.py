@@ -171,6 +171,10 @@ class EstimationSheetBOQ(Document):
 		for r in rows:
 			quo.append("items", r)
 
+		# our own link field, so the chain can be walked back from the quotation
+		if quo.meta.has_field("sbi_estimation_boq"):
+			quo.sbi_estimation_boq = self.name
+
 		quo.insert(ignore_permissions=True)
 
 		# nudge the total onto the BOQ grand total, absorbing rounding on the last row
