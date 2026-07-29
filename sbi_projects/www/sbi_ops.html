@@ -1,0 +1,235 @@
+{% raw %}{% endraw %}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>SBI Site Ops</title>
+<style>
+:root { --red:#BE1E2D; --org:#E53F0C; --bg:#f5f5f7; --card:#fff; }
+*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+body{background:var(--bg);color:#222;padding-bottom:70px}
+header{background:var(--red);color:#fff;padding:12px 14px;position:sticky;top:0;z-index:5}
+header h1{font-size:17px;font-weight:600}
+header .sub{font-size:12px;opacity:.85}
+.tabs{display:flex;background:#fff;border-bottom:1px solid #e2e2e2;position:sticky;top:52px;z-index:5}
+.tabs button{flex:1;padding:11px 2px;border:0;background:none;font-size:13px;color:#666;border-bottom:2px solid transparent}
+.tabs button.on{color:var(--red);border-bottom-color:var(--red);font-weight:600}
+main{padding:12px}
+.card{background:var(--card);border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.07)}
+label{display:block;font-size:12px;color:#666;margin:10px 0 4px}
+input,select,textarea{width:100%;padding:10px;border:1px solid #d7d7d7;border-radius:8px;font-size:15px;background:#fff}
+textarea{min-height:64px}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.btn{display:block;width:100%;margin-top:14px;padding:13px;background:var(--red);color:#fff;border:0;border-radius:10px;font-size:15px;font-weight:600}
+.btn:disabled{opacity:.5}
+.chip{display:inline-block;padding:7px 11px;border:1px solid #ccc;border-radius:18px;font-size:13px;margin:3px 3px 0 0;background:#fff}
+.chip.on{background:var(--red);color:#fff;border-color:var(--red)}
+.toast{position:fixed;left:12px;right:12px;bottom:14px;background:#222;color:#fff;padding:12px;border-radius:10px;font-size:14px;display:none;z-index:20}
+.item{padding:9px 0;border-bottom:1px solid #eee;font-size:14px}
+.item small{color:#888;display:block}
+.hint{font-size:12px;color:#888;margin-top:6px}
+h3{font-size:14px;margin-bottom:4px}
+</style>
+</head>
+<body>
+<header>
+  <h1>SBI Site Ops</h1>
+  <div class="sub" id="projName">Loading...</div>
+</header>
+<div class="tabs">
+  <button class="on" data-t="exp">Expense</button>
+  <button data-t="prg">Progress</button>
+  <button data-t="mat">Material</button>
+  <button data-t="day">Today</button>
+</div>
+<main>
+  <section id="tab-exp">
+    <div class="card">
+      <h3>Daily Expense</h3>
+      <label>Category</label>
+      <select id="eCat">
+        <option>Equipment</option><option>Subcontract</option>
+        <option>Transport</option><option>Other</option>
+      </select>
+      <div id="eEqType">
+        <label>Equipment Type</label>
+        <select id="eType"><option>Rental</option><option>New</option></select>
+      </div>
+      <label>Stage</label><select id="eStage"></select>
+      <label>Supplier / SC Name</label><input id="eParty" placeholder="optional">
+      <label>Reason / Description (must)</label>
+      <textarea id="eDesc" placeholder="e.g. JCB rental for excavation - 1 day"></textarea>
+      <div class="row">
+        <div><label>Qty</label><input id="eQty" type="number" step="0.01"></div>
+        <div><label>Rate</label><input id="eRate" type="number" step="0.01"></div>
+      </div>
+      <label>Amount (Rs)</label><input id="eAmt" type="number" step="0.01">
+      <button class="btn" id="eSave">Save Expense</button>
+    </div>
+  </section>
+
+  <section id="tab-prg" style="display:none">
+    <div class="card">
+      <h3>Daily Progress</h3>
+      <label>Stage</label><select id="pStage"></select>
+      <label>Activity</label><select id="pAct"></select>
+      <label>Qty done today</label><input id="pQty" type="number" step="0.01">
+      <label>Remarks</label><textarea id="pRem" placeholder="optional"></textarea>
+      <label>Workers on this task</label>
+      <div id="pWorkers"></div>
+      <div class="hint">Tap workers who did this work today</div>
+      <button class="btn" id="pSave">Save Progress</button>
+    </div>
+  </section>
+
+  <section id="tab-mat" style="display:none">
+    <div class="card">
+      <h3>Material Issue (from store to work)</h3>
+      <label>Warehouse</label><select id="mWh"></select>
+      <label>Item</label><select id="mItem"></select>
+      <div class="hint" id="mStock"></div>
+      <label>Qty to issue</label><input id="mQty" type="number" step="0.001">
+      <label>Stage</label><select id="mStage"></select>
+      <button class="btn" id="mSave">Issue Material</button>
+    </div>
+  </section>
+
+  <section id="tab-day" style="display:none">
+    <div class="card"><h3>Entered Today</h3><div id="dayList">-</div></div>
+  </section>
+</main>
+<div class="toast" id="toast"></div>
+<script>
+var CSRF = "{{ csrf_token }}";
+var PROJECT = "{{ project }}";
+var PROJECTS = {{ projects_json }};
+var BOOT = null;
+
+function toast(m){var t=document.getElementById("toast");t.textContent=m;t.style.display="block";setTimeout(function(){t.style.display="none"},2600)}
+function api(method, args){
+  return fetch("/api/method/" + method, {
+    method:"POST", credentials:"same-origin",
+    headers:{"Content-Type":"application/json","X-Frappe-CSRF-Token":CSRF},
+    body: JSON.stringify(args)
+  }).then(function(r){
+    return r.json().then(function(j){
+      if(!r.ok){ throw new Error((j._server_messages&&j._server_messages)||j.exception||("HTTP "+r.status)); }
+      return j.message;
+    });
+  });
+}
+function el(id){return document.getElementById(id)}
+function fillSel(id, arr, blank){
+  var s=el(id); s.innerHTML="";
+  if(blank){var o=document.createElement("option");o.value="";o.textContent="--";s.appendChild(o)}
+  arr.forEach(function(v){var o=document.createElement("option");o.value=v;o.textContent=v;s.appendChild(o)});
+}
+
+// tabs
+document.querySelectorAll(".tabs button").forEach(function(b){
+  b.onclick=function(){
+    document.querySelectorAll(".tabs button").forEach(function(x){x.classList.remove("on")});
+    b.classList.add("on");
+    ["exp","prg","mat","day"].forEach(function(t){el("tab-"+t).style.display = (b.dataset.t===t)?"":"none"});
+    if(b.dataset.t==="day") loadToday();
+  };
+});
+
+// no project -> chooser
+if(!PROJECT){
+  if(PROJECTS.length===1){ location.replace("/sbi_ops?project="+PROJECTS[0][0]); }
+  else{
+    var m=document.querySelector("main");
+    m.innerHTML="<div class='card'><h3>Select Site</h3>"+PROJECTS.map(function(p){
+      return "<div class='item'><a href='/sbi_ops?project="+p[0]+"'>"+p[1]+"</a><small>"+p[0]+"</small></div>";}).join("")+"</div>";
+    document.querySelector(".tabs").style.display="none";
+  }
+}else{ boot(); }
+
+function boot(){
+  api("sbi_projects.site_ops_api.get_bootstrap",{project:PROJECT}).then(function(r){
+    BOOT=r;
+    el("projName").textContent=r.project_name+" ("+PROJECT+")";
+    var stages=r.stages.map(function(s){return s.stage});
+    fillSel("eStage",stages,true); fillSel("pStage",stages,false); fillSel("mStage",stages,true);
+    fillSel("mWh",r.warehouses,false);
+    renderActs(); renderWorkers(); loadItems();
+  }).catch(function(e){ toast("Load failed: "+e.message); });
+}
+function renderActs(){
+  var st=el("pStage").value; var acts=[];
+  (BOOT.stages||[]).forEach(function(s){ if(s.stage===st) acts=s.activities.map(function(a){return a.activity}); });
+  fillSel("pAct",acts,true);
+}
+el("pStage") && (el("pStage").onchange=renderActs);
+function renderWorkers(){
+  var w=el("pWorkers"); w.innerHTML="";
+  (BOOT.workers||[]).forEach(function(x){
+    var c=document.createElement("span"); c.className="chip"; c.textContent=x.labour_name||x.name;
+    c.dataset.id=x.name; c.onclick=function(){c.classList.toggle("on")}; w.appendChild(c);
+  });
+  if(!(BOOT.workers||[]).length) w.innerHTML="<div class='hint'>No workers enrolled for this site</div>";
+}
+el("eCat").onchange=function(){ el("eEqType").style.display = (this.value==="Equipment")?"":"none"; };
+function calcAmt(){ var q=parseFloat(el("eQty").value)||0, r=parseFloat(el("eRate").value)||0; if(q&&r) el("eAmt").value=(q*r).toFixed(2); }
+el("eQty").oninput=calcAmt; el("eRate").oninput=calcAmt;
+
+el("eSave").onclick=function(){
+  var amt=parseFloat(el("eAmt").value)||0;
+  if(!el("eDesc").value.trim()) return toast("Reason is required");
+  if(!amt) return toast("Amount is required");
+  el("eSave").disabled=true;
+  api("sbi_projects.site_ops_api.add_expense",{project:PROJECT,entry_date:"",category:el("eCat").value,
+    equipment_type:el("eType").value,stage:el("eStage").value,party:el("eParty").value,
+    description:el("eDesc").value,qty:el("eQty").value,rate:el("eRate").value,amount:amt})
+  .then(function(r){toast("Saved "+r.name);["eParty","eDesc","eQty","eRate","eAmt"].forEach(function(i){el(i).value=""});})
+  .catch(function(e){toast("Failed: "+e.message)})
+  .then(function(){el("eSave").disabled=false});
+};
+el("pSave").onclick=function(){
+  if(!el("pStage").value) return toast("Stage is required");
+  var labs=[]; document.querySelectorAll("#pWorkers .chip.on").forEach(function(c){labs.push({labour:c.dataset.id,hours:8})});
+  el("pSave").disabled=true;
+  api("sbi_projects.site_ops_api.add_progress",{project:PROJECT,entry_date:"",stage:el("pStage").value,
+    activity:el("pAct").value,qty_done:el("pQty").value,remarks:el("pRem").value,labours:JSON.stringify(labs)})
+  .then(function(r){toast("Saved "+r.name);el("pQty").value="";el("pRem").value="";
+    document.querySelectorAll("#pWorkers .chip.on").forEach(function(c){c.classList.remove("on")});})
+  .catch(function(e){toast("Failed: "+e.message)})
+  .then(function(){el("pSave").disabled=false});
+};
+function loadItems(){
+  api("sbi_projects.site_ops_api.get_items",{warehouse:el("mWh").value}).then(function(items){
+    var s=el("mItem"); s.innerHTML="";
+    items.forEach(function(i){var o=document.createElement("option");o.value=i.item_code;
+      o.textContent=i.item_code;o.dataset.qty=i.actual_qty;o.dataset.uom=i.stock_uom;s.appendChild(o)});
+    showStock();
+  }).catch(function(e){ el("mItem").innerHTML=""; el("mStock").textContent=""; });
+}
+function showStock(){
+  var o=el("mItem").selectedOptions[0];
+  el("mStock").textContent = o ? ("In stock: "+o.dataset.qty+" "+o.dataset.uom) : "No stock items in this warehouse";
+}
+el("mWh").onchange=loadItems; el("mItem").onchange=showStock;
+el("mSave").onclick=function(){
+  var q=parseFloat(el("mQty").value)||0;
+  if(!el("mItem").value) return toast("Select item");
+  if(!q) return toast("Qty required");
+  el("mSave").disabled=true;
+  api("sbi_projects.site_ops_api.material_issue",{project:PROJECT,warehouse:el("mWh").value,
+    item_code:el("mItem").value,qty:q,stage:el("mStage").value})
+  .then(function(r){toast("Issued "+r.name);el("mQty").value="";loadItems();})
+  .catch(function(e){toast("Failed: "+e.message)})
+  .then(function(){el("mSave").disabled=false});
+};
+function loadToday(){
+  api("sbi_projects.site_ops_api.list_today",{project:PROJECT}).then(function(r){
+    var h="";
+    r.expenses.forEach(function(x){h+="<div class='item'>"+x.category+" - Rs "+x.amount+"<small>"+x.description+"</small></div>"});
+    r.progress.forEach(function(x){h+="<div class='item'>Progress: "+x.stage+"<small>"+(x.activity||"")+" qty "+(x.qty_done||0)+"</small></div>"});
+    r.materials.forEach(function(x){h+="<div class='item'>Material issue<small>"+x.name+"</small></div>"});
+    el("dayList").innerHTML=h||"Nothing entered today";
+  });
+}
+</script>
+</body>
+</html>

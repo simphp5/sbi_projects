@@ -1,0 +1,36 @@
+{
+ "doctype": "DocType",
+ "name": "Site Progress Labour",
+ "module": "SBI Projects",
+ "custom": 0,
+ "engine": "InnoDB",
+ "istable": 1,
+ "editable_grid": 1,
+ "actions": [],
+ "links": [],
+ "fields": [
+  {
+   "fieldname": "labour",
+   "fieldtype": "Link",
+   "label": "Labour",
+   "options": "Labour",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 6
+  },
+  {
+   "fieldname": "hours",
+   "fieldtype": "Float",
+   "label": "Hours",
+   "precision": "1",
+   "default": "8",
+   "in_list_view": 1,
+   "columns": 2
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "index_web_pages_for_search": 1,
+ "allow_rename": 0,
+ "permissions": []
+}
