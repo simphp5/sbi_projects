@@ -1,0 +1,35 @@
+{
+ "doctype": "DocType",
+ "name": "Site Activity Resource",
+ "module": "SBI Projects",
+ "custom": 0,
+ "engine": "InnoDB",
+ "istable": 1,
+ "editable_grid": 1,
+ "actions": [],
+ "links": [],
+ "fields": [
+  {
+   "fieldname": "resource",
+   "fieldtype": "Link",
+   "label": "Resource",
+   "options": "Site Resource",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 5
+  },
+  {
+   "fieldname": "coefficient",
+   "fieldtype": "Float",
+   "label": "Coefficient",
+   "precision": "4",
+   "in_list_view": 1,
+   "columns": 3
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "index_web_pages_for_search": 1,
+ "allow_rename": 0,
+ "permissions": []
+}

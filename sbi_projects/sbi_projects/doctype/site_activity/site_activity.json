@@ -1,0 +1,111 @@
+{
+ "doctype": "DocType",
+ "name": "Site Activity",
+ "module": "SBI Projects",
+ "custom": 0,
+ "engine": "InnoDB",
+ "istable": 0,
+ "editable_grid": 0,
+ "actions": [],
+ "links": [],
+ "fields": [
+  {
+   "fieldname": "activity_name",
+   "fieldtype": "Data",
+   "label": "Activity Name",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "output_unit",
+   "fieldtype": "Data",
+   "label": "Output Unit",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "resources",
+   "fieldtype": "Table",
+   "label": "Resources",
+   "options": "Site Activity Resource"
+  },
+  {
+   "fieldname": "sec_rates",
+   "fieldtype": "Section Break",
+   "label": "Computed Rates"
+  },
+  {
+   "fieldname": "unit_rate",
+   "fieldtype": "Currency",
+   "label": "Unit Rate",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "labour_rate",
+   "fieldtype": "Currency",
+   "label": "Labour / Unit",
+   "read_only": 1
+  },
+  {
+   "fieldname": "material_rate",
+   "fieldtype": "Currency",
+   "label": "Material / Unit",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "equipment_rate",
+   "fieldtype": "Currency",
+   "label": "Equipment / Unit",
+   "read_only": 1
+  },
+  {
+   "fieldname": "subcontract_rate",
+   "fieldtype": "Currency",
+   "label": "Subcontract / Unit",
+   "read_only": 1
+  },
+  {
+   "fieldname": "other_rate",
+   "fieldtype": "Currency",
+   "label": "Other / Unit",
+   "read_only": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "index_web_pages_for_search": 1,
+ "allow_rename": 0,
+ "autoname": "field:activity_name",
+ "naming_rule": "By fieldname",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "print": 1,
+   "email": 1,
+   "export": 1,
+   "report": 1,
+   "share": 1
+  },
+  {
+   "role": "Projects Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "print": 1,
+   "export": 1,
+   "report": 1,
+   "share": 1
+  }
+ ]
+}
