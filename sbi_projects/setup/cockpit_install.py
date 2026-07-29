@@ -196,8 +196,18 @@ def install_cockpit():
 	if not frappe.db.exists("DocType", "Sales Order"):
 		return 0
 
-	_field()
-	_script()
+	try:
+		_field()
+	except Exception:
+		frappe.log_error(frappe.get_traceback(), "PEB cockpit: custom fields failed")
+		raise
+
+	try:
+		_script()
+	except Exception:
+		frappe.log_error(frappe.get_traceback(), "PEB cockpit: client script failed")
+		raise
+
 	frappe.db.commit()
 	return 1
 
@@ -209,10 +219,12 @@ def _field():
 		{
 			"Sales Order": [
 				{
-					# a tab of its own, appended last so it sits beside Connections
+					# its own tab, anchored to a field that always exists so the
+					# custom field validates on any Sales Order layout
 					"fieldname": "sbi_cockpit_tab",
 					"label": "Project Cockpit",
 					"fieldtype": "Tab Break",
+					"insert_after": "terms",
 				},
 				{
 					"fieldname": FIELDNAME,
@@ -227,19 +239,40 @@ def _field():
 
 
 def _script():
-	existing = frappe.db.exists("Client Script", SCRIPT_NAME)
-	if existing:
-		doc = frappe.get_doc("Client Script", SCRIPT_NAME)
-	else:
-		doc = frappe.new_doc("Client Script")
-		doc.name = SCRIPT_NAME
+	"""Create or refresh the cockpit Client Script.
 
-	doc.dt = "Sales Order"
-	doc.view = "Form"
-	doc.enabled = 1
-	doc.script = CLIENT_SCRIPT
+	Frappe names Client Scripts itself, so the record is found by what it
+	targets rather than by a fixed name -- otherwise every migrate would leave
+	behind another copy of the same script.
+	"""
+	existing = frappe.get_all(
+		"Client Script",
+		filters={"dt": "Sales Order", "view": "Form", "name": ["like", "%Cockpit%"]},
+		pluck="name",
+		limit=1,
+	)
+	if not existing:
+		existing = frappe.get_all(
+			"Client Script",
+			filters={"dt": "Sales Order", "view": "Form"},
+			pluck="name",
+		)
+		existing = [n for n in existing
+		            if "sbi_cockpit" in (frappe.db.get_value("Client Script", n, "script") or "")]
 
 	if existing:
+		doc = frappe.get_doc("Client Script", existing[0])
+		doc.script = CLIENT_SCRIPT
+		doc.enabled = 1
 		doc.save(ignore_permissions=True)
-	else:
-		doc.insert(ignore_permissions=True)
+		return
+
+	doc = frappe.get_doc({
+		"doctype": "Client Script",
+		"name": SCRIPT_NAME,
+		"dt": "Sales Order",
+		"view": "Form",
+		"enabled": 1,
+		"script": CLIENT_SCRIPT,
+	})
+	doc.insert(ignore_permissions=True)
