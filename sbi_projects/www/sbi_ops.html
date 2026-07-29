@@ -46,6 +46,7 @@ h3{font-size:14px;margin-bottom:4px}
   <button class="on" data-t="exp">Expense</button>
   <button data-t="prg">Progress</button>
   <button data-t="mat">Material</button>
+  <button data-t="ver">Verify</button>
   <button data-t="day">Today</button>
 </div>
 <main>
@@ -99,6 +100,22 @@ h3{font-size:14px;margin-bottom:4px}
     </div>
   </section>
 
+  <section id="tab-ver" style="display:none">
+    <div class="card">
+      <h3>Customer Work Verification</h3>
+      <div class="hint">Show this screen to the customer. They check the work and sign below.</div>
+      <label>Customer Name</label><input id="vName" placeholder="Name of person signing">
+      <label>Work Summary</label><textarea id="vRem" placeholder="e.g. Foundation PCC completed and checked"></textarea>
+      <label>Signature</label>
+      <canvas id="vPad" width="600" height="200" style="width:100%;height:170px;border:1px dashed #bbb;border-radius:10px;background:#fff;touch-action:none"></canvas>
+      <div class="row">
+        <button class="btn" id="vClear" style="background:#888">Clear</button>
+        <button class="btn" id="vSave">Save Signed Verification</button>
+      </div>
+    </div>
+    <div class="card"><h3>Signed Verifications</h3><div id="verList">-</div></div>
+  </section>
+
   <section id="tab-day" style="display:none">
     <div class="card"><h3>Entered Today</h3><div id="dayList">-</div></div>
   </section>
@@ -135,8 +152,9 @@ document.querySelectorAll(".tabs button").forEach(function(b){
   b.onclick=function(){
     document.querySelectorAll(".tabs button").forEach(function(x){x.classList.remove("on")});
     b.classList.add("on");
-    ["exp","prg","mat","day"].forEach(function(t){el("tab-"+t).style.display = (b.dataset.t===t)?"":"none"});
+    ["exp","prg","mat","ver","day"].forEach(function(t){el("tab-"+t).style.display = (b.dataset.t===t)?"":"none"});
     if(b.dataset.t==="day") loadToday();
+    if(b.dataset.t==="ver") loadVers();
   };
 });
 
@@ -226,6 +244,40 @@ el("mSave").onclick=function(){
   .catch(function(e){toast("Failed: "+e.message)})
   .then(function(){el("mSave").disabled=false});
 };
+var pad=el("vPad"), pctx=pad.getContext("2d"), drawing=false, drew=false;
+pctx.lineWidth=2.2; pctx.lineCap="round"; pctx.strokeStyle="#1a1a1a";
+function pxy(e){
+  var r=pad.getBoundingClientRect();
+  var t=(e.touches&&e.touches[0])||e;
+  return [(t.clientX-r.left)*pad.width/r.width,(t.clientY-r.top)*pad.height/r.height];
+}
+function pstart(e){drawing=true;drew=true;var p=pxy(e);pctx.beginPath();pctx.moveTo(p[0],p[1]);e.preventDefault();}
+function pmove(e){if(!drawing)return;var p=pxy(e);pctx.lineTo(p[0],p[1]);pctx.stroke();e.preventDefault();}
+function pend(){drawing=false;}
+pad.addEventListener("mousedown",pstart);pad.addEventListener("mousemove",pmove);
+window.addEventListener("mouseup",pend);
+pad.addEventListener("touchstart",pstart,{passive:false});
+pad.addEventListener("touchmove",pmove,{passive:false});
+pad.addEventListener("touchend",pend);
+el("vClear").onclick=function(){pctx.clearRect(0,0,pad.width,pad.height);drew=false;};
+el("vSave").onclick=function(){
+  if(!el("vName").value.trim()) return toast("Customer name required");
+  if(!drew) return toast("Signature required");
+  el("vSave").disabled=true;
+  api("sbi_projects.site_ops_api.sign_work",{project:PROJECT,customer_name:el("vName").value,
+    signature_png:pad.toDataURL("image/png"),remarks:el("vRem").value})
+  .then(function(r){toast("Signed and locked: "+r.name);el("vName").value="";el("vRem").value="";
+    pctx.clearRect(0,0,pad.width,pad.height);drew=false;loadVers();})
+  .catch(function(e){toast("Failed: "+e.message)})
+  .then(function(){el("vSave").disabled=false});
+};
+function loadVers(){
+  api("sbi_projects.site_ops_api.list_verifications",{project:PROJECT}).then(function(rows){
+    el("verList").innerHTML = rows.length ? rows.map(function(v){
+      return "<div class='item'>"+v.verify_date+" - "+v.customer_name+"<small>"+(v.stage||"")+" ("+v.name+")</small></div>";
+    }).join("") : "No signed verifications yet";
+  });
+}
 function loadToday(){
   api("sbi_projects.site_ops_api.list_today",{project:PROJECT}).then(function(r){
     var h="";

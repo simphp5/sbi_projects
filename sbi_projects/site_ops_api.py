@@ -174,3 +174,46 @@ def list_today(project, entry_date=None):
                                   "docstatus": 1},
                          fields=["name"], order_by="creation desc")
     return {"expenses": exp, "progress": prg, "materials": mat}
+
+
+@frappe.whitelist()
+def sign_work(project, customer_name, signature_png, remarks=None):
+    """Save a customer-signed work verification for the current stage.
+    Signature arrives as a data-url PNG from the canvas pad."""
+    _check_site_user()
+    if not customer_name or not (customer_name or "").strip():
+        frappe.throw("Customer name is required")
+    if not signature_png or "," not in signature_png:
+        frappe.throw("Signature is empty")
+    _stages, current = _get_stage_state(project)
+    doc = frappe.new_doc("Site Work Verification")
+    doc.project = project
+    doc.verify_date = today()
+    doc.stage = current
+    doc.customer_name = customer_name.strip()
+    doc.remarks = remarks
+    doc.entered_by = frappe.session.user
+    doc.insert(ignore_permissions=True)
+    b64 = signature_png.split(",", 1)[1]
+    fdoc = frappe.get_doc({"doctype": "File",
+                           "file_name": doc.name + "_signature.png",
+                           "attached_to_doctype": "Site Work Verification",
+                           "attached_to_name": doc.name,
+                           "content": b64, "decode": True,
+                           "is_private": 1}).insert(ignore_permissions=True)
+    doc.db_set("signature_file", fdoc.file_url)
+    doc.db_set("signed", 1)
+    doc.db_set("signed_at", frappe.utils.now_datetime())
+    frappe.db.commit()
+    return {"name": doc.name}
+
+
+@frappe.whitelist()
+def list_verifications(project, limit=10):
+    _check_site_user()
+    return frappe.get_all("Site Work Verification",
+                          filters={"project": project, "signed": 1},
+                          fields=["name", "verify_date", "stage",
+                                  "customer_name"],
+                          order_by="creation desc",
+                          limit_page_length=int(limit))
