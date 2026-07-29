@@ -76,6 +76,27 @@ function sbi_cockpit_html(d, frm) {
 			: `<span class="text-muted">${__("No project yet — use Create ▸ Project (with Stages)")}</span>`
 	));
 
+	// --- progress ---
+	const stg = d.stages || {};
+	const donePct = stg.stages_total
+		? Math.round((stg.stages_done / stg.stages_total) * 100) : 0;
+	const workPct = Math.round((p.percent_complete || 0));
+	const bar = (label, val, colour) => `
+		<div style="margin-bottom:8px">
+			<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+				<span>${label}</span><span><b>${val}%</b></span>
+			</div>
+			<div style="height:6px;background:var(--gray-200);border-radius:3px;overflow:hidden">
+				<div style="height:100%;width:${Math.min(val,100)}%;background:${colour}"></div>
+			</div>
+		</div>`;
+	cards.push(sbi_card(__("Progress"),
+		bar(__("Stages billed"), donePct, "var(--blue-500)")
+		+ bar(__("Work complete"), workPct, "var(--green-500)"),
+		stg.stages_total
+			? __("{0} of {1} stages billed", [stg.stages_done, stg.stages_total]) : ""
+	));
+
 	// --- BOQ ---
 	const b = d.boq || {};
 	cards.push(sbi_card(__("Estimation BOQ"),
@@ -94,14 +115,15 @@ function sbi_cockpit_html(d, frm) {
 		stageHtml = `<table style="width:100%;font-size:12px">` + rows.map((r) => {
 			const done = r.sbi_billed ? "✓" : "○";
 			const colour = r.sbi_billed ? "var(--green-600)" : "var(--text-muted)";
+			const label = r.project_stage || r.payment_term || r.description || "-";
 			return `<tr>
 				<td style="color:${colour};width:16px">${done}</td>
-				<td>${frappe.utils.escape_html(r.payment_term || r.description || "-")}</td>
+				<td>${frappe.utils.escape_html(label)}</td>
 				<td style="text-align:right;white-space:nowrap">${sbi_money(r.payment_amount, cur)}</td>
 			</tr>`;
 		}).join("") + `</table>`;
 	}
-	const pct = st.total_amount ? Math.round((st.billed_amount / st.total_amount) * 100) : 0;
+	const pct = Math.round(st.value_percent || 0);
 	cards.push(sbi_card(__("Stages / Payment Terms"), stageHtml,
 		rows.length ? __("Billed {0} of {1} ({2}%)", [
 			sbi_money(st.billed_amount, cur), sbi_money(st.total_amount, cur), pct,
@@ -187,16 +209,15 @@ def _field():
 		{
 			"Sales Order": [
 				{
-					"fieldname": "sbi_cockpit_section",
+					# a tab of its own, appended last so it sits beside Connections
+					"fieldname": "sbi_cockpit_tab",
 					"label": "Project Cockpit",
-					"fieldtype": "Section Break",
-					"insert_after": "terms",
-					"collapsible": 0,
+					"fieldtype": "Tab Break",
 				},
 				{
 					"fieldname": FIELDNAME,
 					"fieldtype": "HTML",
-					"insert_after": "sbi_cockpit_section",
+					"insert_after": "sbi_cockpit_tab",
 					"read_only": 1,
 				},
 			]

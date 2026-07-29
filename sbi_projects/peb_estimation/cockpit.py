@@ -96,7 +96,8 @@ def _stages(so):
 		fields = ["idx", "payment_term", "description", "invoice_portion",
 		          "payment_amount", "due_date"]
 		meta = frappe.get_meta("Payment Schedule")
-		for extra in ("sbi_billed", "sbi_sales_invoice"):
+		# sbi_projects adds these: the stage label and the milestone-billing flags
+		for extra in ("project_stage", "sbi_billed", "sbi_sales_invoice"):
 			if meta.has_field(extra):
 				fields.append(extra)
 
@@ -106,14 +107,20 @@ def _stages(so):
 			fields=fields,
 			order_by="idx asc",
 		)
-		billed = sum(flt(r.get("payment_amount")) for r in rows if r.get("sbi_billed"))
+		billed_rows = [r for r in rows if r.get("sbi_billed")]
+		billed = sum(flt(r.get("payment_amount")) for r in billed_rows)
+		total = sum(flt(r.get("payment_amount")) for r in rows)
 		return {
 			"rows": rows,
 			"billed_amount": billed,
-			"total_amount": sum(flt(r.get("payment_amount")) for r in rows),
+			"total_amount": total,
+			"stages_done": len(billed_rows),
+			"stages_total": len(rows),
+			"value_percent": (billed / total * 100) if total else 0,
 		}
 	except Exception:
-		return {"rows": [], "billed_amount": 0, "total_amount": 0}
+		return {"rows": [], "billed_amount": 0, "total_amount": 0,
+		        "stages_done": 0, "stages_total": 0, "value_percent": 0}
 
 
 def _procurement(so):
