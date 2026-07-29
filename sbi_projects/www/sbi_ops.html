@@ -33,8 +33,14 @@ h3{font-size:14px;margin-bottom:4px}
 </head>
 <body>
 <header>
-  <h1>SBI Site Ops</h1>
-  <div class="sub" id="projName">Loading...</div>
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <div>
+      <h1>SBI Site Ops</h1>
+      <div class="sub" id="projName">Loading...</div>
+    </div>
+    <a id="attLink" href="#" style="color:#fff;font-size:13px;border:1px solid rgba(255,255,255,.6);padding:7px 11px;border-radius:8px;text-decoration:none">Attendance</a>
+  </div>
+  <div class="sub" id="curStage" style="margin-top:6px;font-weight:600"></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="exp">Expense</button>
@@ -55,7 +61,7 @@ h3{font-size:14px;margin-bottom:4px}
         <label>Equipment Type</label>
         <select id="eType"><option>Rental</option><option>New</option></select>
       </div>
-      <label>Stage</label><select id="eStage"></select>
+      <label>Stage (current)</label><input id="eStage" readonly style="background:#f0f0f0">
       <label>Supplier / SC Name</label><input id="eParty" placeholder="optional">
       <label>Reason / Description (must)</label>
       <textarea id="eDesc" placeholder="e.g. JCB rental for excavation - 1 day"></textarea>
@@ -71,7 +77,7 @@ h3{font-size:14px;margin-bottom:4px}
   <section id="tab-prg" style="display:none">
     <div class="card">
       <h3>Daily Progress</h3>
-      <label>Stage</label><select id="pStage"></select>
+      <label>Stage (current)</label><input id="pStage" readonly style="background:#f0f0f0">
       <label>Activity</label><select id="pAct"></select>
       <label>Qty done today</label><input id="pQty" type="number" step="0.01">
       <label>Remarks</label><textarea id="pRem" placeholder="optional"></textarea>
@@ -89,7 +95,6 @@ h3{font-size:14px;margin-bottom:4px}
       <label>Item</label><select id="mItem"></select>
       <div class="hint" id="mStock"></div>
       <label>Qty to issue</label><input id="mQty" type="number" step="0.001">
-      <label>Stage</label><select id="mStage"></select>
       <button class="btn" id="mSave">Issue Material</button>
     </div>
   </section>
@@ -150,18 +155,19 @@ function boot(){
   api("sbi_projects.site_ops_api.get_bootstrap",{project:PROJECT}).then(function(r){
     BOOT=r;
     el("projName").textContent=r.project_name+" ("+PROJECT+")";
-    var stages=r.stages.map(function(s){return s.stage});
-    fillSel("eStage",stages,true); fillSel("pStage",stages,false); fillSel("mStage",stages,true);
+    el("attLink").href="/sbi_site?project="+PROJECT;
+    if(r.current_stage){
+      el("curStage").textContent="Current stage: "+r.current_stage;
+      el("eStage").value=r.current_stage; el("pStage").value=r.current_stage;
+    } else {
+      el("curStage").textContent="All stages completed";
+      el("eSave").disabled=true; el("pSave").disabled=true;
+    }
+    fillSel("pAct",(r.activities||[]).map(function(a){return a.activity}),true);
     fillSel("mWh",r.warehouses,false);
-    renderActs(); renderWorkers(); loadItems();
+    renderWorkers(); loadItems();
   }).catch(function(e){ toast("Load failed: "+e.message); });
 }
-function renderActs(){
-  var st=el("pStage").value; var acts=[];
-  (BOOT.stages||[]).forEach(function(s){ if(s.stage===st) acts=s.activities.map(function(a){return a.activity}); });
-  fillSel("pAct",acts,true);
-}
-el("pStage") && (el("pStage").onchange=renderActs);
 function renderWorkers(){
   var w=el("pWorkers"); w.innerHTML="";
   (BOOT.workers||[]).forEach(function(x){
@@ -180,17 +186,16 @@ el("eSave").onclick=function(){
   if(!amt) return toast("Amount is required");
   el("eSave").disabled=true;
   api("sbi_projects.site_ops_api.add_expense",{project:PROJECT,entry_date:"",category:el("eCat").value,
-    equipment_type:el("eType").value,stage:el("eStage").value,party:el("eParty").value,
+    equipment_type:el("eType").value,party:el("eParty").value,
     description:el("eDesc").value,qty:el("eQty").value,rate:el("eRate").value,amount:amt})
   .then(function(r){toast("Saved "+r.name);["eParty","eDesc","eQty","eRate","eAmt"].forEach(function(i){el(i).value=""});})
   .catch(function(e){toast("Failed: "+e.message)})
   .then(function(){el("eSave").disabled=false});
 };
 el("pSave").onclick=function(){
-  if(!el("pStage").value) return toast("Stage is required");
   var labs=[]; document.querySelectorAll("#pWorkers .chip.on").forEach(function(c){labs.push({labour:c.dataset.id,hours:8})});
   el("pSave").disabled=true;
-  api("sbi_projects.site_ops_api.add_progress",{project:PROJECT,entry_date:"",stage:el("pStage").value,
+  api("sbi_projects.site_ops_api.add_progress",{project:PROJECT,entry_date:"",
     activity:el("pAct").value,qty_done:el("pQty").value,remarks:el("pRem").value,labours:JSON.stringify(labs)})
   .then(function(r){toast("Saved "+r.name);el("pQty").value="";el("pRem").value="";
     document.querySelectorAll("#pWorkers .chip.on").forEach(function(c){c.classList.remove("on")});})
@@ -216,7 +221,7 @@ el("mSave").onclick=function(){
   if(!q) return toast("Qty required");
   el("mSave").disabled=true;
   api("sbi_projects.site_ops_api.material_issue",{project:PROJECT,warehouse:el("mWh").value,
-    item_code:el("mItem").value,qty:q,stage:el("mStage").value})
+    item_code:el("mItem").value,qty:q})
   .then(function(r){toast("Issued "+r.name);el("mQty").value="";loadItems();})
   .catch(function(e){toast("Failed: "+e.message)})
   .then(function(){el("mSave").disabled=false});
