@@ -6,6 +6,8 @@ If the user has one site it is auto-selected; if several and none is chosen,
 the app shows an in-page site chooser. Guests go to the Frappe login page.
 """
 
+import json
+
 import frappe
 
 no_cache = 1
@@ -31,6 +33,7 @@ def get_context(context):
 	context.project = ""
 	context.project_name = ""
 	context.sites = allowed
+	context.sites_json = json.dumps(allowed or [])
 
 	if req:
 		if req not in [p["name"] for p in allowed]:

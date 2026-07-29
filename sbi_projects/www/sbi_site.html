@@ -202,7 +202,7 @@
   var CSRF="{{ csrf_token }}";
   var PROJECT="{{ project }}";
   var PROJECT_NAME="{{ project_name }}";
-  var SITES={{ frappe.utils.json.dumps(sites) if sites else "[]" }};
+  var SITES={{ sites_json or "[]" }};
   var MODELS="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model";
 
   // ---- tuning (client) ----
