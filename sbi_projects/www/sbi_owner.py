@@ -1,6 +1,7 @@
 import json
 
 import frappe
+import frappe.sessions
 from sbi_projects.project_cost_api import OWNER_ROLES, get_cost_overview
 
 
@@ -14,7 +15,6 @@ def get_context(context):
         frappe.throw("Not permitted", frappe.PermissionError)
     project = frappe.form_dict.get("project") or ""
     context.project = project
-    import frappe.sessions
     context.csrf_token = frappe.sessions.get_csrf_token()
     data = None
     if project:
