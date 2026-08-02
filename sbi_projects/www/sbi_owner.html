@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SBI Project Cost</title>
+<style>
+:root{--red:#BE1E2D}
+*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+body{background:#f5f5f7;color:#222;padding-bottom:40px}
+header{background:var(--red);color:#fff;padding:14px}
+header h1{font-size:17px}
+main{padding:12px;max-width:1000px;margin:0 auto}
+.card{background:#fff;border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.07);overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:8px 9px;border-bottom:1px solid #eee;text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{background:#faf7f7;color:#a11;font-weight:600}
+h3{font-size:14px;margin-bottom:8px}
+.item a{color:var(--red);text-decoration:none;font-weight:600}
+.item{padding:8px 0;border-bottom:1px solid #eee}
+.hint{font-size:12px;color:#888;margin-top:6px}
+.pos{color:#0a7d33}.neg{color:#c0392b}
+</style>
+</head>
+<body>
+<header><h1>SBI Project Cost - Budget vs Earned vs Actual</h1></header>
+<main id="main"></main>
+<script>
+var DATA = {{ data_json }};
+var PROJECTS = {{ projects_json }};
+var PROJECT = "{{ project }}";
+function inr(v){v=Math.round(v||0);return "Rs " + v.toLocaleString("en-IN")}
+var m = document.getElementById("main");
+if(!PROJECT){
+  m.innerHTML = "<div class='card'><h3>Select Project</h3>" + PROJECTS.map(function(p){
+    return "<div class='item'><a href='/sbi_owner?project="+p[0]+"'>"+p[1]+"</a> <small>"+p[0]+"</small></div>";}).join("") + "</div>";
+}else if(!DATA || !DATA.boq){
+  m.innerHTML = "<div class='card'>No Project BOQ found for "+PROJECT+". Import BOQ first.</div>";
+}else{
+  var cats=["labour","material","equipment","subcontract","other"];
+  var head="<tr><th>Category</th><th>Budget</th><th>Earned (billing)</th><th>Actual (internal)</th><th>Margin so far</th></tr>";
+  var rows=cats.map(function(c){
+    var b=DATA.budget[c],e=DATA.earned[c],a=DATA.actual[c],mg=e-a;
+    return "<tr><td>"+c[0].toUpperCase()+c.slice(1)+"</td><td>"+inr(b)+"</td><td>"+inr(e)+"</td><td>"+inr(a)+"</td><td class='"+(mg>=0?"pos":"neg")+"'>"+inr(mg)+"</td></tr>";
+  }).join("");
+  var aTot=cats.reduce(function(s,c){return s+(DATA.actual[c]||0)},0);
+  var tRow="<tr><th>Total</th><th>"+inr(DATA.budget.total)+"</th><th>"+inr(DATA.earned.total)+"</th><th>"+inr(aTot)+"</th><th class='"+((DATA.earned.total-aTot)>=0?"pos":"neg")+"'>"+inr(DATA.earned.total-aTot)+"</th></tr>";
+  var stg="<tr><th>Stage</th><th>Budget</th><th>Earned</th><th>%</th></tr>"+DATA.stages.map(function(s){
+    var p=s.budget?Math.round(100*s.total/s.budget):0;
+    return "<tr><td>"+s.stage+"</td><td>"+inr(s.budget)+"</td><td>"+inr(s.total)+"</td><td>"+p+"%</td></tr>";}).join("");
+  m.innerHTML =
+    "<div class='card'><h3>"+PROJECT+" - Category Summary</h3><table>"+head+rows+tRow+"</table>"+
+    "<div class='hint'>Labour actual source: "+(DATA.actual.labour_source||"-")+"</div></div>"+
+    "<div class='card'><h3>Stage-wise</h3><table>"+stg+"</table></div>";
+}
+</script>
+</body>
+</html>
