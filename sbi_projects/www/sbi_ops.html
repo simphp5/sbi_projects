@@ -38,12 +38,12 @@ h3{font-size:14px;margin-bottom:4px}
       <h1>SBI Site Ops</h1>
       <div class="sub" id="projName">Loading...</div>
     </div>
-    <a id="attLink" href="#" style="color:#fff;font-size:13px;border:1px solid rgba(255,255,255,.6);padding:7px 11px;border-radius:8px;text-decoration:none">Attendance</a>
   </div>
   <div class="sub" id="curStage" style="margin-top:6px;font-weight:600"></div>
   <div class="sub" id="cashLine" style="margin-top:2px"></div>
 </header>
 <div class="tabs">
+  <button data-t="att">Attendance</button>
   <button class="on" data-t="exp">Expense</button>
   <button data-t="prg">Progress</button>
   <button data-t="mat">Material</button>
@@ -153,6 +153,7 @@ function fillSel(id, arr, blank){
 // tabs
 document.querySelectorAll(".tabs button").forEach(function(b){
   b.onclick=function(){
+    if(b.dataset.t==="att"){ window.location.href="/sbi_site?project="+PROJECT; return; }
     document.querySelectorAll(".tabs button").forEach(function(x){x.classList.remove("on")});
     b.classList.add("on");
     ["exp","prg","mat","ver","day"].forEach(function(t){el("tab-"+t).style.display = (b.dataset.t===t)?"":"none"});
@@ -176,7 +177,6 @@ function boot(){
   api("sbi_projects.site_ops_api.get_bootstrap",{project:PROJECT}).then(function(r){
     BOOT=r;
     el("projName").textContent=r.project_name+" ("+PROJECT+")";
-    el("attLink").href="/sbi_site?project="+PROJECT;
     if(r.current_stage){
       el("curStage").textContent="Current stage: "+r.current_stage;
       el("eStage").value=r.current_stage; el("pStage").value=r.current_stage;
