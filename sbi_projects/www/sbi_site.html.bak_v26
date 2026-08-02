@@ -989,17 +989,12 @@
   else boot();
 })();
 </script>
-<!-- sbi_ops style header addon v26 -->
+<!-- sbi_ops style header addon v25 -->
 <style>
 .bar{width:100% !important;max-width:none !important;border-radius:0 !important;margin:0 !important;box-sizing:border-box}
-.opsburger{background:none;border:0;color:#fff;font-size:22px;padding:2px 10px 2px 0;line-height:1;flex:0 0 auto}
-.opsdrawer{position:fixed;top:0;left:0;bottom:0;width:240px;background:#fff;z-index:9999;transform:translateX(-100%);transition:transform .22s;box-shadow:2px 0 12px rgba(0,0,0,.25)}
-.opsdrawer.open{transform:translateX(0)}
-.opsdrawhead{background:#BE1E2D;color:#fff;padding:16px 14px;font-weight:700;font-size:15px}
-.opsdrawitem{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid #f0f0f0;padding:14px;font-size:14.5px;color:#333;font-family:inherit}
-.opsdrawitem.on{color:#BE1E2D;font-weight:700;background:#fdf3f4}
-.opsbackdrop{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9998;display:none}
-.opsbackdrop.open{display:block}
+.opstabs{display:flex;background:#fff;border-bottom:1px solid #e2e2e2}
+.opstabs button{flex:1;padding:11px 2px;border:0;background:none;font-size:13px;color:#666;border-bottom:2px solid transparent;font-family:inherit}
+.opstabs button.on{color:#BE1E2D;border-bottom-color:#BE1E2D;font-weight:600}
 </style>
 <script>
 (function(){
@@ -1012,31 +1007,16 @@
     var ca=document.createElement("small");
     ca.style.cssText="display:block;font-size:11px;font-weight:600;opacity:.85";
     if(sn){sn.appendChild(st);sn.appendChild(ca);}
-    // hamburger
-    var hb=document.createElement("button");
-    hb.type="button"; hb.className="opsburger"; hb.innerHTML="&#9776;";
-    bar.insertBefore(hb, bar.firstChild);
-    // drawer + backdrop
-    var bd=document.createElement("div"); bd.className="opsbackdrop";
-    var dr=document.createElement("div"); dr.className="opsdrawer";
-    var head=document.createElement("div"); head.className="opsdrawhead";
-    head.textContent="SBI Site"; dr.appendChild(head);
-    var items=[
-      ["Attendance", function(){ close(); }],
-      ["Expense", go("exp")],["Progress", go("prg")],["Material", go("mat")],
-      ["Verify", go("ver")],["Today", go("day")]
-    ];
-    function go(t){ return function(){ if(proj){ window.location.href="/sbi_ops?project="+proj; } }; }
-    items.forEach(function(it,i){
-      var a=document.createElement("button"); a.type="button"; a.className="opsdrawitem";
-      if(i===0){ a.classList.add("on"); }
-      a.textContent=it[0]; a.onclick=it[1]; dr.appendChild(a);
-    });
-    document.body.appendChild(bd); document.body.appendChild(dr);
-    function open(){ dr.classList.add("open"); bd.classList.add("open"); }
-    function close(){ dr.classList.remove("open"); bd.classList.remove("open"); }
-    hb.onclick=open; bd.onclick=close;
     if(!proj) return;
+    var tabs=document.createElement("div"); tabs.className="opstabs";
+    var names=["Attendance","Expense","Progress","Material","Verify","Today"];
+    names.forEach(function(n,i){
+      var b=document.createElement("button"); b.textContent=n;
+      if(i===0){ b.className="on"; }
+      b.onclick=function(){ if(i===0){return;} window.location.href="/sbi_ops?project="+proj; };
+      tabs.appendChild(b);
+    });
+    bar.parentNode.insertBefore(tabs, bar.nextSibling);
     fetch("/api/method/sbi_projects.site_ops_api.get_bootstrap?project="+encodeURIComponent(proj),
       {credentials:"same-origin"})
       .then(function(r){return r.json()})
@@ -1044,7 +1024,8 @@
         var m=j.message||{};
         if(m.current_stage){ st.textContent="Current stage: "+m.current_stage; }
         if(m.cash){ ca.textContent="Petty cash balance: Rs "+Math.round(m.cash.balance||0).toLocaleString("en-IN"); }
-      }).catch(function(){});
+      })
+      .catch(function(){});
   }catch(e){}
 })();
 
