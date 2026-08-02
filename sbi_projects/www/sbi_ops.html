@@ -41,6 +41,7 @@ h3{font-size:14px;margin-bottom:4px}
     <a id="attLink" href="#" style="color:#fff;font-size:13px;border:1px solid rgba(255,255,255,.6);padding:7px 11px;border-radius:8px;text-decoration:none">Attendance</a>
   </div>
   <div class="sub" id="curStage" style="margin-top:6px;font-weight:600"></div>
+  <div class="sub" id="cashLine" style="margin-top:2px"></div>
 </header>
 <div class="tabs">
   <button class="on" data-t="exp">Expense</button>
@@ -64,6 +65,8 @@ h3{font-size:14px;margin-bottom:4px}
       </div>
       <label>Stage (current)</label><input id="eStage" readonly style="background:#f0f0f0">
       <label>Supplier / SC Name</label><input id="eParty" placeholder="optional">
+      <label>Paid From</label>
+      <select id="eSrc"><option>Site Cash</option><option>Office</option></select>
       <label>Reason / Description (must)</label>
       <textarea id="eDesc" placeholder="e.g. JCB rental for excavation - 1 day"></textarea>
       <div class="row">
@@ -181,6 +184,7 @@ function boot(){
       el("curStage").textContent="All stages completed";
       el("eSave").disabled=true; el("pSave").disabled=true;
     }
+    showCash(r.cash);
     fillSel("pAct",(r.activities||[]).map(function(a){return a.activity}),true);
     fillSel("mWh",r.warehouses,false);
     renderWorkers(); loadItems();
@@ -204,9 +208,9 @@ el("eSave").onclick=function(){
   if(!amt) return toast("Amount is required");
   el("eSave").disabled=true;
   api("sbi_projects.site_ops_api.add_expense",{project:PROJECT,entry_date:"",category:el("eCat").value,
-    equipment_type:el("eType").value,party:el("eParty").value,
+    equipment_type:el("eType").value,party:el("eParty").value,payment_source:el("eSrc").value,
     description:el("eDesc").value,qty:el("eQty").value,rate:el("eRate").value,amount:amt})
-  .then(function(r){toast("Saved "+r.name);["eParty","eDesc","eQty","eRate","eAmt"].forEach(function(i){el(i).value=""});})
+  .then(function(r){toast("Saved "+r.name);["eParty","eDesc","eQty","eRate","eAmt"].forEach(function(i){el(i).value=""});refreshCash();})
   .catch(function(e){toast("Failed: "+e.message)})
   .then(function(){el("eSave").disabled=false});
 };
@@ -278,6 +282,14 @@ function loadVers(){
     }).join("") : "No signed verifications yet";
   });
 }
+function showCash(c){
+  if(!c) return;
+  el("cashLine").textContent = "Petty cash balance: Rs " + Math.round(c.balance).toLocaleString("en-IN") +
+    "  (received " + Math.round(c.issued).toLocaleString("en-IN") + ")";
+}
+function refreshCash(){
+  api("sbi_projects.site_ops_api.list_today",{project:PROJECT}).then(function(r){showCash(r.cash)});
+}
 function loadToday(){
   api("sbi_projects.site_ops_api.list_today",{project:PROJECT}).then(function(r){
     var h="";
@@ -285,6 +297,7 @@ function loadToday(){
     r.progress.forEach(function(x){h+="<div class='item'>Progress: "+x.stage+"<small>"+(x.activity||"")+" qty "+(x.qty_done||0)+"</small></div>"});
     r.materials.forEach(function(x){h+="<div class='item'>Material issue<small>"+x.name+"</small></div>"});
     el("dayList").innerHTML=h||"Nothing entered today";
+    showCash(r.cash);
   });
 }
 </script>

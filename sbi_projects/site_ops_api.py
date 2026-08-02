@@ -25,6 +25,16 @@ def _stage_no(subject):
     return int(m.group(1)) if m else 999
 
 
+def _cash_balance(project):
+    issued = flt(frappe.db.get_value("Site Cash Issue",
+                                     {"project": project}, "sum(amount)"))
+    spent = flt(frappe.db.get_value(
+        "Site Expense Entry",
+        {"project": project, "payment_source": "Site Cash"},
+        "sum(amount)"))
+    return {"issued": issued, "spent": spent, "balance": issued - spent}
+
+
 def _get_stage_state(project):
     """Return (ordered stage list with status, current stage subject)."""
     tasks = frappe.get_all("Task",
@@ -71,13 +81,14 @@ def get_bootstrap(project):
     return {"project": project, "project_name": pname,
             "stages": stages, "current_stage": current,
             "activities": activities, "workers": workers,
-            "warehouses": [w.name for w in warehouses]}
+            "warehouses": [w.name for w in warehouses],
+            "cash": _cash_balance(project)}
 
 
 @frappe.whitelist()
 def add_expense(project, entry_date, category, description, amount,
                 stage=None, equipment_type=None, party=None,
-                qty=None, uom=None, rate=None):
+                qty=None, uom=None, rate=None, payment_source=None):
     _check_site_user()
     _stages, current = _get_stage_state(project)
     doc = frappe.new_doc("Site Expense Entry")
@@ -87,6 +98,7 @@ def add_expense(project, entry_date, category, description, amount,
     doc.stage = current
     doc.equipment_type = equipment_type if category == "Equipment" else None
     doc.party = party
+    doc.payment_source = payment_source or "Site Cash"
     doc.description = description
     doc.qty = flt(qty)
     doc.uom = uom
@@ -173,7 +185,8 @@ def list_today(project, entry_date=None):
                                   "stock_entry_type": "Material Issue",
                                   "docstatus": 1},
                          fields=["name"], order_by="creation desc")
-    return {"expenses": exp, "progress": prg, "materials": mat}
+    return {"expenses": exp, "progress": prg, "materials": mat,
+            "cash": _cash_balance(project)}
 
 
 @frappe.whitelist()

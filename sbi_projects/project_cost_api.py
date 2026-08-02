@@ -199,9 +199,28 @@ def get_cost_overview(project):
     earned_total["total"] = sum(s["total"] for s in stages.values())
     stage_rows = [{"stage": k, **v} for k, v in stages.items()]
     stage_rows.sort(key=lambda r: _stage_no(r["stage"]))
+    cash_issued = flt(frappe.db.get_value("Site Cash Issue",
+                                          {"project": project},
+                                          "sum(amount)"))
+    cash_spent = flt(frappe.db.get_value(
+        "Site Expense Entry",
+        {"project": project, "payment_source": "Site Cash"},
+        "sum(amount)"))
+    tasks = frappe.get_all("Task",
+                           filters={"project": project, "is_group": 1},
+                           fields=["subject", "status"])
+    tasks.sort(key=lambda t: (_stage_no(t.subject), t.subject))
+    current_stage = next((t.subject for t in tasks
+                          if t.status not in ("Completed", "Cancelled")),
+                         None)
     return {"project": project, "boq": boq_name, "budget": budget,
             "earned": earned_total, "actual": actual,
-            "stages": stage_rows}
+            "stages": stage_rows,
+            "cash": {"issued": cash_issued, "spent": cash_spent,
+                     "balance": cash_issued - cash_spent},
+            "current_stage": current_stage,
+            "sales_order": frappe.db.get_value("Project", project,
+                                               "sales_order")}
 
 
 @frappe.whitelist()
@@ -256,3 +275,26 @@ def build_customer_view(token):
     return {"project_name": pname, "stages": stage_rows,
             "categories": cats, "total": total, "lines": lines,
             "verifications": vers}
+
+
+@frappe.whitelist()
+def complete_stage(project, stage):
+    """Office closes the current stage. Next stage opens on site
+    automatically. If the project is linked to a Sales Order, office
+    then raises the stage invoice via the SO Milestone Invoice button."""
+    frappe.only_for(OWNER_ROLES)
+    task = frappe.db.get_value("Task",
+                               {"project": project, "subject": stage,
+                                "is_group": 1}, "name")
+    if not task:
+        frappe.throw("Stage task not found: " + stage)
+    tdoc = frappe.get_doc("Task", task)
+    tdoc.status = "Completed"
+    tdoc.save(ignore_permissions=True)
+    frappe.db.commit()
+    so = frappe.db.get_value("Project", project, "sales_order")
+    return {"ok": 1, "sales_order": so,
+            "next_step": ("Open Sales Order " + so +
+                          " and use Create > Milestone Invoice for this "
+                          "stage.") if so else
+            "No Sales Order linked to this project."}

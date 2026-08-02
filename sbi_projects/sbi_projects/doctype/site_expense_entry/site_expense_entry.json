@@ -8,6 +8,13 @@
  "editable_grid": 0,
  "actions": [],
  "links": [],
+ "autoname": "naming_series:",
+ "naming_rule": "By \"Naming Series\" field",
+ "title_field": "project",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "index_web_pages_for_search": 1,
+ "allow_rename": 0,
  "fields": [
   {
    "fieldname": "naming_series",
@@ -68,6 +75,15 @@
    "label": "Supplier / SC Name"
   },
   {
+   "fieldname": "payment_source",
+   "fieldtype": "Select",
+   "label": "Paid From",
+   "options": "Site Cash\nOffice",
+   "default": "Site Cash",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
    "fieldname": "sec1",
    "fieldtype": "Section Break",
    "label": "Details"
@@ -114,13 +130,6 @@
    "read_only": 1
   }
  ],
- "sort_field": "modified",
- "sort_order": "DESC",
- "index_web_pages_for_search": 1,
- "allow_rename": 0,
- "autoname": "naming_series:",
- "naming_rule": "By \"Naming Series\" field",
- "title_field": "project",
  "permissions": [
   {
    "role": "System Manager",

@@ -14,6 +14,8 @@ def get_context(context):
         frappe.throw("Not permitted", frappe.PermissionError)
     project = frappe.form_dict.get("project") or ""
     context.project = project
+    import frappe.sessions
+    context.csrf_token = frappe.sessions.get_csrf_token()
     data = None
     if project:
         data = get_cost_overview(project)
