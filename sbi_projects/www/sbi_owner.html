@@ -27,8 +27,8 @@ h3{font-size:14px;margin-bottom:8px}
 <header><h1>SBI Project Cost - Budget vs Earned vs Actual</h1></header>
 <main id="main"></main>
 <script>
-var DATA = {{ data_json }};
-var PROJECTS = {{ projects_json }};
+var DATA = {{ data_json | safe }};
+var PROJECTS = {{ projects_json | safe }};
 var PROJECT = "{{ project }}";
 var CSRF = "{{ csrf_token }}";
 function api(method,args){return fetch("/api/method/"+method,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json","X-Frappe-CSRF-Token":CSRF},body:JSON.stringify(args)}).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.exception||("HTTP "+r.status));return j.message;});});}

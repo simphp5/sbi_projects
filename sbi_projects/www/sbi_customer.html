@@ -38,7 +38,7 @@ th{background:#faf7f7;color:#a11}
 <main id="main"></main>
 <script>
 var VALID = {{ valid }};
-var DATA = {{ data_json }};
+var DATA = {{ data_json | safe }};
 function inr(v){v=Math.round(v||0);return "Rs " + v.toLocaleString("en-IN")}
 var m=document.getElementById("main");
 if(!VALID){

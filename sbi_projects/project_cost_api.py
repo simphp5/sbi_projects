@@ -89,12 +89,18 @@ def _earned(project):
 def _labour_actual(project):
     """(amount, source_note). Attendance adapter with progress fallback."""
     wages = {}
+    wage_missing = False
     if frappe.db.exists("DocType", "Labour"):
-        for r in frappe.get_all("Labour",
-                                filters={"default_project": project},
-                                fields=["name", "daily_wage"],
+        meta = frappe.get_meta("Labour")
+        has_wage = meta.has_field("daily_wage")
+        wage_missing = not has_wage
+        filters = {}
+        if meta.has_field("default_project"):
+            filters["default_project"] = project
+        fields = ["name"] + (["daily_wage"] if has_wage else [])
+        for r in frappe.get_all("Labour", filters=filters, fields=fields,
                                 ignore_permissions=True):
-            wages[r.name] = flt(r.get("daily_wage"))
+            wages[r.name] = flt(r.get("daily_wage")) if has_wage else 0.0
     # find an attendance-like doctype in our module
     try:
         module = frappe.db.get_value("DocType", "Project BOQ", "module")
@@ -133,8 +139,11 @@ def _labour_actual(project):
                 days.add((lab, dv))
             amt = sum(wages.get(lab, 0.0) for lab, _d in days)
             if days:
-                return amt, "attendance: " + dt + \
+                note = "attendance: " + dt + \
                     " (" + str(len(days)) + " man-days)"
+                if wage_missing:
+                    note += " - SET daily_wage field on Labour!"
+                return amt, note
     except Exception:
         pass
     # fallback: progress labour hours
@@ -151,25 +160,40 @@ def _labour_actual(project):
                                 ignore_permissions=True):
             total += (flt(r.hours) / 8.0) * wages.get(r.labour, 0.0)
             hours += flt(r.hours)
-    return total, "progress labour hours (" + str(int(hours)) + " hrs)"
+    note = "progress labour hours (" + str(int(hours)) + " hrs)"
+    if wage_missing:
+        note += " - SET daily_wage field on Labour!"
+    return total, note
 
 
 def _actuals(project):
-    """Internal actual cost per category (owner only)."""
-    labour, labour_src = _labour_actual(project)
-    material = flt(frappe.db.get_value(
-        "Stock Entry",
-        {"project": project, "stock_entry_type": "Material Issue",
-         "docstatus": 1},
-        "sum(total_outgoing_value)"))
+    """Internal actual cost per category (owner only). Defensive:
+    a missing field or doctype must degrade, never 500 the page."""
+    try:
+        labour, labour_src = _labour_actual(project)
+    except Exception as e:
+        labour, labour_src = 0.0, "unavailable (" + str(e)[:60] + ")"
+    try:
+        material = flt(frappe.db.get_value(
+            "Stock Entry",
+            {"project": project, "stock_entry_type": "Material Issue",
+             "docstatus": 1},
+            "sum(total_outgoing_value)"))
+    except Exception:
+        material = 0.0
     exp = {"Equipment": 0.0, "Subcontract": 0.0, "Other": 0.0}
-    for r in frappe.get_all("Site Expense Entry",
-                            filters={"project": project},
-                            fields=["category", "amount"],
-                            limit_page_length=0, ignore_permissions=True):
-        cat = "Other" if r.category in ("Transport", "Other") else r.category
-        if cat in exp:
-            exp[cat] += flt(r.amount)
+    try:
+        for r in frappe.get_all("Site Expense Entry",
+                                filters={"project": project},
+                                fields=["category", "amount"],
+                                limit_page_length=0,
+                                ignore_permissions=True):
+            cat = "Other" if r.category in ("Transport", "Other") \
+                else r.category
+            if cat in exp:
+                exp[cat] += flt(r.amount)
+    except Exception:
+        pass
     return {"labour": labour, "material": material,
             "equipment": exp["Equipment"],
             "subcontract": exp["Subcontract"],
@@ -199,13 +223,19 @@ def get_cost_overview(project):
     earned_total["total"] = sum(s["total"] for s in stages.values())
     stage_rows = [{"stage": k, **v} for k, v in stages.items()]
     stage_rows.sort(key=lambda r: _stage_no(r["stage"]))
-    cash_issued = flt(frappe.db.get_value("Site Cash Issue",
-                                          {"project": project},
-                                          "sum(amount)"))
-    cash_spent = flt(frappe.db.get_value(
-        "Site Expense Entry",
-        {"project": project, "payment_source": "Site Cash"},
-        "sum(amount)"))
+    try:
+        cash_issued = flt(frappe.db.get_value("Site Cash Issue",
+                                              {"project": project},
+                                              "sum(amount)"))
+    except Exception:
+        cash_issued = 0.0
+    try:
+        cash_spent = flt(frappe.db.get_value(
+            "Site Expense Entry",
+            {"project": project, "payment_source": "Site Cash"},
+            "sum(amount)"))
+    except Exception:
+        cash_spent = 0.0
     tasks = frappe.get_all("Task",
                            filters={"project": project, "is_group": 1},
                            fields=["subject", "status"])

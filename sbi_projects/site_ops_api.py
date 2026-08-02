@@ -26,13 +26,18 @@ def _stage_no(subject):
 
 
 def _cash_balance(project):
-    issued = flt(frappe.db.get_value("Site Cash Issue",
-                                     {"project": project}, "sum(amount)"))
-    spent = flt(frappe.db.get_value(
-        "Site Expense Entry",
-        {"project": project, "payment_source": "Site Cash"},
-        "sum(amount)"))
-    return {"issued": issued, "spent": spent, "balance": issued - spent}
+    try:
+        issued = flt(frappe.db.get_value("Site Cash Issue",
+                                         {"project": project},
+                                         "sum(amount)"))
+        spent = flt(frappe.db.get_value(
+            "Site Expense Entry",
+            {"project": project, "payment_source": "Site Cash"},
+            "sum(amount)"))
+        return {"issued": issued, "spent": spent,
+                "balance": issued - spent}
+    except Exception:
+        return {"issued": 0, "spent": 0, "balance": 0}
 
 
 def _get_stage_state(project):

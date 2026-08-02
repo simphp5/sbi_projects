@@ -127,7 +127,7 @@ h3{font-size:14px;margin-bottom:4px}
 <script>
 var CSRF = "{{ csrf_token }}";
 var PROJECT = "{{ project }}";
-var PROJECTS = {{ projects_json }};
+var PROJECTS = {{ projects_json | safe }};
 var BOOT = null;
 
 function toast(m){var t=document.getElementById("toast");t.textContent=m;t.style.display="block";setTimeout(function(){t.style.display="none"},2600)}
