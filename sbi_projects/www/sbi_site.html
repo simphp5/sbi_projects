@@ -485,7 +485,7 @@
   function startCount(m,next){
     cancelCount();aPending=m;aCountVal=PUNCH_COUNTDOWN;
     $("countA").classList.remove("hidden");$("countA").textContent=aCountVal;
-    note($("noteA"),"",next+" - hold still...");
+    note($("noteA"),"",plabel(next)+" - hold still...");
     aCountTimer=setInterval(function(){
       aCountVal--;
       if(aCountVal<=0){cancelCount();doPunch(m,next);}
@@ -503,12 +503,12 @@
       log_type:next,latitude:S.gps&&S.gps.lat,longitude:S.gps&&S.gps.lng,photo:photo,
       remarks:(next==="OTHER"?(S.punchReason||""):null)})
       .then(function(r){
-        if(r.already){note($("noteA"),"warn",r.name+" already has "+r.log_type+" today.");beep("warn");}
+        if(r.already){note($("noteA"),"warn",r.name+" already has "+plabel(r.log_type)+" today.");beep("warn");}
         else{
           var extra=r.within_geofence?"":" (off-site "+Math.round(r.distance)+"m)";
           var lateMsg=lateFlag(r.log_type);
           note($("noteA"),r.within_geofence?"ok":"warn",
-            r.name+" - "+r.log_type+"  "+stamp()+extra+lateMsg);
+            r.name+" - "+plabel(r.log_type)+"  "+stamp()+extra+lateMsg);
           beep(r.within_geofence?"ok":"warn");
         }
         return api("day_status",{worker_type:m.type,worker_id:m.id,project:PROJECT})
@@ -545,7 +545,7 @@
     var done={};ds.punches.forEach(function(p){done[p.log_type]=p.time;});
     $("todayChips").innerHTML=steps.map(function(s){
       var actual=done[s.key];
-      var label=s.label||s.key;
+      var label=PLABEL[s.key]||s.label||s.key;
       var exp=s.time?" ("+s.time+")":"";
       var shown=actual?(" "+actual):exp;
       return '<span class="chip'+(actual?' done':'')+'">'+label+shown+'</span>';
@@ -885,9 +885,15 @@
     }).catch(function(e){box.innerHTML='<div class="tiny">'+esc(e.message)+'</div>';});
   }
 
-  var PTYPES=[["Entry","IN"],["Break 1 Out","BREAK 1 OUT"],["Break 1 In","BREAK 1 IN"],
-    ["Lunch Out","LUNCH OUT"],["Lunch In","LUNCH IN"],["Break 2 Out","BREAK 2 OUT"],
-    ["Break 2 In","BREAK 2 IN"],["Exit","OUT"],["Other","OTHER"]];
+  var PTYPES=[["Entry","IN"],["Break 1 Start","BREAK 1 OUT"],["Break 1 End","BREAK 1 IN"],
+    ["Lunch Start","LUNCH OUT"],["Lunch End","LUNCH IN"],["Break 2 Start","BREAK 2 OUT"],
+    ["Break 2 End","BREAK 2 IN"],["Exit","OUT"],["Other","OTHER"]];
+  var PLABEL={"IN":"Entry","OUT":"Exit","OTHER":"Other",
+    "BREAK 1 OUT":"Break 1 Start","BREAK 1 IN":"Break 1 End",
+    "LUNCH OUT":"Lunch Start","LUNCH IN":"Lunch End",
+    "BREAK 2 OUT":"Break 2 Start","BREAK 2 IN":"Break 2 End",
+    "TEA OUT":"Tea Start","TEA IN":"Tea End"};
+  function plabel(k){return PLABEL[k]||k;}
   function buildPtypes(){
     var g=$("ptGrid"); if(!g) return;
     g.innerHTML="";
