@@ -999,9 +999,10 @@
     sn.insertBefore(document.createTextNode(t), sn.childNodes[1]||null);
   }
   function signOut(){
-    fetch("/api/method/logout",{credentials:"same-origin"})
-      .then(function(){window.location.href="/login";})
-      .catch(function(){window.location.href="/login";});
+    fetch("/api/method/logout",{method:"POST",credentials:"same-origin",
+      headers:{"X-Frappe-CSRF-Token":CSRF}})
+      .then(function(){window.location.replace("/login");})
+      .catch(function(){window.location.href="/?cmd=web_logout";});
   }
   function setupDrawer(){
     var dr=$("drawer"), bd=$("backdrop2"), bg=$("btnBurger");

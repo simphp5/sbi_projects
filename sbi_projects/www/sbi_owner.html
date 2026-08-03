@@ -24,7 +24,11 @@ h3{font-size:14px;margin-bottom:8px}
 </style>
 </head>
 <body>
-<header><h1>SBI Project Cost - Budget vs Earned vs Actual</h1></header>
+<header style="display:flex;align-items:center;justify-content:space-between">
+  <div style="display:flex;align-items:center"><img src="/assets/sbi_projects/site_app/sbi-logo-full.png" alt="SBI" style="height:34px;background:#fff;border-radius:8px;padding:3px 6px;margin-right:10px"><h1>SBI Project Cost - Budget vs Earned vs Actual</h1></div>
+  <button type="button" id="hdrSignout" style="border:1px solid rgba(255,255,255,.7);background:none;color:#fff;border-radius:8px;padding:7px 11px;font-size:13px;font-weight:700">Sign out</button>
+</header>
+<script>document.addEventListener("DOMContentLoaded",function(){var b=document.getElementById("hdrSignout");if(b){b.onclick=function(){fetch("/api/method/logout",{method:"POST",credentials:"same-origin",headers:{"X-Frappe-CSRF-Token":"{{ csrf_token }}"}}).then(function(){location.replace("/login");}).catch(function(){location.href="/?cmd=web_logout";});};}});</script>
 <main id="main"></main>
 <script>
 var DATA = {{ data_json | safe }};

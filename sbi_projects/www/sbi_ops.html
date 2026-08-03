@@ -45,11 +45,13 @@ h3{font-size:14px;margin-bottom:4px}
   <div style="display:flex;justify-content:space-between;align-items:center">
     <div style="display:flex;align-items:center">
       <button type="button" class="opsburger" id="burger">&#9776;</button>
+      <img src="/assets/sbi_projects/site_app/sbi-logo-full.png" alt="SBI" style="height:34px;background:#fff;border-radius:8px;padding:3px 6px;margin-right:10px">
       <div>
       <h1>SBI Site Ops</h1>
       <div class="sub" id="projName">Loading...</div>
       </div>
     </div>
+    <button type="button" id="hdrSignout" style="border:1px solid rgba(255,255,255,.7);background:none;color:#fff;border-radius:8px;padding:7px 11px;font-size:13px;font-weight:700">Sign out</button>
   </div>
   <div class="sub" id="curStage" style="margin-top:6px;font-weight:600"></div>
   <div class="sub" id="cashLine" style="margin-top:2px"></div>
@@ -188,13 +190,19 @@ document.querySelectorAll(".tabs button").forEach(function(b){
 // drawer
 var drawer=el("drawer"), backdrop=el("backdrop");
 el("burger").onclick=function(){drawer.classList.add("open");backdrop.classList.add("open");};
+function doSignOut(){
+  fetch("/api/method/logout",{method:"POST",credentials:"same-origin",headers:{"X-Frappe-CSRF-Token":CSRF}})
+    .then(function(){location.replace("/login");})
+    .catch(function(){location.href="/?cmd=web_logout";});
+}
+var hs=el("hdrSignout"); if(hs){hs.onclick=doSignOut;}
 backdrop.onclick=function(){drawer.classList.remove("open");backdrop.classList.remove("open");};
 document.querySelectorAll(".opsdrawitem").forEach(function(it){
   it.onclick=function(){
     var t=it.dataset.d;
     drawer.classList.remove("open");backdrop.classList.remove("open");
     if(t==="att"){ window.location.href="/sbi_site?project="+PROJECT; return; }
-    if(t==="signout"){ fetch("/api/method/logout",{credentials:"same-origin"}).then(function(){location.href="/login";}).catch(function(){location.href="/login";}); return; }
+    if(t==="signout"){ doSignOut(); return; }
     document.querySelectorAll(".opsdrawitem").forEach(function(x){x.classList.remove("on")});
     it.classList.add("on");
     var tb=document.querySelector(".tabs button[data-t='"+t+"']");
