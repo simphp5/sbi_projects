@@ -175,7 +175,10 @@
     <section id="attend">
       <div class="ptypes" id="ptypes">
         <div class="ptgrid hidden" id="shiftRow" style="margin-bottom:8px"></div>
-        <div class="ttl">PUNCH TYPE - select first</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div class="ttl" style="margin-bottom:0">PUNCH TYPE - select first</div>
+          <button type="button" id="btnShifts" style="border:1px solid var(--brand);background:var(--card);color:var(--brand);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:800">Shift Master</button>
+        </div>
         <div class="ptgrid" id="ptGrid"></div>
       </div>
       <div class="cam-ctrl">
@@ -1209,6 +1212,7 @@
     $("btnWorkers").onclick=function(){setMode("workers");};
     $("btnSignout").onclick=signOut;
     buildPtypes();setupDrawer();setupTabs();loadHeaderInfo();loadShifts();
+    var bs=$("btnShifts"); if(bs) bs.onclick=openShifts;
     $("wsInactive").onchange=loadRoster;
     $("btnBackToAttend").onclick=function(){setMode("attend");};
     $("btnRetake").onclick=function(){resetEnroll();};
