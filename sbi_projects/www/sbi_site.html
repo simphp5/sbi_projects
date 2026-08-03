@@ -50,6 +50,7 @@
   .pt{border:1px solid var(--line);background:var(--card);border-radius:9px;
     padding:10px 4px;font-size:12.5px;font-weight:700;color:var(--ink)}
   .pt[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
+  .pt.suggest{border:2px dashed var(--brand);color:var(--brand);font-weight:800}
   /* horizontal menu like sbi_ops */
   .opstabs{display:flex;background:var(--card);border-bottom:1px solid var(--line);
     width:100vw;position:relative;left:50%;transform:translateX(-50%)}
@@ -985,6 +986,7 @@
     S.punchType=p[1]; S.punchReason=null; markPtype(btn); camOn();
   }
   function markPtype(btn){
+    clearSuggest();
     document.querySelectorAll("#ptGrid .pt").forEach(function(x){x.setAttribute("aria-pressed","false");});
     btn.setAttribute("aria-pressed","true");
     note($("noteA"),"","Punch type: "+btn.textContent+(S.punchReason?(" ("+S.punchReason+")"):"")+". Show faces to the camera.");
@@ -1027,45 +1029,67 @@
       S.shifts=list||[];renderShiftChips();autoSuggest();
     }).catch(function(){});
   }
+  var SHIFT_WINDOW_MIN=60, PUNCH_BUFFER_MIN=30;
+  function inWindow(s,nm){
+    var e=t2m(s.entry_time), x=t2m(s.exit_time);
+    if(e===null||x===null)return false;
+    return nm>=(e-SHIFT_WINDOW_MIN)&&nm<=(x+SHIFT_WINDOW_MIN);
+  }
   function currentShift(){
-    if(!S.shifts||!S.shifts.length)return null;
+    if(!S.shifts||!S.shifts.length)return {shift:null,ask:false};
     var saved=localStorage.getItem("sbi_shift_"+PROJECT);
     var f=S.shifts.filter(function(s){return s.name===saved;});
-    if(f.length)return f[0];
-    if(S.shifts.length===1)return S.shifts[0];
+    if(f.length)return {shift:f[0],ask:false};
     var nm=new Date().getHours()*60+new Date().getMinutes();
-    var best=null,bd=1e9;
-    S.shifts.forEach(function(s){var m=t2m(s.entry_time);if(m===null)return;
-      var d=Math.abs(nm-m);if(d<bd){bd=d;best=s;}});
-    return best||S.shifts[0];
+    var within=S.shifts.filter(function(s){return inWindow(s,nm);});
+    if(within.length===1)return {shift:within[0],ask:false};
+    return {shift:null,ask:true};
   }
   function renderShiftChips(){
     var host=$("shiftRow");if(!host)return;
-    if(!S.shifts||S.shifts.length<2){host.classList.add("hidden");return;}
+    var cs=currentShift();
+    var show=(S.shifts&&S.shifts.length>1)||cs.ask;
+    if(!S.shifts||!S.shifts.length||!show){host.classList.add("hidden");return;}
     host.classList.remove("hidden");host.innerHTML="";
-    var cur=currentShift();
     S.shifts.forEach(function(s){
       var b=document.createElement("button");b.type="button";b.className="pt";
       b.textContent=s.shift_name;
-      b.setAttribute("aria-pressed",(cur&&cur.name===s.name)?"true":"false");
+      b.setAttribute("aria-pressed",(cs.shift&&cs.shift.name===s.name)?"true":"false");
       b.onclick=function(){localStorage.setItem("sbi_shift_"+PROJECT,s.name);
         renderShiftChips();autoSuggest();};
       host.appendChild(b);
     });
   }
+  function clearSuggest(){
+    document.querySelectorAll("#ptGrid .pt").forEach(function(x){x.classList.remove("suggest");});
+  }
   function autoSuggest(){
-    var sh=currentShift();if(!sh)return;
+    clearSuggest();
+    var cs=currentShift();
+    if(!S.shifts||!S.shifts.length)return;
+    if(cs.ask){
+      note($("noteA"),"warn","Outside shift window or multiple shifts match - select the SHIFT first (chips above).");
+      camHint("Select the shift, then the punch type.");
+      return;
+    }
+    var sh=cs.shift;
     var nm=new Date().getHours()*60+new Date().getMinutes();
     var best=null,bd=1e9;
     SHIFT_MAP.forEach(function(p){var m=t2m(sh[p[0]]);if(m===null)return;
       var d=Math.abs(nm-m);if(d<bd){bd=d;best=p;}});
     if(!best)return;
     var btn=document.querySelector('#ptGrid .pt[data-v="'+best[1]+'"]');
-    if(btn){
+    if(!btn)return;
+    var tstr=String(sh[best[0]]||"").slice(0,5);
+    if(bd<=PUNCH_BUFFER_MIN){
       S.punchType=best[1];S.punchReason=null;markPtype(btn);
-      note($("noteA"),"",sh.shift_name+" - now: "+plabel(best[1])+
-        " ("+String(sh[best[0]]||"").slice(0,5)+"). Camera starting...");
+      note($("noteA"),"",sh.shift_name+" - now: "+plabel(best[1])+" ("+tstr+"). Camera starting...");
       camOn();
+    }else{
+      btn.classList.add("suggest");
+      note($("noteA"),"warn",sh.shift_name+" - nearest is "+plabel(best[1])+" ("+tstr+"), "+
+        Math.round(bd)+" min away. Tap it to confirm, or choose another type.");
+      camHint("Time variation is high - confirm the punch type to start the camera.");
     }
   }
   function openShifts(){
