@@ -30,26 +30,6 @@
     padding:8px 12px;font-weight:700;font-size:13px}
 
   main{flex:1;padding:14px}
-  /* full-bleed header inside centered wrap */
-  .bar{width:100vw;position:relative;left:50%;transform:translateX(-50%);flex-wrap:wrap}
-  .bar .burger{background:none;border:0;color:#fff;font-size:22px;padding:2px 8px 2px 0;line-height:1}
-  .bar .appttl{font-weight:800;font-size:16px;display:block;line-height:1.15}
-  .drawer{position:fixed;top:0;left:0;bottom:0;width:250px;background:#fff;z-index:9999;
-    transform:translateX(-100%);transition:transform .22s;box-shadow:2px 0 12px rgba(0,0,0,.25)}
-  .drawer.open{transform:translateX(0)}
-  .drawhead{background:var(--brand);color:#fff;padding:16px 14px;font-weight:800;font-size:15px}
-  .drawitem{display:block;width:100%;text-align:left;background:none;border:0;
-    border-bottom:1px solid #f0f0f0;padding:14px;font-size:14.5px;color:var(--ink);font-family:inherit}
-  .drawitem.on{color:var(--brand);font-weight:800;background:#fdf3f4}
-  .backdrop2{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9998;display:none}
-  .backdrop2.open{display:block}
-  /* punch type selector */
-  .ptypes{margin-bottom:10px}
-  .ptypes .ttl{font-size:12px;font-weight:800;color:var(--soft);margin-bottom:6px}
-  .ptgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
-  .pt{border:1px solid var(--line);background:var(--card);border-radius:9px;
-    padding:10px 4px;font-size:12.5px;font-weight:700;color:var(--ink)}
-  .pt[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
   .hidden{display:none !important}
 
   /* camera stage */
@@ -127,33 +107,16 @@
 <body>
 <div class="wrap">
   <div class="bar">
-    <button id="btnBurger" type="button" class="burger">&#9776;</button>
     <img src="/assets/sbi_projects/site_app/sbi-logo-full.png" alt="SBI">
-    <span class="site" id="siteName"><span class="appttl">SBI Site Attendance</span>Site<small id="clock" style="display:block;font-size:11px;font-weight:600;opacity:.85"></small><small id="stageLine" style="display:block;font-size:11px;font-weight:700;opacity:.95"></small><small id="cashLine" style="display:block;font-size:11px;font-weight:600;opacity:.85"></small></span>
+    <span class="site" id="siteName">Site<small id="clock" style="display:block;font-size:11px;font-weight:600;opacity:.85"></small></span>
     <button id="btnInstall" type="button" class="hidden" style="background:#fff;color:var(--brand)">Install</button>
     <button id="btnWorkers" type="button">Workers</button>
     <button id="btnMode" type="button">Add worker</button>
-    <button id="btnSignout" type="button">Sign out</button>
   </div>
 
   <main>
     <!-- ATTENDANCE (default) -->
-    <div class="backdrop2" id="backdrop2"></div>
-    <div class="drawer" id="drawer">
-      <div class="drawhead">SBI Site</div>
-      <button type="button" class="drawitem on">Attendance</button>
-      <button type="button" class="drawitem" data-go="ops">Expense</button>
-      <button type="button" class="drawitem" data-go="ops">Progress</button>
-      <button type="button" class="drawitem" data-go="ops">Material</button>
-      <button type="button" class="drawitem" data-go="ops">Verify</button>
-      <button type="button" class="drawitem" data-go="ops">Today</button>
-      <button type="button" class="drawitem" data-go="out">Sign out</button>
-    </div>
     <section id="attend">
-      <div class="ptypes" id="ptypes">
-        <div class="ttl">PUNCH TYPE - select first</div>
-        <div class="ptgrid" id="ptGrid"></div>
-      </div>
       <div class="cam-ctrl">
         <button type="button" class="cc" id="flipA">Flip camera</button>
         <button type="button" class="cc" id="darkA" aria-pressed="true">Dark bg: On</button>
@@ -250,7 +213,7 @@
   // -------------------------
 
   var S={
-    mode:"attend", ready:false, wt:"Labour", punchType:null, punchReason:null,
+    mode:"attend", ready:false, wt:"Labour",
     gps:null, lastId:null, opts:{},
     facingA:"user", facingE:"user", darkA:true, darkE:true,
     shift:null
@@ -473,11 +436,11 @@
       return api("day_status",{worker_type:m.type,worker_id:m.id,project:PROJECT})
         .then(function(ds){
           showToday(m.name,ds);
-          if(!S.punchType){
-            note($("noteA"),"warn","Select the punch type above first.");
-            beep("warn");release();return;
+          if(ds.finished){
+            note($("noteA"),"ok",m.name+" has completed all punches today.");
+            beep("ok");release();return;
           }
-          startCount(m,S.punchType);
+          startCount(m,ds.next);
         });
     }).catch(function(e){note($("noteA"),"err",e.message);release();});
   }
@@ -500,8 +463,7 @@
     var photo=null;
     try{photo=snapshot($("camA"));}catch(e){}   // stamped with time + GPS
     api("punch",{worker_type:m.type,worker_id:m.id,project:PROJECT,
-      log_type:next,latitude:S.gps&&S.gps.lat,longitude:S.gps&&S.gps.lng,photo:photo,
-      remarks:(next==="OTHER"?(S.punchReason||""):null)})
+      log_type:next,latitude:S.gps&&S.gps.lat,longitude:S.gps&&S.gps.lng,photo:photo})
       .then(function(r){
         if(r.already){note($("noteA"),"warn",r.name+" already has "+r.log_type+" today.");beep("warn");}
         else{
@@ -777,7 +739,7 @@
       resetEnroll();
       // show the worker in the list so it is clearly saved
       setMode("workers");
-      note($("noteA"),"ok",worker.name+" saved for this site.");
+      note($("noteA"),"ok",worker.name+" added to this site.");
     };
     if(num||front||back){
       api("save_aadhaar",{worker_type:worker.type,worker_id:worker.id,
@@ -820,16 +782,10 @@
       '<label>Phone</label><input id="wsPhone" value="'+esc(d.phone||"")+'">'+
       (isLab?'<label>Skill</label><input id="wsSkill" value="'+esc(d.skill||"")+'">':'')+
       '<div class="tiny" style="margin-top:8px">'+esc(d.type)+' - '+esc(d.status)+
-        ' - Site assigned: <b>'+esc(d.project||"none")+'</b>'+
-        (d.project!==PROJECT?' <button type="button" id="wsMove" style="margin-left:6px;border:1px solid var(--brand);background:#fff;color:var(--brand);border-radius:6px;padding:3px 8px;font-weight:700">Move to this site</button>':'')+
-        '</div>'+
+        (d.project?' - '+esc(d.project):'')+'</div>'+
       aadhaarBlock;
 
     var buttons=[
-      {label:"Aadhaar",ghost:true,onClick:function(){
-        closeModal();
-        openAadhaar({type:d.type,id:d.id,name:d.name});
-      }},
       {label:"Save",onClick:function(){
         api("update_worker",{worker_type:d.type,worker_id:d.id,
           name:val("wsName"),phone:val("wsPhone"),skill:val("wsSkill")})
@@ -853,13 +809,6 @@
       }});
     }
     modal(d.name,body,buttons);
-    var mv=$("wsMove");
-    if(mv){mv.onclick=function(){
-      if(!confirm("Move "+d.name+" to this site? Face will match here only."))return;
-      api("assign_site",{worker_type:d.type,worker_id:d.id,project:PROJECT})
-        .then(function(){beep("ok");closeModal();loadRoster();})
-        .catch(function(e){alert(e.message);});
-    };}
   }
 
   function loadRoster(){
@@ -874,7 +823,7 @@
         var pill=inactive?'<span class="st off">Inactive</span>'
           :'<span class="st '+(r.on_site?'on':'off')+'">'+(r.on_site?'On site':'Off')+'</span>';
         return '<div class="rw" data-i="'+i+'" style="cursor:pointer'+(inactive?';opacity:.6':'')+'">'+av+
-          '<span class="nm">'+esc(r.name)+'<small>'+esc(r.type)+(r.project?' - '+esc(r.project):'')+(r.last?' - last '+esc(r.last):'')+'</small></span>'+
+          '<span class="nm">'+esc(r.name)+'<small>'+esc(r.type)+(r.last?' - last '+esc(r.last):'')+'</small></span>'+
           pill+
           '<span style="color:var(--soft);font-size:20px;margin-left:6px">&rsaquo;</span></div>';
       }).join("");
@@ -885,78 +834,6 @@
     }).catch(function(e){box.innerHTML='<div class="tiny">'+esc(e.message)+'</div>';});
   }
 
-  var PTYPES=[["Entry","IN"],["Break 1 Out","BREAK 1 OUT"],["Break 1 In","BREAK 1 IN"],
-    ["Lunch Out","LUNCH OUT"],["Lunch In","LUNCH IN"],["Break 2 Out","BREAK 2 OUT"],
-    ["Break 2 In","BREAK 2 IN"],["Exit","OUT"],["Other","OTHER"]];
-  function buildPtypes(){
-    var g=$("ptGrid"); if(!g) return;
-    g.innerHTML="";
-    PTYPES.forEach(function(p){
-      var b=document.createElement("button");
-      b.type="button"; b.className="pt"; b.textContent=p[0];
-      b.setAttribute("aria-pressed","false"); b.dataset.v=p[1];
-      b.onclick=function(){ selectPtype(b,p); };
-      g.appendChild(b);
-    });
-  }
-  function selectPtype(btn,p){
-    if(p[1]==="OTHER"){
-      modal("Other punch - reason",
-        '<label>Reason (required)</label><input id="otherReason" placeholder="e.g. medical, material trip">',
-        [{label:"Cancel",ghost:true,onClick:closeModal},
-         {label:"Set",onClick:function(){
-            var r=($("otherReason").value||"").trim();
-            if(!r){$("otherReason").focus();beep("warn");return;}
-            S.punchType="OTHER"; S.punchReason=r; closeModal(); markPtype(btn);
-         }}]);
-      setTimeout(function(){var e=$("otherReason");if(e)e.focus();},80);
-      return;
-    }
-    S.punchType=p[1]; S.punchReason=null; markPtype(btn);
-  }
-  function markPtype(btn){
-    document.querySelectorAll("#ptGrid .pt").forEach(function(x){x.setAttribute("aria-pressed","false");});
-    btn.setAttribute("aria-pressed","true");
-    note($("noteA"),"","Punch type: "+btn.textContent+(S.punchReason?(" ("+S.punchReason+")"):"")+". Show faces to the camera.");
-  }
-  function setSiteText(t){
-    var sn=$("siteName");
-    for(var i=0;i<sn.childNodes.length;i++){
-      if(sn.childNodes[i].nodeType===3){ sn.childNodes[i].nodeValue=t; return; }
-    }
-    sn.insertBefore(document.createTextNode(t), sn.childNodes[1]||null);
-  }
-  function signOut(){
-    fetch("/api/method/logout",{credentials:"same-origin"})
-      .then(function(){window.location.href="/login";})
-      .catch(function(){window.location.href="/login";});
-  }
-  function setupDrawer(){
-    var dr=$("drawer"), bd=$("backdrop2"), bg=$("btnBurger");
-    if(!dr||!bg) return;
-    function close(){dr.classList.remove("open");bd.classList.remove("open");}
-    bg.onclick=function(){dr.classList.add("open");bd.classList.add("open");};
-    bd.onclick=close;
-    dr.querySelectorAll(".drawitem").forEach(function(it){
-      it.onclick=function(){
-        close();
-        var g=it.dataset.go;
-        if(g==="ops"&&PROJECT){window.location.href="/sbi_ops?project="+PROJECT;}
-        else if(g==="out"){signOut();}
-      };
-    });
-  }
-  function loadHeaderInfo(){
-    if(!PROJECT) return;
-    fetch("/api/method/sbi_projects.site_ops_api.get_bootstrap?project="+encodeURIComponent(PROJECT),
-      {credentials:"same-origin"})
-      .then(function(r){return r.json();})
-      .then(function(j){
-        var m=j.message||{};
-        if(m.current_stage&&$("stageLine")){$("stageLine").textContent="Current stage: "+m.current_stage;}
-        if(m.cash&&$("cashLine")){$("cashLine").textContent="Petty cash balance: Rs "+Math.round(m.cash.balance||0).toLocaleString("en-IN");}
-      }).catch(function(){});
-  }
   function setMode(m){
     S.mode=m;
     $("attend").classList.toggle("hidden",m!=="attend");
@@ -1007,8 +884,7 @@
   function showChooser(){
     // hide the action buttons, show a list of sites
     ["btnMode","btnWorkers","btnInstall"].forEach(function(id){var b=$(id);if(b)b.classList.add("hidden");});
-    setupDrawer(); var so=$("btnSignout"); if(so) so.onclick=signOut;
-    setSiteText("Choose a site ");
+    $("siteName").childNodes[0].nodeValue="Choose a site ";
     var host=$("attend");
     host.classList.remove("hidden");
     $("workers").classList.add("hidden");$("enroll").classList.add("hidden");
@@ -1032,12 +908,10 @@
     // no site chosen (multi-site user) -> show the chooser, do not start the camera
     if(!PROJECT){ showChooser(); return; }
     // site name text (avoid clobbering the clock child)
-    setSiteText((PROJECT_NAME||"Site")+" ("+PROJECT+") ");
+    $("siteName").childNodes[0].nodeValue=(PROJECT_NAME||"Site")+" ";
     tickClock();setInterval(tickClock,10000);
     $("btnMode").onclick=function(){setMode(S.mode==="enroll"?"attend":"enroll");};
     $("btnWorkers").onclick=function(){setMode("workers");};
-    $("btnSignout").onclick=signOut;
-    buildPtypes();setupDrawer();loadHeaderInfo();
     $("wsInactive").onchange=loadRoster;
     $("btnBackToAttend").onclick=function(){setMode("attend");};
     $("btnRetake").onclick=function(){resetEnroll();};
@@ -1114,6 +988,66 @@
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot);
   else boot();
 })();
+</script>
+<!-- sbi_ops style header addon v26 -->
+<style>
+.bar{width:100% !important;max-width:none !important;border-radius:0 !important;margin:0 !important;box-sizing:border-box}
+.opsburger{background:none;border:0;color:#fff;font-size:22px;padding:2px 10px 2px 0;line-height:1;flex:0 0 auto}
+.opsdrawer{position:fixed;top:0;left:0;bottom:0;width:240px;background:#fff;z-index:9999;transform:translateX(-100%);transition:transform .22s;box-shadow:2px 0 12px rgba(0,0,0,.25)}
+.opsdrawer.open{transform:translateX(0)}
+.opsdrawhead{background:#BE1E2D;color:#fff;padding:16px 14px;font-weight:700;font-size:15px}
+.opsdrawitem{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid #f0f0f0;padding:14px;font-size:14.5px;color:#333;font-family:inherit}
+.opsdrawitem.on{color:#BE1E2D;font-weight:700;background:#fdf3f4}
+.opsbackdrop{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9998;display:none}
+.opsbackdrop.open{display:block}
+</style>
+<script>
+(function(){
+  try{
+    var proj=new URLSearchParams(location.search).get("project");
+    var bar=document.querySelector(".bar"); if(!bar) return;
+    var sn=document.getElementById("siteName");
+    var st=document.createElement("small");
+    st.style.cssText="display:block;font-size:11px;font-weight:700;opacity:.95";
+    var ca=document.createElement("small");
+    ca.style.cssText="display:block;font-size:11px;font-weight:600;opacity:.85";
+    if(sn){sn.appendChild(st);sn.appendChild(ca);}
+    // hamburger
+    var hb=document.createElement("button");
+    hb.type="button"; hb.className="opsburger"; hb.innerHTML="&#9776;";
+    bar.insertBefore(hb, bar.firstChild);
+    // drawer + backdrop
+    var bd=document.createElement("div"); bd.className="opsbackdrop";
+    var dr=document.createElement("div"); dr.className="opsdrawer";
+    var head=document.createElement("div"); head.className="opsdrawhead";
+    head.textContent="SBI Site"; dr.appendChild(head);
+    var items=[
+      ["Attendance", function(){ close(); }],
+      ["Expense", go("exp")],["Progress", go("prg")],["Material", go("mat")],
+      ["Verify", go("ver")],["Today", go("day")]
+    ];
+    function go(t){ return function(){ if(proj){ window.location.href="/sbi_ops?project="+proj; } }; }
+    items.forEach(function(it,i){
+      var a=document.createElement("button"); a.type="button"; a.className="opsdrawitem";
+      if(i===0){ a.classList.add("on"); }
+      a.textContent=it[0]; a.onclick=it[1]; dr.appendChild(a);
+    });
+    document.body.appendChild(bd); document.body.appendChild(dr);
+    function open(){ dr.classList.add("open"); bd.classList.add("open"); }
+    function close(){ dr.classList.remove("open"); bd.classList.remove("open"); }
+    hb.onclick=open; bd.onclick=close;
+    if(!proj) return;
+    fetch("/api/method/sbi_projects.site_ops_api.get_bootstrap?project="+encodeURIComponent(proj),
+      {credentials:"same-origin"})
+      .then(function(r){return r.json()})
+      .then(function(j){
+        var m=j.message||{};
+        if(m.current_stage){ st.textContent="Current stage: "+m.current_stage; }
+        if(m.cash){ ca.textContent="Petty cash balance: Rs "+Math.round(m.cash.balance||0).toLocaleString("en-IN"); }
+      }).catch(function(){});
+  }catch(e){}
+})();
+
 </script>
 </body>
 </html>

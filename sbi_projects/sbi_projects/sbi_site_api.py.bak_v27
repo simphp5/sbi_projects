@@ -2,7 +2,7 @@
 
 One module, one job: enroll faces, match faces, record punches.  Matching uses
 Euclidean distance on face-api's 128-d descriptors, which is the metric the
-model was trained for Ã¢â‚¬â€ same person sits well below 0.5, different people above
+model was trained for â€” same person sits well below 0.5, different people above
 0.6.  Everything is scoped to a project so a worker enrolled at one site is not
 matched at another.
 """
@@ -233,17 +233,14 @@ def day_status(worker_type, worker_id, project=None):
 
 @frappe.whitelist()
 def punch(worker_type, worker_id, project, log_type,
-          latitude=None, longitude=None, photo=None, remarks=None):
-	"""Record one punch with the entry time (and a stamped photo); block repeats.
-	OTHER punches always need a typed reason and may repeat in a day."""
-	if log_type == "OTHER" and not (remarks or "").strip():
-		frappe.throw("A reason is required for an Other punch.")
+          latitude=None, longitude=None, photo=None):
+	"""Record one punch with the entry time (and a stamped photo); block repeats."""
 	existing = {"log_date": today(), "log_type": log_type}
 	if worker_type == "Employee":
 		existing["employee"] = worker_id
 	else:
 		existing["labour"] = worker_id
-	if log_type != "OTHER" and frappe.db.exists("Labour Attendance Log", existing):
+	if frappe.db.exists("Labour Attendance Log", existing):
 		name = frappe.db.get_value(
 			"Employee" if worker_type == "Employee" else "Labour",
 			worker_id, "employee_name" if worker_type == "Employee" else "labour_name")
@@ -256,8 +253,6 @@ def punch(worker_type, worker_id, project, log_type,
 	doc.log_type = log_type
 	doc.log_datetime = now_datetime()
 	doc.log_date = today()
-	if remarks and doc.meta.has_field("remarks"):
-		doc.remarks = remarks
 
 	# geo-fence: record distance, never block
 	if latitude and longitude and doc.meta.has_field("latitude"):
@@ -565,19 +560,3 @@ def delete_worker(worker_type, worker_id):
 	frappe.delete_doc(dt, worker_id, force=1, ignore_permissions=True)
 	frappe.db.commit()
 	return {"deleted": True}
-
-@frappe.whitelist()
-def assign_site(worker_type, worker_id, project):
-	"""Move a worker to this site. Face matching is scoped to the assigned
-	site, so after this the worker is recognised here and nowhere else."""
-	if not frappe.db.exists("Project", project):
-		frappe.throw("Project not found: " + project)
-	if worker_type == "Employee":
-		meta = frappe.get_meta("Employee")
-		if meta.has_field("sbi_default_project"):
-			frappe.db.set_value("Employee", worker_id,
-			                    "sbi_default_project", project)
-	else:
-		frappe.db.set_value("Labour", worker_id, "default_project", project)
-	frappe.db.commit()
-	return {"ok": True, "project": project}
