@@ -50,6 +50,20 @@
   .pt{border:1px solid var(--line);background:var(--card);border-radius:9px;
     padding:10px 4px;font-size:12.5px;font-weight:700;color:var(--ink)}
   .pt[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
+  /* horizontal menu like sbi_ops */
+  .opstabs{display:flex;background:var(--card);border-bottom:1px solid var(--line);
+    width:100vw;position:relative;left:50%;transform:translateX(-50%)}
+  .opstabs button{flex:1;padding:11px 2px;border:0;background:none;font-size:13px;
+    color:var(--soft);border-bottom:2px solid transparent;font-family:inherit}
+  .opstabs button.on{color:var(--brand);border-bottom-color:var(--brand);font-weight:700}
+  /* punch success overlay on the camera */
+  .punchok{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;text-align:center;z-index:6;border-radius:14px;color:#fff;
+    background:rgba(19,122,63,.9)}
+  .punchok[data-kind="warn"]{background:rgba(138,90,0,.92)}
+  .punchok .big{font-size:26px;font-weight:800;line-height:1.2;padding:0 12px}
+  .punchok .mid{font-size:18px;font-weight:700;margin-top:8px}
+  .punchok .sml{font-size:13px;font-weight:600;margin-top:6px;opacity:.9}
   .hidden{display:none !important}
 
   /* camera stage */
@@ -136,6 +150,14 @@
     <button id="btnSignout" type="button">Sign out</button>
   </div>
 
+  <div class="opstabs" id="opsTabs">
+    <button type="button" class="on">Attendance</button>
+    <button type="button" data-go="ops">Expense</button>
+    <button type="button" data-go="ops">Progress</button>
+    <button type="button" data-go="ops">Material</button>
+    <button type="button" data-go="ops">Verify</button>
+    <button type="button" data-go="ops">Today</button>
+  </div>
   <main>
     <!-- ATTENDANCE (default) -->
     <div class="backdrop2" id="backdrop2"></div>
@@ -164,6 +186,11 @@
         <canvas id="trackA" class="track"></canvas>
         <div class="ring"></div>
         <div class="count hidden" id="countA">3</div>
+        <div class="punchok hidden" id="punchOK">
+          <div class="big" id="pkName"></div>
+          <div class="mid" id="pkType"></div>
+          <div class="sml" id="pkSub"></div>
+        </div>
         <div class="badge">
           <div class="who" id="whoA">Looking for a face...</div>
           <div class="sub" id="subA">Look at the camera and hold still.</div>
@@ -503,12 +530,19 @@
       log_type:next,latitude:S.gps&&S.gps.lat,longitude:S.gps&&S.gps.lng,photo:photo,
       remarks:(next==="OTHER"?(S.punchReason||""):null)})
       .then(function(r){
-        if(r.already){note($("noteA"),"warn",r.name+" already has "+plabel(r.log_type)+" today.");beep("warn");}
+        if(r.already){
+          note($("noteA"),"warn",r.name+" already has "+plabel(r.log_type)+" today.");
+          showPunchOverlay("warn",r.name,"Already: "+plabel(r.log_type),"No new punch recorded");
+          beep("warn");
+        }
         else{
           var extra=r.within_geofence?"":" (off-site "+Math.round(r.distance)+"m)";
           var lateMsg=lateFlag(r.log_type);
           note($("noteA"),r.within_geofence?"ok":"warn",
             r.name+" - "+plabel(r.log_type)+"  "+stamp()+extra+lateMsg);
+          showPunchOverlay(r.within_geofence?"ok":"warn",r.name,
+            plabel(r.log_type)+"  "+(r.time||stamp()),
+            (r.within_geofence?"Recorded":"Recorded (off-site)")+lateMsg);
           beep(r.within_geofence?"ok":"warn");
         }
         return api("day_status",{worker_type:m.type,worker_id:m.id,project:PROJECT})
@@ -952,6 +986,25 @@
       };
     });
   }
+  var pkTimer=null;
+  function showPunchOverlay(kind,name,line2,sub){
+    var o=$("punchOK"); if(!o) return;
+    o.setAttribute("data-kind",kind||"ok");
+    $("pkName").textContent=name||"";
+    $("pkType").textContent=line2||"";
+    $("pkSub").textContent=sub||"";
+    o.classList.remove("hidden");
+    if(pkTimer)clearTimeout(pkTimer);
+    pkTimer=setTimeout(function(){o.classList.add("hidden");},2300);
+  }
+  function setupTabs(){
+    var t=$("opsTabs"); if(!t) return;
+    t.querySelectorAll("button").forEach(function(b){
+      b.onclick=function(){
+        if(b.dataset.go==="ops"&&PROJECT){window.location.href="/sbi_ops?project="+PROJECT;}
+      };
+    });
+  }
   function loadHeaderInfo(){
     if(!PROJECT) return;
     fetch("/api/method/sbi_projects.site_ops_api.get_bootstrap?project="+encodeURIComponent(PROJECT),
@@ -1014,6 +1067,7 @@
     // hide the action buttons, show a list of sites
     ["btnMode","btnWorkers","btnInstall"].forEach(function(id){var b=$(id);if(b)b.classList.add("hidden");});
     setupDrawer(); var so=$("btnSignout"); if(so) so.onclick=signOut;
+    var ot=$("opsTabs"); if(ot) ot.classList.add("hidden");
     setSiteText("Choose a site ");
     var host=$("attend");
     host.classList.remove("hidden");
@@ -1043,7 +1097,7 @@
     $("btnMode").onclick=function(){setMode(S.mode==="enroll"?"attend":"enroll");};
     $("btnWorkers").onclick=function(){setMode("workers");};
     $("btnSignout").onclick=signOut;
-    buildPtypes();setupDrawer();loadHeaderInfo();
+    buildPtypes();setupDrawer();setupTabs();loadHeaderInfo();
     $("wsInactive").onchange=loadRoster;
     $("btnBackToAttend").onclick=function(){setMode("attend");};
     $("btnRetake").onclick=function(){resetEnroll();};
