@@ -123,8 +123,14 @@ def _import_stages(ws, project):
 
 
 @frappe.whitelist()
-def import_boq_excel(project, file_url):
-    """Main entry: parse template and build Project BOQ."""
+def import_boq_excel(project, file_url, stage=None):
+    """Parse template and build/update the Project BOQ.
+
+    stage=None  -> full import (replaces all lines)
+    stage given -> stage-wise import: only that stage's rows are read
+                   from the file and only that stage's existing lines
+                   are replaced; other stages stay untouched.
+    Accepts 'Stage 2' or the full 'Stage 2 - <description>' label."""
     frappe.only_for(("System Manager", "Projects Manager"))
     if not frappe.db.exists("Project", project):
         frappe.throw("Project not found: " + project)
@@ -139,6 +145,11 @@ def import_boq_excel(project, file_url):
     act_created, act_updated = _import_activities(ra, last_col)
     stage_map, stages_created = _import_stages(wb[ST_SHEET], project)
 
+    target_label = None
+    if stage:
+        stage = str(stage).strip()
+        target_label = stage_map.get(stage, stage)
+
     existing = frappe.db.get_value("Project BOQ", {"project": project}, "name")
     if existing:
         boq = frappe.get_doc("Project BOQ", existing)
@@ -146,27 +157,38 @@ def import_boq_excel(project, file_url):
         boq = frappe.new_doc("Project BOQ")
         boq.project = project
     boq.source_file = file_url
-    boq.set("items", [])
+    if target_label:
+        keep = [dict(stage=i.stage, activity=i.activity, qty=i.qty,
+                     rate=i.rate)
+                for i in (boq.items or []) if i.stage != target_label]
+        boq.set("items", [])
+        for k in keep:
+            boq.append("items", k)
+    else:
+        boq.set("items", [])
 
     ws = wb[BOQ_SHEET]
     lines = 0
     for r in range(BOQ_ROW_START, BOQ_ROW_END + 1):
-        stage = ws.cell(row=r, column=1).value
+        row_stage = ws.cell(row=r, column=1).value
         activity = ws.cell(row=r, column=2).value
         qty = flt(ws.cell(row=r, column=4).value)
-        if not stage or not activity or not qty:
+        if not row_stage or not activity or not qty:
             continue
-        stage = str(stage).strip()
+        row_stage = str(row_stage).strip()
         activity = str(activity).strip()
         if not frappe.db.exists("Site Activity", activity):
             continue
-        label = stage_map.get(stage, stage)
+        label = stage_map.get(row_stage, row_stage)
+        if target_label and label != target_label:
+            continue
         boq.append("items", {"stage": label, "activity": activity, "qty": qty})
         lines += 1
 
     boq.save()
     frappe.db.commit()
     return {"boq": boq.name, "lines": lines,
+            "stage_scope": target_label or "ALL",
             "resources_created": res_created, "resources_updated": res_updated,
             "activities_created": act_created, "activities_updated": act_updated,
             "stages_created": stages_created,

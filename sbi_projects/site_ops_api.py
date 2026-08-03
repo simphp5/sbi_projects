@@ -235,3 +235,19 @@ def list_verifications(project, limit=10):
                                   "customer_name"],
                           order_by="creation desc",
                           limit_page_length=int(limit))
+
+
+@frappe.whitelist()
+def get_stage_material(project):
+    """Current-stage BOQ material requirement for the site tablet.
+    Qty only - required / issued / in stock / shortage. No money."""
+    _check_site_user()
+    from sbi_projects.boq_procure import compute_stage_rows
+    _stages, current = _get_stage_state(project)
+    if not current:
+        return {"stage": None, "rows": []}
+    try:
+        rows = compute_stage_rows(project, current)
+    except Exception:
+        rows = []
+    return {"stage": current, "rows": rows}

@@ -31,11 +31,8 @@ def _current_stage(project):
     return None
 
 
-@frappe.whitelist()
-def stage_material_status(project, stage=None):
-    """Requirement vs issued vs stock per Item for one stage."""
-    frappe.only_for(OWNER_ROLES)
-    stage = stage or _current_stage(project)
+def compute_stage_rows(project, stage):
+    """Qty-only requirement rows for one stage (no money - safe for site)."""
     boq = frappe.db.get_value("Project BOQ", {"project": project}, "name")
     if not boq:
         frappe.throw("No Project BOQ found. Import the BOQ first.")
@@ -81,7 +78,15 @@ def stage_material_status(project, stage=None):
                     "min_stock": e["min_stock"],
                     "shortage": round(shortage, 3)})
     out.sort(key=lambda x: -x["shortage"])
-    return {"stage": stage, "rows": out}
+    return out
+
+
+@frappe.whitelist()
+def stage_material_status(project, stage=None):
+    """Office view: requirement vs issued vs stock per Item."""
+    frappe.only_for(OWNER_ROLES)
+    stage = stage or _current_stage(project)
+    return {"stage": stage, "rows": compute_stage_rows(project, stage)}
 
 
 @frappe.whitelist()

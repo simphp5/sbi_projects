@@ -108,6 +108,11 @@ h3{font-size:14px;margin-bottom:4px}
 
   <section id="tab-mat" style="display:none">
     <div class="card">
+      <h3>Stage Material Requirement (BOQ)</h3>
+      <div class="hint" id="reqStage"></div>
+      <div id="matReq" style="margin-top:6px">Loading...</div>
+    </div>
+    <div class="card">
       <h3>Material Issue (from store to work)</h3>
       <label>Warehouse</label><select id="mWh"></select>
       <label>Item</label><select id="mItem"></select>
@@ -235,7 +240,7 @@ function boot(){
     showCash(r.cash);
     fillSel("pAct",(r.activities||[]).map(function(a){return a.activity}),true);
     fillSel("mWh",r.warehouses,false);
-    renderWorkers(); loadItems();
+    renderWorkers(); loadItems(); loadStageReq();
   }).catch(function(e){ toast("Load failed: "+e.message); });
 }
 function renderWorkers(){
@@ -272,6 +277,25 @@ el("pSave").onclick=function(){
   .catch(function(e){toast("Failed: "+e.message)})
   .then(function(){el("pSave").disabled=false});
 };
+function loadStageReq(){
+  api("sbi_projects.site_ops_api.get_stage_material",{project:PROJECT}).then(function(d){
+    el("reqStage").textContent = d.stage ? ("Current stage: "+d.stage) : "";
+    if(!d.rows||!d.rows.length){ el("matReq").innerHTML="<span class='hint'>No BOQ material links for this stage yet.</span>"; return; }
+    var html="<table style='width:100%;border-collapse:collapse;font-size:12.5px'>"+
+      "<tr style='color:#a11'><th style='text-align:left;padding:4px'>Item</th>"+
+      "<th style='text-align:right'>Required</th><th style='text-align:right'>Issued</th>"+
+      "<th style='text-align:right'>Stock</th><th style='text-align:right'>Short</th></tr>";
+    d.rows.forEach(function(r){
+      var red = r.shortage>0 ? " style='color:#c0392b;font-weight:700'" : "";
+      html+="<tr><td style='padding:4px;border-top:1px solid #eee'>"+r.item+" <small>"+(r.uom||"")+"</small></td>"+
+        "<td style='text-align:right;border-top:1px solid #eee'>"+r.required+"</td>"+
+        "<td style='text-align:right;border-top:1px solid #eee'>"+r.issued+"</td>"+
+        "<td style='text-align:right;border-top:1px solid #eee'>"+r.in_stock+"</td>"+
+        "<td style='text-align:right;border-top:1px solid #eee'"+red+">"+r.shortage+"</td></tr>";
+    });
+    el("matReq").innerHTML=html+"</table>";
+  }).catch(function(){ el("matReq").textContent=""; });
+}
 function loadItems(){
   api("sbi_projects.site_ops_api.get_items",{warehouse:el("mWh").value}).then(function(items){
     var s=el("mItem"); s.innerHTML="";
@@ -292,7 +316,7 @@ el("mSave").onclick=function(){
   el("mSave").disabled=true;
   api("sbi_projects.site_ops_api.material_issue",{project:PROJECT,warehouse:el("mWh").value,
     item_code:el("mItem").value,qty:q})
-  .then(function(r){toast("Issued "+r.name);el("mQty").value="";loadItems();})
+  .then(function(r){toast("Issued "+r.name);el("mQty").value="";loadItems();loadStageReq();})
   .catch(function(e){toast("Failed: "+e.message)})
   .then(function(){el("mSave").disabled=false});
 };
