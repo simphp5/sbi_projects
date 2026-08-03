@@ -1,0 +1,131 @@
+{
+ "doctype": "DocType",
+ "name": "Site Shift",
+ "module": "SBI Projects",
+ "custom": 0,
+ "engine": "InnoDB",
+ "istable": 0,
+ "editable_grid": 0,
+ "actions": [],
+ "links": [],
+ "autoname": "naming_series:",
+ "naming_rule": "By \"Naming Series\" field",
+ "title_field": "shift_name",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "index_web_pages_for_search": 0,
+ "allow_rename": 0,
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "SSFT-.####",
+   "reqd": 1,
+   "hidden": 1,
+   "default": "SSFT-.####"
+  },
+  {
+   "fieldname": "shift_name",
+   "fieldtype": "Data",
+   "label": "Shift Name",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Site (Project)",
+   "options": "Project",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "sec1",
+   "fieldtype": "Section Break",
+   "label": "Punch Times"
+  },
+  {
+   "fieldname": "entry_time",
+   "fieldtype": "Time",
+   "label": "Entry"
+  },
+  {
+   "fieldname": "break1_start",
+   "fieldtype": "Time",
+   "label": "Break 1 Start"
+  },
+  {
+   "fieldname": "break1_end",
+   "fieldtype": "Time",
+   "label": "Break 1 End"
+  },
+  {
+   "fieldname": "lunch_start",
+   "fieldtype": "Time",
+   "label": "Lunch Start"
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "lunch_end",
+   "fieldtype": "Time",
+   "label": "Lunch End"
+  },
+  {
+   "fieldname": "break2_start",
+   "fieldtype": "Time",
+   "label": "Break 2 Start"
+  },
+  {
+   "fieldname": "break2_end",
+   "fieldtype": "Time",
+   "label": "Break 2 End"
+  },
+  {
+   "fieldname": "exit_time",
+   "fieldtype": "Time",
+   "label": "Exit"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "share": 1
+  },
+  {
+   "role": "Projects Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "report": 1,
+   "share": 1
+  },
+  {
+   "role": "Projects User",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "report": 1
+  }
+ ]
+}

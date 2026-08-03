@@ -169,10 +169,12 @@
       <button type="button" class="drawitem" data-go="ops">Material</button>
       <button type="button" class="drawitem" data-go="ops">Verify</button>
       <button type="button" class="drawitem" data-go="ops">Today</button>
+      <button type="button" class="drawitem" data-go="shifts">Shifts</button>
       <button type="button" class="drawitem" data-go="out">Sign out</button>
     </div>
     <section id="attend">
       <div class="ptypes" id="ptypes">
+        <div class="ptgrid hidden" id="shiftRow" style="margin-bottom:8px"></div>
         <div class="ttl">PUNCH TYPE - select first</div>
         <div class="ptgrid" id="ptGrid"></div>
       </div>
@@ -359,6 +361,29 @@
   }
   function stopCam(key){var st=streams[key];if(st){st.getTracks().forEach(function(t){t.stop();});delete streams[key];}}
 
+  var CAM_IDLE_MS=40000, camIdleTimer=null;
+  function camHint(msg){
+    var w=$("whoA"); if(w){w.textContent=msg;}
+    note($("noteA"),"",msg);
+  }
+  function camOn(){
+    if(S.mode!=="attend")return;
+    if(streams["a"]){camKick();return;}
+    startCam($("camA"),"a",S.facingA).then(function(){
+      aBusy=false;aGood=0;attendLoop();camKick();
+      camHint("Camera on. Show faces one by one.");
+    });
+  }
+  function camOff(){
+    stopCam("a");cancelCount();clearBox("trackA");
+    if(camIdleTimer){clearTimeout(camIdleTimer);camIdleTimer=null;}
+    camHint("Camera off (40s idle). Tap a punch type to start again.");
+  }
+  function camKick(){
+    if(camIdleTimer)clearTimeout(camIdleTimer);
+    camIdleTimer=setTimeout(camOff,CAM_IDLE_MS);
+  }
+
   function snapshot(video){
     var c=$("cv");c.width=video.videoWidth||480;c.height=video.videoHeight||640;
     var ctx=c.getContext("2d");
@@ -532,6 +557,7 @@
       .then(function(r){
         if(r.already){
           note($("noteA"),"warn",r.name+" already has "+plabel(r.log_type)+" today.");
+          camKick();
           showPunchOverlay("warn",r.name,"Already: "+plabel(r.log_type),"No new punch recorded");
           beep("warn");
         }
@@ -540,6 +566,7 @@
           var lateMsg=lateFlag(r.log_type);
           note($("noteA"),r.within_geofence?"ok":"warn",
             r.name+" - "+plabel(r.log_type)+"  "+stamp()+extra+lateMsg);
+          camKick();
           showPunchOverlay(r.within_geofence?"ok":"warn",r.name,
             plabel(r.log_type)+"  "+(r.time||stamp()),
             (r.within_geofence?"Recorded":"Recorded (off-site)")+lateMsg);
@@ -947,12 +974,12 @@
          {label:"Set",onClick:function(){
             var r=($("otherReason").value||"").trim();
             if(!r){$("otherReason").focus();beep("warn");return;}
-            S.punchType="OTHER"; S.punchReason=r; closeModal(); markPtype(btn);
+            S.punchType="OTHER"; S.punchReason=r; closeModal(); markPtype(btn); camOn();
          }}]);
       setTimeout(function(){var e=$("otherReason");if(e)e.focus();},80);
       return;
     }
-    S.punchType=p[1]; S.punchReason=null; markPtype(btn);
+    S.punchType=p[1]; S.punchReason=null; markPtype(btn); camOn();
   }
   function markPtype(btn){
     document.querySelectorAll("#ptGrid .pt").forEach(function(x){x.setAttribute("aria-pressed","false");});
@@ -982,8 +1009,92 @@
         close();
         var g=it.dataset.go;
         if(g==="ops"&&PROJECT){window.location.href="/sbi_ops?project="+PROJECT;}
+        else if(g==="shifts"){openShifts();}
         else if(g==="out"){signOut();}
       };
+    });
+  }
+  var SHIFT_MAP=[["entry_time","IN"],["break1_start","BREAK 1 OUT"],["break1_end","BREAK 1 IN"],
+    ["lunch_start","LUNCH OUT"],["lunch_end","LUNCH IN"],["break2_start","BREAK 2 OUT"],
+    ["break2_end","BREAK 2 IN"],["exit_time","OUT"]];
+  function t2m(t){if(!t)return null;var p=String(t).split(":");return (+p[0])*60+(+p[1]);}
+  function loadShifts(){
+    if(!PROJECT)return;
+    api("get_site_shifts",{project:PROJECT}).then(function(list){
+      S.shifts=list||[];renderShiftChips();autoSuggest();
+    }).catch(function(){});
+  }
+  function currentShift(){
+    if(!S.shifts||!S.shifts.length)return null;
+    var saved=localStorage.getItem("sbi_shift_"+PROJECT);
+    var f=S.shifts.filter(function(s){return s.name===saved;});
+    if(f.length)return f[0];
+    if(S.shifts.length===1)return S.shifts[0];
+    var nm=new Date().getHours()*60+new Date().getMinutes();
+    var best=null,bd=1e9;
+    S.shifts.forEach(function(s){var m=t2m(s.entry_time);if(m===null)return;
+      var d=Math.abs(nm-m);if(d<bd){bd=d;best=s;}});
+    return best||S.shifts[0];
+  }
+  function renderShiftChips(){
+    var host=$("shiftRow");if(!host)return;
+    if(!S.shifts||S.shifts.length<2){host.classList.add("hidden");return;}
+    host.classList.remove("hidden");host.innerHTML="";
+    var cur=currentShift();
+    S.shifts.forEach(function(s){
+      var b=document.createElement("button");b.type="button";b.className="pt";
+      b.textContent=s.shift_name;
+      b.setAttribute("aria-pressed",(cur&&cur.name===s.name)?"true":"false");
+      b.onclick=function(){localStorage.setItem("sbi_shift_"+PROJECT,s.name);
+        renderShiftChips();autoSuggest();};
+      host.appendChild(b);
+    });
+  }
+  function autoSuggest(){
+    var sh=currentShift();if(!sh)return;
+    var nm=new Date().getHours()*60+new Date().getMinutes();
+    var best=null,bd=1e9;
+    SHIFT_MAP.forEach(function(p){var m=t2m(sh[p[0]]);if(m===null)return;
+      var d=Math.abs(nm-m);if(d<bd){bd=d;best=p;}});
+    if(!best)return;
+    var btn=document.querySelector('#ptGrid .pt[data-v="'+best[1]+'"]');
+    if(btn){
+      S.punchType=best[1];S.punchReason=null;markPtype(btn);
+      note($("noteA"),"",sh.shift_name+" - now: "+plabel(best[1])+
+        " ("+String(sh[best[0]]||"").slice(0,5)+"). Camera starting...");
+      camOn();
+    }
+  }
+  function openShifts(){
+    api("get_site_shifts",{project:PROJECT}).then(function(list){
+      S.shifts=list||[];
+      var rows=(list||[]).map(function(s){
+        return "<div class='tiny' style='margin:4px 0'><b>"+esc(s.shift_name)+"</b>"+
+          " - Entry "+String(s.entry_time||"-").slice(0,5)+
+          ", Exit "+String(s.exit_time||"-").slice(0,5)+"</div>";
+      }).join("")||"<div class='tiny'>No shifts yet - create the first one below</div>";
+      var fs=[["Shift name","shName","text","Shift 1"],["Entry","shEntry","time","09:00"],
+        ["Break 1 Start","shB1s","time","11:30"],["Break 1 End","shB1e","time","11:45"],
+        ["Lunch Start","shLs","time","13:00"],["Lunch End","shLe","time","14:00"],
+        ["Break 2 Start","shB2s","time","16:00"],["Break 2 End","shB2e","time","16:15"],
+        ["Exit","shExit","time","18:00"]];
+      var form=fs.map(function(f){
+        return "<label>"+f[0]+"</label><input id='"+f[1]+"' type='"+f[2]+"' value='"+f[3]+"'>";
+      }).join("");
+      modal("Shifts - this site",
+        rows+"<hr style='border:0;border-top:1px solid var(--line);margin:10px 0'>"+form,
+        [{label:"Close",ghost:true,onClick:closeModal},
+         {label:"Save shift",onClick:function(){
+            var nm=($("shName").value||"").trim();
+            if(!nm){beep("warn");return;}
+            api("save_site_shift",{project:PROJECT,shift_name:nm,
+              entry_time:$("shEntry").value,break1_start:$("shB1s").value,
+              break1_end:$("shB1e").value,lunch_start:$("shLs").value,
+              lunch_end:$("shLe").value,break2_start:$("shB2s").value,
+              break2_end:$("shB2e").value,exit_time:$("shExit").value})
+            .then(function(){beep("ok");closeModal();loadShifts();})
+            .catch(function(e){alert(e.message);});
+         }}]);
     });
   }
   var pkTimer=null;
@@ -1026,7 +1137,7 @@
     if(m==="attend"){
       resetEnroll();
       if(!S.shift){api("get_shift",{project:PROJECT}).then(function(sh){S.shift=sh||{};});}
-      startCam($("camA"),"a",S.facingA).then(function(){aBusy=false;aGood=0;attendLoop();});
+      if(S.punchType){ camOn(); } else { camHint("Select the punch type to start the camera"); }
     }else if(m==="enroll"){
       startCam($("camE"),"e",S.facingE).then(function(){resetEnroll();enrollLoop();});
     }else if(m==="workers"){
@@ -1097,7 +1208,7 @@
     $("btnMode").onclick=function(){setMode(S.mode==="enroll"?"attend":"enroll");};
     $("btnWorkers").onclick=function(){setMode("workers");};
     $("btnSignout").onclick=signOut;
-    buildPtypes();setupDrawer();setupTabs();loadHeaderInfo();
+    buildPtypes();setupDrawer();setupTabs();loadHeaderInfo();loadShifts();
     $("wsInactive").onchange=loadRoster;
     $("btnBackToAttend").onclick=function(){setMode("attend");};
     $("btnRetake").onclick=function(){resetEnroll();};

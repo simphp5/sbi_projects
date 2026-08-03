@@ -581,3 +581,44 @@ def assign_site(worker_type, worker_id, project):
 		frappe.db.set_value("Labour", worker_id, "default_project", project)
 	frappe.db.commit()
 	return {"ok": True, "project": project}
+
+
+TIME_FIELDS = ("entry_time", "break1_start", "break1_end", "lunch_start",
+               "lunch_end", "break2_start", "break2_end", "exit_time")
+
+
+@frappe.whitelist()
+def get_site_shifts(project):
+	"""Enabled shifts of this site with their punch times."""
+	return frappe.get_all("Site Shift",
+		filters={"project": project, "enabled": 1},
+		fields=["name", "shift_name"] + list(TIME_FIELDS),
+		order_by="shift_name asc")
+
+
+@frappe.whitelist()
+def save_site_shift(project, shift_name, entry_time=None, break1_start=None,
+                    break1_end=None, lunch_start=None, lunch_end=None,
+                    break2_start=None, break2_end=None, exit_time=None):
+	"""Create or update a shift for this site (site incharge can do this)."""
+	if not (shift_name or "").strip():
+		frappe.throw("Shift name is required")
+	vals = {"entry_time": entry_time, "break1_start": break1_start,
+	        "break1_end": break1_end, "lunch_start": lunch_start,
+	        "lunch_end": lunch_end, "break2_start": break2_start,
+	        "break2_end": break2_end, "exit_time": exit_time}
+	vals = {k: (v or None) for k, v in vals.items()}
+	existing = frappe.db.get_value("Site Shift",
+		{"project": project, "shift_name": shift_name.strip()}, "name")
+	if existing:
+		doc = frappe.get_doc("Site Shift", existing)
+	else:
+		doc = frappe.new_doc("Site Shift")
+		doc.project = project
+		doc.shift_name = shift_name.strip()
+	doc.enabled = 1
+	for k, v in vals.items():
+		setattr(doc, k, v)
+	doc.save(ignore_permissions=True)
+	frappe.db.commit()
+	return {"name": doc.name}
