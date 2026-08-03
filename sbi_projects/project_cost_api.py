@@ -328,3 +328,130 @@ def complete_stage(project, stage):
                           " and use Create > Milestone Invoice for this "
                           "stage.") if so else
             "No Sales Order linked to this project."}
+
+
+@frappe.whitelist()
+def get_stage_panel(project):
+    """Everything the Project 'Site Stages' panel needs, per stage:
+    budget (BOQ split), actuals entered by site (manpower / material /
+    equipment / subcontract / transport-other), BOQ source files,
+    recent progress and expense entries, verification count."""
+    frappe.only_for(OWNER_ROLES)
+    boq_name, items = _boq(project)
+
+    stages = {}
+
+    def S(label):
+        return stages.setdefault(label, {
+            "stage": label, "status": "", "is_current": 0,
+            "budget": {c: 0.0 for c in CATS + ["total"]},
+            "actual": {c: 0.0 for c in CATS + ["total"]},
+            "boq_files": [], "progress": [], "expenses": [],
+            "ver_count": 0})
+
+    for it in items:
+        s = S(it.stage)
+        s["budget"]["labour"] += flt(it.labour_amount)
+        s["budget"]["material"] += flt(it.material_amount)
+        s["budget"]["equipment"] += flt(it.equipment_amount)
+        s["budget"]["subcontract"] += flt(it.subcontract_amount)
+        s["budget"]["other"] += flt(it.other_amount)
+        s["budget"]["total"] += flt(it.amount)
+        src = it.get("source_file")
+        if src and src not in s["boq_files"]:
+            s["boq_files"].append(src)
+
+    # expenses (equipment / subcontract / transport->other)
+    for r in frappe.get_all("Site Expense Entry",
+                            filters={"project": project},
+                            fields=["stage", "category", "amount",
+                                    "entry_date", "description"],
+                            order_by="entry_date desc",
+                            limit_page_length=0, ignore_permissions=True):
+        if not r.stage:
+            continue
+        s = S(r.stage)
+        cat = "other" if r.category in ("Transport", "Other")             else r.category.lower()
+        if cat in s["actual"]:
+            s["actual"][cat] += flt(r.amount)
+        s["actual"]["total"] += flt(r.amount)
+        if len(s["expenses"]) < 8:
+            s["expenses"].append({"date": str(r.entry_date),
+                                  "category": r.category,
+                                  "amount": flt(r.amount),
+                                  "desc": (r.description or "")[:60]})
+
+    # material issues (stage stored in remarks 'Stage: X')
+    for se in frappe.get_all("Stock Entry",
+                             filters={"project": project, "docstatus": 1,
+                                      "stock_entry_type": "Material Issue"},
+                             fields=["remarks", "total_outgoing_value"],
+                             limit_page_length=0, ignore_permissions=True):
+        rem = se.remarks or ""
+        if rem.startswith("Stage: "):
+            label = rem[7:].strip()
+            s = S(label)
+            s["actual"]["material"] += flt(se.total_outgoing_value)
+            s["actual"]["total"] += flt(se.total_outgoing_value)
+
+    # labour via progress labour hours x wage; progress list
+    wages = {}
+    if frappe.db.exists("DocType", "Labour"):
+        meta = frappe.get_meta("Labour")
+        if meta.has_field("daily_wage"):
+            for r in frappe.get_all("Labour", fields=["name", "daily_wage"],
+                                    limit_page_length=0,
+                                    ignore_permissions=True):
+                wages[r.name] = flt(r.daily_wage)
+    prg = frappe.get_all("Site Progress Entry",
+                         filters={"project": project},
+                         fields=["name", "stage", "entry_date", "activity",
+                                 "qty_done"],
+                         order_by="entry_date desc",
+                         limit_page_length=0, ignore_permissions=True)
+    prg_names = [p.name for p in prg]
+    hours = {}
+    if prg_names:
+        for r in frappe.get_all("Site Progress Labour",
+                                filters={"parent": ["in", prg_names]},
+                                fields=["parent", "labour", "hours"],
+                                limit_page_length=0,
+                                ignore_permissions=True):
+            hours.setdefault(r.parent, []).append(r)
+    for p in prg:
+        s = S(p.stage)
+        crew = hours.get(p.name, [])
+        for r in crew:
+            amt = (flt(r.hours) / 8.0) * wages.get(r.labour, 0.0)
+            s["actual"]["labour"] += amt
+            s["actual"]["total"] += amt
+        if len(s["progress"]) < 8:
+            s["progress"].append({"date": str(p.entry_date),
+                                  "activity": p.activity or "-",
+                                  "qty": flt(p.qty_done),
+                                  "workers": len(crew)})
+
+    for v in frappe.get_all("Site Work Verification",
+                            filters={"project": project, "signed": 1},
+                            fields=["stage"], limit_page_length=0,
+                            ignore_permissions=True):
+        if v.stage:
+            S(v.stage)["ver_count"] += 1
+
+    # order + status from tasks
+    tasks = frappe.get_all("Task",
+                           filters={"project": project, "is_group": 1},
+                           fields=["subject", "status"])
+    tasks.sort(key=lambda t: (_stage_no(t.subject), t.subject))
+    current = next((t.subject for t in tasks
+                    if t.status not in ("Completed", "Cancelled")), None)
+    ordered = []
+    for t in tasks:
+        s = S(t.subject)
+        s["status"] = t.status
+        s["is_current"] = 1 if t.subject == current else 0
+        ordered.append(s)
+    for label, s in stages.items():
+        if s not in ordered:
+            ordered.append(s)
+    return {"project": project, "stages": ordered}

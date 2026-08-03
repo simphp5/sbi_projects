@@ -123,14 +123,16 @@ def _import_stages(ws, project):
 
 
 @frappe.whitelist()
-def import_boq_excel(project, file_url, stage=None):
+def import_boq_excel(project, file_url, stage=None, mode="replace"):
     """Parse template and build/update the Project BOQ.
 
     stage=None  -> full import (replaces all lines)
     stage given -> stage-wise import: only that stage's rows are read
                    from the file and only that stage's existing lines
                    are replaced; other stages stay untouched.
-    Accepts 'Stage 2' or the full 'Stage 2 - <description>' label."""
+    Accepts 'Stage 2' or the full 'Stage 2 - <description>' label.
+    mode='append' (with stage) keeps existing stage lines and adds this
+    file's rows on top - use it when a stage has more than one BOQ."""
     frappe.only_for(("System Manager", "Projects Manager"))
     if not frappe.db.exists("Project", project):
         frappe.throw("Project not found: " + project)
@@ -157,10 +159,16 @@ def import_boq_excel(project, file_url, stage=None):
         boq = frappe.new_doc("Project BOQ")
         boq.project = project
     boq.source_file = file_url
+    src = (file_url or "").split("/")[-1]
     if target_label:
-        keep = [dict(stage=i.stage, activity=i.activity, qty=i.qty,
-                     rate=i.rate)
-                for i in (boq.items or []) if i.stage != target_label]
+        if str(mode or "replace").lower() == "append":
+            keep = [dict(stage=i.stage, activity=i.activity, qty=i.qty,
+                         rate=i.rate, source_file=i.source_file)
+                    for i in (boq.items or [])]
+        else:
+            keep = [dict(stage=i.stage, activity=i.activity, qty=i.qty,
+                         rate=i.rate, source_file=i.source_file)
+                    for i in (boq.items or []) if i.stage != target_label]
         boq.set("items", [])
         for k in keep:
             boq.append("items", k)
@@ -182,13 +190,14 @@ def import_boq_excel(project, file_url, stage=None):
         label = stage_map.get(row_stage, row_stage)
         if target_label and label != target_label:
             continue
-        boq.append("items", {"stage": label, "activity": activity, "qty": qty})
+        boq.append("items", {"stage": label, "activity": activity,
+                             "qty": qty, "source_file": src})
         lines += 1
 
     boq.save()
     frappe.db.commit()
     return {"boq": boq.name, "lines": lines,
-            "stage_scope": target_label or "ALL",
+            "stage_scope": target_label or "ALL", "mode": mode,
             "resources_created": res_created, "resources_updated": res_updated,
             "activities_created": act_created, "activities_updated": act_updated,
             "stages_created": stages_created,

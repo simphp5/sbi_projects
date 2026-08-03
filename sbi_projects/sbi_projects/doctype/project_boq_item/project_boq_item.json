@@ -8,6 +8,11 @@
  "editable_grid": 1,
  "actions": [],
  "links": [],
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "index_web_pages_for_search": 1,
+ "allow_rename": 0,
  "fields": [
   {
    "fieldname": "stage",
@@ -56,6 +61,12 @@
    "columns": 2
   },
   {
+   "fieldname": "source_file",
+   "fieldtype": "Data",
+   "label": "Source BOQ File",
+   "read_only": 1
+  },
+  {
    "fieldname": "sec_split",
    "fieldtype": "Section Break",
    "label": "Category Split"
@@ -95,10 +106,5 @@
    "label": "Other",
    "read_only": 1
   }
- ],
- "sort_field": "modified",
- "sort_order": "DESC",
- "index_web_pages_for_search": 1,
- "allow_rename": 0,
- "permissions": []
+ ]
 }
