@@ -8,6 +8,12 @@
  "editable_grid": 0,
  "actions": [],
  "links": [],
+ "autoname": "field:resource_name",
+ "naming_rule": "By fieldname",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "index_web_pages_for_search": 1,
+ "allow_rename": 0,
  "fields": [
   {
    "fieldname": "resource_name",
@@ -37,14 +43,33 @@
    "fieldtype": "Currency",
    "label": "Rate",
    "in_list_view": 1
+  },
+  {
+   "fieldname": "sec_stock",
+   "fieldtype": "Section Break",
+   "label": "Stock Link (Material only)",
+   "depends_on": "eval:doc.category=='Material'"
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "Stock Item",
+   "options": "Item",
+   "description": "Link to the ERPNext Item for stock tracking, FIFO and procurement"
+  },
+  {
+   "fieldname": "cb_s",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "min_stock",
+   "fieldtype": "Float",
+   "label": "Minimum Stock",
+   "precision": "3",
+   "description": "Reorder level at site; shortages below this appear in Material Status"
   }
  ],
- "sort_field": "modified",
- "sort_order": "DESC",
- "index_web_pages_for_search": 1,
- "allow_rename": 0,
- "autoname": "field:resource_name",
- "naming_rule": "By fieldname",
  "permissions": [
   {
    "role": "System Manager",
@@ -53,7 +78,6 @@
    "create": 1,
    "delete": 1,
    "print": 1,
-   "email": 1,
    "export": 1,
    "report": 1,
    "share": 1
