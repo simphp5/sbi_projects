@@ -78,8 +78,3 @@ fixtures = [
         "dt": "Lead Activity Type",
     },
 ]
-
-# ---------------------------------------------------------------------------
-# SBI: open the print view in a new browser tab
-# ---------------------------------------------------------------------------
-app_include_js = "/assets/sbi_projects/js/sbi_print_newtab.js"
