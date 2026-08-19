@@ -8,17 +8,19 @@
  "field_order": [
   "resource_type",
   "resource",
+  "basis",
   "coefficient",
   "uom"
  ],
  "fields": [
   {
    "columns": 2,
+   "description": "Material, Manpower, Equipment ... add more in Resource Type",
    "fieldname": "resource_type",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Type",
-   "options": "Material\nLabour\nMachinery\nTransport\nSubcontractor",
+   "options": "Resource Type",
    "reqd": 1
   },
   {
@@ -31,8 +33,17 @@
    "reqd": 1
   },
   {
+   "columns": 1,
+   "fetch_from": "resource_type.basis",
+   "fieldname": "basis",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Basis",
+   "read_only": 1
+  },
+  {
    "columns": 2,
-   "description": "Quantity of this resource per 1 unit of the work item",
+   "description": "Per 1 unit of the work item. e.g. RCC M25 needs 0.5 Mason-days per CUM.",
    "fieldname": "coefficient",
    "fieldtype": "Float",
    "in_list_view": 1,

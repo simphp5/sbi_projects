@@ -1,0 +1,110 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:resource_type_name",
+ "creation": "2026-07-29 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "resource_type_name",
+  "basis",
+  "column_break_1",
+  "cost_category",
+  "display_order",
+  "is_active",
+  "section_break_1",
+  "description"
+ ],
+ "fields": [
+  {
+   "fieldname": "resource_type_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Resource Type",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "default": "Quantity",
+   "description": "How this resource is counted. Days multiplies Nos x Days x Rate.",
+   "fieldname": "basis",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Basis",
+   "options": "Quantity\nDays\nHours\nTrips\nLumpsum",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Maps to the site cost-centre leaf, so actuals land in the right bucket.",
+   "fieldname": "cost_category",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Cost Category",
+   "options": "\nMaterial\nManpower\nEquipment Cost\nEquipment Rent\nSubcontracting\nOverheads\nGeneral"
+  },
+  {
+   "fieldname": "display_order",
+   "fieldtype": "Int",
+   "label": "Display Order"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Is Active"
+  },
+  {
+   "fieldname": "section_break_1",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-29 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "PEB Estimation",
+ "name": "Resource Type",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "quick_entry": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

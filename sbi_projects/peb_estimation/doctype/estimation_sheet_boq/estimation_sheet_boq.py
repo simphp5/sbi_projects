@@ -11,6 +11,7 @@ class EstimationSheetBOQ(Document):
 	def validate(self):
 		self.compute_amounts()
 		self.compute_totals()
+		self.compute_resource_totals()
 		self.check_line_stages()
 
 	def compute_amounts(self):
@@ -239,6 +240,101 @@ class EstimationSheetBOQ(Document):
 			wi = frappe.get_doc("Work Item", line.work_item)
 			return wi.get_or_create_item()
 		return _lump_sum_item()
+
+	# ------------------------------------------------------------------ #
+	# Resources
+	# ------------------------------------------------------------------ #
+	@frappe.whitelist()
+	def rollup_resources(self):
+		"""Expand every BOQ line into its resources using per-unit norms.
+
+		Each Work Item carries what one unit consumes -- so much cement, so many
+		mason-days, so many machine hours. Multiplying by the line quantity and
+		adding it all up gives the manpower, equipment, transport and material
+		the whole job needs, without anyone typing it twice.
+
+		Rows the estimator added by hand (supervision, site establishment,
+		anything not tied to a line) are preserved untouched.
+		"""
+		from sbi_projects.peb_estimation.doctype.rate_card.rate_card import RateCard
+
+		card = self.rate_card or RateCard.get_default()
+		card_doc = frappe.get_cached_doc("Rate Card", card) if card else None
+
+		# keep manual rows, and remember manual rates on rolled-up rows
+		manual_rows = [r for r in (self.resources or []) if r.source == "Manual"]
+		held_rates = {
+			(r.resource_type, r.resource): flt(r.rate)
+			for r in (self.resources or [])
+			if r.source == "Rolled Up" and r.rate_source == "Manual"
+		}
+
+		# accumulate: (type, resource, uom) -> qty
+		totals = {}
+		for line in (self.lines or []):
+			if not line.work_item or flt(line.qty) <= 0:
+				continue
+			wi = frappe.get_cached_doc("Work Item", line.work_item)
+			for res in (wi.resources or []):
+				key = (res.resource_type, res.resource, res.uom or "")
+				totals[key] = totals.get(key, 0) + flt(res.coefficient) * flt(line.qty)
+
+		self.resources = []
+
+		for (rtype, resource, uom), qty in sorted(totals.items()):
+			held = held_rates.get((rtype, resource))
+			if held is not None:
+				rate, source = held, "Manual"
+			else:
+				rate = flt(card_doc.resource_rate(resource)) if card_doc else 0
+				source = "WA"
+
+			self.append("resources", {
+				"resource_type": rtype,
+				"resource": resource,
+				"nos": 1,
+				"qty": qty,
+				"uom": uom,
+				"rate": rate,
+				"rate_source": source,
+				"amount": qty * rate,
+				"source": "Rolled Up",
+			})
+
+		# put the hand-entered rows back
+		for r in manual_rows:
+			self.append("resources", {
+				"resource_type": r.resource_type,
+				"resource": r.resource,
+				"nos": flt(r.nos) or 1,
+				"qty": flt(r.qty),
+				"uom": r.uom,
+				"rate": flt(r.rate),
+				"rate_source": r.rate_source or "Manual",
+				"amount": (flt(r.nos) or 1) * flt(r.qty) * flt(r.rate),
+				"source": "Manual",
+				"remarks": r.remarks,
+			})
+
+		self.compute_resource_totals()
+		self.save(ignore_permissions=True)
+		frappe.db.commit()
+
+		return {
+			"rolled": len(totals),
+			"manual": len(manual_rows),
+			"total": flt(self.resource_total),
+		}
+
+	def compute_resource_totals(self):
+		"""Amount per row, then the resource total and its gap against the items."""
+		total = 0.0
+		for r in (self.resources or []):
+			nos = flt(r.nos) or 1
+			r.amount = nos * flt(r.qty) * flt(r.rate)
+			total += r.amount
+		self.resource_total = total
+		self.resource_variance = total - flt(self.base_total)
 
 	@frappe.whitelist()
 	def recalculate_rates(self):

@@ -33,6 +33,28 @@ frappe.ui.form.on("Estimation Sheet BOQ", {
 				.addClass("btn-primary");
 		}
 
+
+		// ---- resources ----
+		frm.add_custom_button(__("Roll Up Resources"), () => {
+			frm.call({
+				doc: frm.doc,
+				method: "rollup_resources",
+				freeze: true,
+				freeze_message: __("Expanding work items into resources..."),
+				callback(r) {
+					frm.reload_doc();
+					const m = r.message || {};
+					frappe.show_alert({
+						message: __("{0} rolled up, {1} manual row(s) kept — {2}", [
+							m.rolled || 0, m.manual || 0,
+							format_currency(m.total, frm.doc.currency),
+						]),
+						indicator: "green",
+					});
+				},
+			});
+		}, __("Resources"));
+
 		// ---- stages ----
 		frm.add_custom_button(__("Load Stages"), () => frm.trigger("load_stages"), __("Stages"));
 
@@ -279,3 +301,27 @@ frappe.ui.form.on("Estimation Sheet BOQ Line", {
 		});
 	},
 });
+
+frappe.ui.form.on("Estimation Sheet BOQ Resource", {
+	rate(frm, cdt, cdn) {
+		const row = locals[cdt][cdn];
+		if (row.rate_source !== "Manual") {
+			frappe.model.set_value(cdt, cdn, "rate_source", "Manual");
+		}
+		sbi_resource_amount(cdt, cdn);
+	},
+	qty(frm, cdt, cdn) { sbi_resource_amount(cdt, cdn); },
+	nos(frm, cdt, cdn) { sbi_resource_amount(cdt, cdn); },
+	resources_add(frm, cdt, cdn) {
+		// anything typed in by hand is kept when resources are rolled up again
+		frappe.model.set_value(cdt, cdn, "source", "Manual");
+		frappe.model.set_value(cdt, cdn, "rate_source", "Manual");
+		frappe.model.set_value(cdt, cdn, "nos", 1);
+	},
+});
+
+function sbi_resource_amount(cdt, cdn) {
+	const row = locals[cdt][cdn];
+	const nos = flt(row.nos) || 1;
+	frappe.model.set_value(cdt, cdn, "amount", nos * flt(row.qty) * flt(row.rate));
+}

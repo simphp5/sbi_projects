@@ -17,10 +17,10 @@
   {
    "columns": 2,
    "fieldname": "resource_type",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Type",
-   "options": "Material\nLabour\nMachinery\nTransport\nSubcontractor",
+   "options": "Resource Type",
    "reqd": 1
   },
   {

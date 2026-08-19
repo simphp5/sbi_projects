@@ -33,6 +33,12 @@
   "stages",
   "section_lines",
   "lines",
+  "section_resources",
+  "resources",
+  "section_resource_totals",
+  "resource_total",
+  "column_break_res",
+  "resource_variance",
   "section_totals",
   "base_total",
   "column_break_tot",
@@ -206,6 +212,39 @@
    "fieldtype": "Table",
    "label": "Lines",
    "options": "Estimation Sheet BOQ Line"
+  },
+  {
+   "description": "Manpower, equipment, transport and subcontract. Rolled up from the BOQ lines via each Work Item's per-unit norms; add your own rows for anything that sits outside a line (supervision, site establishment).",
+   "fieldname": "section_resources",
+   "fieldtype": "Section Break",
+   "label": "Resources"
+  },
+  {
+   "fieldname": "resources",
+   "fieldtype": "Table",
+   "label": "Resources",
+   "options": "Estimation Sheet BOQ Resource"
+  },
+  {
+   "fieldname": "section_resource_totals",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "resource_total",
+   "fieldtype": "Currency",
+   "label": "Resource Total",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_res",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Rolled-up resources minus the item base total. Large gaps usually mean a Work Item is missing its resource norms.",
+   "fieldname": "resource_variance",
+   "fieldtype": "Currency",
+   "label": "Variance vs Items",
+   "read_only": 1
   },
   {
    "fieldname": "section_totals",
