@@ -34,6 +34,13 @@ frappe.ui.form.on("Estimation Sheet BOQ", {
 		}
 
 
+
+		// ---- downstream ----
+		if ((frm.doc.resources || []).length) {
+			frm.add_custom_button(__("Material Request"), () => frm.trigger("create_material_request"), __("Create"));
+			frm.add_custom_button(__("Cost Summary"), () => frm.trigger("cost_summary"), __("Create"));
+		}
+
 		// ---- resources ----
 		frm.add_custom_button(__("Roll Up Resources"), () => {
 			frm.call({
@@ -85,6 +92,97 @@ frappe.ui.form.on("Estimation Sheet BOQ", {
 				"blue", true
 			);
 		}
+	},
+
+	create_material_request(frm) {
+		const stages = (frm.doc.stages || []).map((s) => s.stage_name).filter(Boolean);
+		const d = new frappe.ui.Dialog({
+			title: __("Material Request from BOQ"),
+			fields: [
+				{
+					fieldname: "stage",
+					label: __("Stage"),
+					fieldtype: "Select",
+					options: [""].concat(stages).join("\n"),
+					description: __("Leave blank to request everything the BOQ needs."),
+				},
+				{
+					fieldname: "schedule_days",
+					label: __("Required in (days)"),
+					fieldtype: "Int",
+					default: 15,
+					reqd: 1,
+				},
+				{
+					fieldname: "note",
+					fieldtype: "HTML",
+					options:
+						"<p class='text-muted small'>Only resources marked <b>Is Stock Item</b> are "
+						+ "requested. Labour and machine hours are costs, not stock, so they are left out.</p>",
+				},
+			],
+			primary_action_label: __("Create"),
+			primary_action(values) {
+				frm.call({
+					doc: frm.doc,
+					method: "create_material_request",
+					args: { stage: values.stage || null, schedule_days: values.schedule_days },
+					freeze: true,
+					callback(r) {
+						d.hide();
+						const m = r.message || {};
+						frappe.show_alert({
+							message: __("{0} created with {1} item(s).", [m.material_request, m.items]),
+							indicator: "green",
+						});
+						if (m.material_request) {
+							frappe.set_route("Form", "Material Request", m.material_request);
+						}
+					},
+				});
+			},
+		});
+		d.show();
+	},
+
+	cost_summary(frm) {
+		frm.call({
+			doc: frm.doc,
+			method: "cost_summary",
+			callback(r) {
+				const m = r.message || {};
+				const rows = m.rows || [];
+				if (!rows.length) {
+					frappe.msgprint(__("Roll up the resources first."));
+					return;
+				}
+				const body = rows.map((x) =>
+					`<tr>
+						<td style="padding:4px 10px">${frappe.utils.escape_html(x.category)}</td>
+						<td style="padding:4px 10px;text-align:right">${format_currency(x.amount, frm.doc.currency)}</td>
+						<td style="padding:4px 10px;text-align:right">${x.percent.toFixed(1)}%</td>
+					</tr>`).join("");
+				frappe.msgprint({
+					title: __("Estimated cost by category"),
+					indicator: "blue",
+					message:
+						`<table style="width:100%;font-size:13px">
+							<tr style="border-bottom:1px solid var(--border-color)">
+								<th style="text-align:left;padding:4px 10px">${__("Cost Centre Category")}</th>
+								<th style="text-align:right;padding:4px 10px">${__("Amount")}</th>
+								<th style="text-align:right;padding:4px 10px">%</th>
+							</tr>
+							${body}
+							<tr style="border-top:1px solid var(--border-color);font-weight:600">
+								<td style="padding:6px 10px">${__("Total")}</td>
+								<td style="padding:6px 10px;text-align:right">${format_currency(m.total, frm.doc.currency)}</td>
+								<td></td>
+							</tr>
+						</table>
+						<p class="text-muted small" style="margin-top:8px">${__("These are the same buckets as the site cost centres, so estimate and actual can be compared directly.")}</p>`,
+				});
+			},
+		});
 	},
 
 	create_quotation(frm) {

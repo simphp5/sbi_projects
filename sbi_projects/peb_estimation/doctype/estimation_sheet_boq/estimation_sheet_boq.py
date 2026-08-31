@@ -336,6 +336,111 @@ class EstimationSheetBOQ(Document):
 		self.resource_total = total
 		self.resource_variance = total - flt(self.base_total)
 
+	# ------------------------------------------------------------------ #
+	# Downstream: stock and cost centre
+	# ------------------------------------------------------------------ #
+	@frappe.whitelist()
+	def create_material_request(self, stage=None, schedule_days=15):
+		"""Raise a Material Request for the materials this BOQ needs.
+
+		The quantities already exist -- rolling up the work-item norms produced
+		them. This just turns the Material rows into a request against the
+		project, so nobody retypes a figure that was already calculated.
+
+		Pass a stage to request only what that stage needs, which is the normal
+		way to buy on a running site.
+		"""
+		if not (self.resources or []):
+			frappe.throw(_("Roll up the resources first."))
+
+		rows = self._material_rows(stage)
+		if not rows:
+			frappe.throw(
+				_("No stock materials found{0}.").format(
+					_(" for stage {0}").format(frappe.bold(stage)) if stage else ""
+				)
+			)
+
+		from frappe.utils import add_days, today
+
+		mr = frappe.new_doc("Material Request")
+		mr.material_request_type = "Purchase"
+		mr.transaction_date = today()
+		mr.schedule_date = add_days(today(), int(schedule_days or 15))
+		if self.project:
+			mr.project = self.project
+			company = frappe.db.get_value("Project", self.project, "company")
+			if company:
+				mr.company = company
+
+		for r in rows:
+			mr.append("items", r)
+
+		mr.insert(ignore_permissions=True)
+		frappe.db.commit()
+
+		return {"material_request": mr.name, "items": len(rows), "stage": stage}
+
+	def _material_rows(self, stage=None):
+		"""Material-type resources, as Material Request item rows."""
+		from frappe.utils import add_days, today
+
+		want_stock = set()
+		for r in frappe.get_all(
+			"Resource", filters={"is_stock": 1}, pluck="name"
+		):
+			want_stock.add(r)
+
+		rows = []
+		for res in (self.resources or []):
+			if not res.resource:
+				continue
+			# only things that are actually stocked and bought
+			if res.resource not in want_stock:
+				continue
+			if flt(res.qty) <= 0:
+				continue
+
+			doc = frappe.get_doc("Resource", res.resource)
+			item_code = doc.get_or_create_item()
+
+			rows.append({
+				"item_code": item_code,
+				"qty": flt(res.nos or 1) * flt(res.qty),
+				"uom": res.uom or doc.uom,
+				"schedule_date": add_days(today(), 15),
+				"description": _("From BOQ {0}").format(self.name),
+			})
+
+		return rows
+
+	@frappe.whitelist()
+	def cost_summary(self):
+		"""Estimated cost grouped by cost-centre category.
+
+		Each Resource Type carries the cost category it belongs to, so the
+		resource rows can be summarised the same way the site cost centres are
+		organised. That makes estimate and actual directly comparable.
+		"""
+		categories = {
+			t.name: (t.cost_category or _("General"))
+			for t in frappe.get_all("Resource Type", fields=["name", "cost_category"])
+		}
+
+		buckets = {}
+		for r in (self.resources or []):
+			key = categories.get(r.resource_type, _("General"))
+			buckets[key] = buckets.get(key, 0) + flt(r.amount)
+
+		total = sum(buckets.values())
+		return {
+			"rows": [
+				{"category": k, "amount": v, "percent": (v / total * 100) if total else 0}
+				for k, v in sorted(buckets.items(), key=lambda x: -x[1])
+			],
+			"total": total,
+		}
+
 	@frappe.whitelist()
 	def recalculate_rates(self):
 		"""Refresh WA-source line rates from the Rate Card. Manual lines untouched."""
