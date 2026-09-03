@@ -49,6 +49,10 @@ doc_events = {
         "on_submit": "sbi_projects.api.milestone_billing.mark_terms_billed",
         "on_cancel": "sbi_projects.api.milestone_billing.unmark_terms_billed",
     },
+    "Payment Entry": {
+        "on_submit": "sbi_projects.api.payment_hooks.update_received_on_submit",
+        "on_cancel": "sbi_projects.api.payment_hooks.update_received_on_cancel",
+    },
     "Project": {
         "after_insert": [
             "sbi_projects.sbi_projects.project_hooks.build_project_stages",
