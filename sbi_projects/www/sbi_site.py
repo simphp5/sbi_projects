@@ -14,6 +14,9 @@ no_cache = 1
 
 ALL_SITES_ROLES = {"System Manager", "Projects Manager", "Site Cost Approver", "Administrator"}
 
+# keep in step with APP_VERSION in sbi_site_api.py
+APP_VERSION = "2.0.0"
+
 
 def get_context(context):
 	context.no_header = 1
@@ -25,6 +28,7 @@ def get_context(context):
 		raise frappe.Redirect
 
 	context.csrf_token = frappe.sessions.get_csrf_token()
+	context.app_version = APP_VERSION
 
 	allowed = _allowed_projects()
 	req = frappe.form_dict.get("project")

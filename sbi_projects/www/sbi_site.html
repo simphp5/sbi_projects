@@ -68,7 +68,7 @@
   .hidden{display:none !important}
 
   /* camera stage */
-  .stage{position:relative;background:#000;border-radius:14px;overflow:hidden;aspect-ratio:3/4}
+  .stage{position:relative;background:#000;border-radius:14px;overflow:hidden;aspect-ratio:4/5}
   .stage video,.stage img.frame{width:100%;height:100%;object-fit:cover;display:block}
   .stage video,.stage img.frame{filter:brightness(.92) contrast(1.05)}
   /* dark spotlight: edges dark, centre (face) clear */
@@ -79,6 +79,22 @@
   .cc{flex:1;min-height:44px;border:2px solid var(--line);background:var(--card);border-radius:10px;
     font-size:14px;font-weight:700;color:var(--ink)}
   .cc[aria-pressed="false"]{color:var(--soft)}
+  /* --- compact attendance UI --- */
+  .punchbar{display:flex;align-items:center;gap:12px;background:var(--brand);color:#fff;
+    border-radius:12px;padding:12px 14px;margin-bottom:10px}
+  .punchbar .pbinfo{flex:1;min-width:0}
+  .punchbar .pblabel{font-size:19px;font-weight:800;line-height:1.15}
+  .punchbar .pbsub{font-size:12.5px;opacity:.9;margin-top:2px}
+  .punchbar .pbchange{background:rgba(255,255,255,.18);color:#fff;border:0;border-radius:8px;
+    padding:9px 12px;font-size:13px;font-weight:800;white-space:nowrap;font-family:inherit}
+  .punchbar[data-ready="no"]{background:var(--warn)}
+  .ptpanel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
+  .lnk{border:1px solid var(--brand);background:var(--card);color:var(--brand);border-radius:8px;
+    padding:6px 12px;font-size:12px;font-weight:800;font-family:inherit}
+  .camtools{position:absolute;top:10px;left:10px;display:flex;gap:8px;z-index:3}
+  .camtools .ct{width:40px;height:40px;border-radius:50%;border:0;background:rgba(0,0,0,.5);
+    color:#fff;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;font-family:inherit}
+  .camtools .ct[aria-pressed="true"]{background:var(--brand)}
   .track{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
   .ring{position:absolute;inset:0;pointer-events:none;border:4px solid transparent;border-radius:14px;
     transition:border-color .15s}
@@ -174,23 +190,35 @@
       <button type="button" class="drawitem" data-go="out">Sign out</button>
     </div>
     <section id="attend">
-      <div class="ptypes" id="ptypes">
+      <!-- primary punch bar: the shift's next punch, one clear action -->
+      <div class="punchbar" id="punchBar">
+        <div class="pbinfo">
+          <div class="pblabel" id="pbLabel">Punch</div>
+          <div class="pbsub" id="pbSub">Select a shift</div>
+        </div>
+        <button type="button" class="pbchange" id="pbChange">Change &#9662;</button>
+      </div>
+
+      <!-- shift chooser + all punch types, collapsed by default -->
+      <div class="ptpanel hidden" id="ptPanel">
         <div class="ptgrid hidden" id="shiftRow" style="margin-bottom:8px"></div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <div class="ttl" style="margin-bottom:0">PUNCH TYPE - select first</div>
-          <button type="button" id="btnShifts" style="border:1px solid var(--brand);background:var(--card);color:var(--brand);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:800">Shift Master</button>
+          <div class="ttl" style="margin-bottom:0">Punch type</div>
+          <button type="button" id="btnShifts" class="lnk">Shift Master</button>
         </div>
         <div class="ptgrid" id="ptGrid"></div>
       </div>
-      <div class="cam-ctrl">
-        <button type="button" class="cc" id="flipA">Flip camera</button>
-        <button type="button" class="cc" id="darkA" aria-pressed="true">Dark bg: On</button>
-      </div>
+
       <div class="stage" id="stageA" data-face="no">
         <video id="camA" playsinline muted autoplay></video>
         <div class="spot"></div>
         <canvas id="trackA" class="track"></canvas>
         <div class="ring"></div>
+        <!-- small camera controls, overlaid top-left -->
+        <div class="camtools">
+          <button type="button" class="ct" id="flipA" title="Flip camera">&#8646;</button>
+          <button type="button" class="ct" id="darkA" aria-pressed="true" title="Dark background">&#9789;</button>
+        </div>
         <div class="count hidden" id="countA">3</div>
         <div class="punchok hidden" id="punchOK">
           <div class="big" id="pkName"></div>
@@ -270,6 +298,7 @@
   "use strict";
   var $=function(id){return document.getElementById(id);};
   var CSRF="{{ csrf_token }}";
+  var APP_VERSION="{{ app_version }}";
   var PROJECT="{{ project }}";
   var PROJECT_NAME="{{ project_name }}";
   var SITES={{ sites_json or "[]" }};
@@ -989,8 +1018,21 @@
     clearSuggest();
     document.querySelectorAll("#ptGrid .pt").forEach(function(x){x.setAttribute("aria-pressed","false");});
     btn.setAttribute("aria-pressed","true");
+    // reflect on the primary bar and collapse the panel
+    setPunchBar(btn.textContent + (S.punchReason?(" ("+S.punchReason+")"):""), "Ready - show the face", true);
+    hidePtPanel();
     note($("noteA"),"","Punch type: "+btn.textContent+(S.punchReason?(" ("+S.punchReason+")"):"")+". Show faces to the camera.");
   }
+
+  function setPunchBar(label, sub, ready){
+    var pb=$("punchBar"); if(!pb) return;
+    $("pbLabel").textContent=label||"Punch";
+    $("pbSub").textContent=sub||"";
+    pb.setAttribute("data-ready", ready?"yes":"no");
+  }
+  function showPtPanel(){ var p=$("ptPanel"); if(p){p.classList.remove("hidden"); renderShiftChips();} }
+  function hidePtPanel(){ var p=$("ptPanel"); if(p) p.classList.add("hidden"); }
+  function togglePtPanel(){ var p=$("ptPanel"); if(p) p.classList.contains("hidden")?showPtPanel():hidePtPanel(); }
   function setSiteText(t){
     var sn=$("siteName");
     for(var i=0;i<sn.childNodes.length;i++){
@@ -1069,6 +1111,8 @@
     var cs=currentShift();
     if(!S.shifts||!S.shifts.length)return;
     if(cs.ask){
+      setPunchBar("Choose shift", "Tap Change to pick shift + punch", false);
+      showPtPanel();
       note($("noteA"),"warn","Outside shift window or multiple shifts match - select the SHIFT first (chips above).");
       camHint("Select the shift, then the punch type.");
       return;
@@ -1084,10 +1128,12 @@
     var tstr=String(sh[best[0]]||"").slice(0,5);
     if(bd<=PUNCH_BUFFER_MIN){
       S.punchType=best[1];S.punchReason=null;markPtype(btn);
+      setPunchBar(plabel(best[1]), sh.shift_name+" - "+tstr, true);
       note($("noteA"),"",sh.shift_name+" - now: "+plabel(best[1])+" ("+tstr+"). Camera starting...");
       camOn();
     }else{
       btn.classList.add("suggest");
+      setPunchBar(plabel(best[1])+"?", "Nearest ("+tstr+"), "+Math.round(bd)+" min away - tap Change to confirm", false);
       note($("noteA"),"warn",sh.shift_name+" - nearest is "+plabel(best[1])+" ("+tstr+"), "+
         Math.round(bd)+" min away. Tap it to confirm, or choose another type.");
       camHint("Time variation is high - confirm the punch type to start the camera.");
@@ -1226,8 +1272,60 @@
     host.innerHTML=html;
   }
 
+  function showUpdateGate(server){
+    var d=document.createElement("div");
+    d.style.cssText="position:fixed;inset:0;z-index:9999;background:var(--brand);color:#fff;"+
+      "display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px;font-family:inherit";
+    d.innerHTML=
+      '<div style="font-size:22px;font-weight:800;margin-bottom:8px">Update required</div>'+
+      '<div style="font-size:15px;opacity:.92;max-width:320px;line-height:1.5">'+
+        'A new version of the SBI Site app is available. Update now to continue.</div>'+
+      '<div style="font-size:12px;opacity:.7;margin-top:10px">Installed '+APP_VERSION+' &#8594; Latest '+server+'</div>'+
+      '<button id="btnDoUpdate" style="margin-top:24px;background:#fff;color:var(--brand);border:0;'+
+        'border-radius:12px;padding:16px 28px;font-size:17px;font-weight:800;font-family:inherit">Update now</button>';
+    document.body.appendChild(d);
+    $("btnDoUpdate").onclick=function(){
+      this.textContent="Updating...";
+      doHardUpdate();
+    };
+  }
+
+  function doHardUpdate(){
+    var jobs=[];
+    // clear caches
+    if(window.caches&&caches.keys){
+      jobs.push(caches.keys().then(function(keys){
+        return Promise.all(keys.map(function(k){return caches.delete(k);}));
+      }).catch(function(){}));
+    }
+    // unregister service workers
+    if("serviceWorker" in navigator){
+      jobs.push(navigator.serviceWorker.getRegistrations().then(function(rs){
+        return Promise.all(rs.map(function(r){return r.unregister();}));
+      }).catch(function(){}));
+    }
+    Promise.all(jobs).then(function(){
+      // cache-bust reload to fetch the newest page + assets
+      var u=location.pathname+"?project="+encodeURIComponent(PROJECT||"")+"&_v="+Date.now();
+      location.replace(u);
+    });
+  }
+
+  function checkForUpdate(){
+    // GET (no CSRF needed); if the live version differs from this page's build, force update
+    fetch("/api/method/sbi_projects.sbi_projects.sbi_site_api.app_version",{credentials:"same-origin"})
+      .then(function(r){return r.json();})
+      .then(function(j){
+        var server=j&&j.message&&j.message.version;
+        if(server && APP_VERSION && server!==APP_VERSION){
+          showUpdateGate(server);
+        }
+      }).catch(function(){});
+  }
+
   function boot(){
     setupPWA();
+    checkForUpdate();
     // no site chosen (multi-site user) -> show the chooser, do not start the camera
     if(!PROJECT){ showChooser(); return; }
     // site name text (avoid clobbering the clock child)
@@ -1238,6 +1336,7 @@
     $("btnSignout").onclick=signOut;
     buildPtypes();setupDrawer();setupTabs();loadHeaderInfo();loadShifts();
     var bs=$("btnShifts"); if(bs) bs.onclick=openShifts;
+    var pc=$("pbChange"); if(pc) pc.onclick=togglePtPanel;
     $("wsInactive").onchange=loadRoster;
     $("btnBackToAttend").onclick=function(){setMode("attend");};
     $("btnRetake").onclick=function(){resetEnroll();};

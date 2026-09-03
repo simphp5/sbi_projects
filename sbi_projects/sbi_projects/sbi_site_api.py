@@ -2,7 +2,7 @@
 
 One module, one job: enroll faces, match faces, record punches.  Matching uses
 Euclidean distance on face-api's 128-d descriptors, which is the metric the
-model was trained for Ã¢â‚¬â€ same person sits well below 0.5, different people above
+model was trained for ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â same person sits well below 0.5, different people above
 0.6.  Everything is scoped to a project so a worker enrolled at one site is not
 matched at another.
 """
@@ -622,3 +622,15 @@ def save_site_shift(project, shift_name, entry_time=None, break1_start=None,
 	doc.save(ignore_permissions=True)
 	frappe.db.commit()
 	return {"name": doc.name}
+
+
+# ---- app version (for the in-app update check) ---------------------------
+# Bump APP_VERSION on every release so installed clients are prompted to update.
+APP_VERSION = "2.0.0"
+
+
+@frappe.whitelist(allow_guest=True)
+def app_version():
+	"""Current deployed app version. The client compares this to its own build
+	string and, if different, offers a one-tap update (clears caches + reloads)."""
+	return {"version": APP_VERSION}
