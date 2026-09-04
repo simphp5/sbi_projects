@@ -1,7 +1,7 @@
 // Copyright (c) 2026, Velmaska and contributors
 // Milestone billing: Sales Order -> Create -> Milestone Invoice
-// Select one or more payment-schedule stages, choose combined vs separate
-// invoices, and open the (first) draft Sales Invoice in a new tab.
+// A Project must be linked. Selected stages become saved draft Sales
+// Invoice(s), opened in a new tab with customer + items already filled.
 
 frappe.ui.form.on("Sales Order", {
 	refresh(frm) {
@@ -24,6 +24,20 @@ function sbi_open_milestone_dialog(frm) {
 		freeze: true,
 		callback(r) {
 			const data = r.message || {};
+			const project = data.project;
+
+			// Hard block: no project => no site cost centre => not allowed.
+			if (!project) {
+				frappe.msgprint({
+					title: __("Project Required"),
+					message: __(
+						"No Project is linked to this Sales Order. Use <b>Create &gt; Project (with Stages)</b> first, then raise the milestone invoice."
+					),
+					indicator: "red",
+				});
+				return;
+			}
+
 			const all_rows = data.rows || [];
 			const open_rows = all_rows.filter((d) => !d.billed);
 			const done_rows = all_rows.filter((d) => d.billed);
@@ -36,7 +50,7 @@ function sbi_open_milestone_dialog(frm) {
 				});
 				return;
 			}
-			sbi_show_milestone_dialog(frm, open_rows, done_rows, data.project);
+			sbi_show_milestone_dialog(frm, open_rows, done_rows, project);
 		},
 	});
 }
@@ -45,21 +59,18 @@ function sbi_show_milestone_dialog(frm, open_rows, done_rows, project) {
 	const terms_data = open_rows.map((r) => Object.assign({ select: 0 }, r));
 	const fields = [];
 
-	if (!project) {
-		fields.push({
-			fieldtype: "HTML",
-			options:
-				`<div class="alert alert-warning" style="margin-bottom:12px;">` +
-				__("No Project is linked to this Sales Order, so the invoice will post to the company default cost center. Create the Project first for site-wise costing.") +
-				`</div>`,
-		});
-	}
+	fields.push({
+		fieldtype: "HTML",
+		options:
+			`<div class="alert alert-info" style="margin-bottom:12px;">` +
+			__("Invoices post to project {0}", [
+				`<a href="/app/project/${encodeURIComponent(project)}" target="_blank" rel="noopener"><b>${frappe.utils.escape_html(project)}</b></a>`,
+			]) +
+			`</div>`,
+	});
 
 	if (done_rows.length) {
-		fields.push({
-			fieldtype: "HTML",
-			options: sbi_billed_html(done_rows),
-		});
+		fields.push({ fieldtype: "HTML", options: sbi_billed_html(done_rows) });
 	}
 
 	fields.push(
@@ -144,26 +155,29 @@ function sbi_show_milestone_dialog(frm, open_rows, done_rows, project) {
 				freeze: true,
 				freeze_message: __("Creating milestone invoice..."),
 				callback(r) {
-					if (!r.message || !r.message.invoice) return;
+					const invoices = (r.message && r.message.invoices) || [];
+					if (!invoices.length) return;
 					d.hide();
-					const doclist = frappe.model.sync(r.message.invoice);
-					const first = doclist[0];
-					const others = r.message.others || [];
 
-					// open the (first) invoice in a new tab
+					// open the first saved draft invoice in a new tab
 					window.open(
-						`/app/sales-invoice/${encodeURIComponent(first.name)}`,
+						`/app/sales-invoice/${encodeURIComponent(invoices[0])}`,
 						"_blank",
 						"noopener"
 					);
 
-					if (others.length) {
+					if (invoices.length > 1) {
 						frappe.msgprint({
 							title: __("Invoices created"),
 							message:
-								__("Created {0} draft invoices. Opened the first in a new tab.", [others.length + 1]) +
+								__("Created {0} draft invoices; opened the first in a new tab.", [invoices.length]) +
 								"<br>" +
-								[first.name].concat(others).map((n) => "&bull; " + frappe.utils.escape_html(n)).join("<br>"),
+								invoices
+									.map(
+										(n) =>
+											`&bull; <a href="/app/sales-invoice/${encodeURIComponent(n)}" target="_blank" rel="noopener">${frappe.utils.escape_html(n)}</a>`
+									)
+									.join("<br>"),
 							indicator: "green",
 						});
 					}
@@ -202,5 +216,5 @@ function sbi_billed_html(done_rows) {
 			return `<li>${frappe.utils.escape_html(r.stage || r.payment_term || "")} - ${format_number(flt(r.invoice_portion), null, 2)}% - ${inv}${st}</li>`;
 		})
 		.join("");
-	return `<div class="alert alert-info" style="margin-bottom:12px;"><b>${__("Already billed")}</b><ul style="margin:6px 0 0 16px;padding:0;">${items}</ul></div>`;
+	return `<div class="alert alert-secondary" style="margin-bottom:12px;"><b>${__("Already billed")}</b><ul style="margin:6px 0 0 16px;padding:0;">${items}</ul></div>`;
 }

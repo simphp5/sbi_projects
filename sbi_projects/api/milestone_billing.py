@@ -14,12 +14,9 @@ Billing modes
   "Single Service Item" one consolidated service line for the selected amount.
   "Proportional Qty"    legacy: scales qty (can fail on whole-number UOMs).
 
-Cost accounting
----------------
-Every item line and every tax line is stamped with the linked Project's cost
-center (the site "General" leaf), so a milestone invoice's income and GST post
-against the correct site. Project is resolved from Project.sales_order, or the
-explicit project passed from the dialog.
+A linked Project is REQUIRED: the invoice's income and GST post against the
+project's site "General" cost centre, so without a project there is no site to
+cost to. The dialog blocks creation up front and the server enforces it again.
 
 Status write-back
 -----------------
@@ -98,13 +95,12 @@ def make_milestone_invoice(
 	service_item=None,
 	split="combined",
 ):
-	"""Create draft Sales Invoice(s) for the selected Payment Schedule rows.
+	"""Create and SAVE draft Sales Invoice(s) for the selected Payment Schedule
+	rows, returning their names so the client can open them in a new tab.
 
-	split:
-	    "combined" -> one invoice covering all selected rows.
-	    "separate" -> one invoice per selected row; returns the first, the rest
-	                  are saved as drafts and their names returned in `others`.
-	Returns {"invoice": <doc dict>, "others": [names]}.
+	A Project must be linked to the Sales Order.
+
+	Returns {"invoices": [names]} -- first name is the one to open.
 	"""
 
 	if isinstance(selected_rows, str):
@@ -116,25 +112,35 @@ def make_milestone_invoice(
 	so = frappe.get_doc("Sales Order", sales_order)
 	so.check_permission("read")
 
+	project = _project_for_so(so)
+	if not project:
+		frappe.throw(
+			_(
+				"No Project is linked to Sales Order {0}. Create the Project first "
+				"(Create > Project with Stages) so the milestone invoice can be "
+				"costed to the site."
+			).format(so.name),
+			title=_("Project Required"),
+		)
+
 	selected = _resolve_terms(so, selected_rows)
 
+	invoices = []
 	if split == "separate" and len(selected) > 1:
-		first = None
-		others = []
 		for term in selected:
-			si = _build_invoice(so, [term], billing_mode, service_item)
-			if first is None:
-				first = si
-			else:
-				si.insert(ignore_permissions=True)
-				others.append(si.name)
-		return {"invoice": first, "others": others}
+			si = _build_invoice(so, [term], billing_mode, service_item, project)
+			si.insert(ignore_permissions=True)
+			invoices.append(si.name)
+	else:
+		si = _build_invoice(so, selected, billing_mode, service_item, project)
+		si.insert(ignore_permissions=True)
+		invoices.append(si.name)
 
-	si = _build_invoice(so, selected, billing_mode, service_item)
-	return {"invoice": si, "others": []}
+	frappe.db.commit()
+	return {"invoices": invoices}
 
 
-def _build_invoice(so, selected, billing_mode, service_item):
+def _build_invoice(so, selected, billing_mode, service_item, project):
 	total_portion = flt(sum(flt(t.invoice_portion) for t in selected), 6)
 	if total_portion <= 0:
 		frappe.throw(_("Selected Payment Terms have zero Invoice Portion"))
@@ -150,7 +156,6 @@ def _build_invoice(so, selected, billing_mode, service_item):
 
 	_apply_payment_schedule(si, selected, total_portion)
 
-	# stage label + provenance
 	stages = [(t.get("sbi_stage") or t.payment_term or _("Term {0}").format(t.idx)) for t in selected]
 	si.sbi_stage = ", ".join([s for s in stages if s])[:140]
 	si.sbi_source_sales_order = so.name
@@ -158,13 +163,10 @@ def _build_invoice(so, selected, billing_mode, service_item):
 	si.sbi_source_payment_terms = json.dumps([t.name for t in selected])
 
 	# cost center: item + tax -> project General leaf
-	_apply_project_cost_center(si, so)
+	_apply_project_cost_center(si, project)
 
 	si.run_method("calculate_taxes_and_totals")
-
-	# taxes are (re)built by calculate_taxes_and_totals, so stamp their cost
-	# center afterwards or it gets wiped
-	_stamp_tax_cost_center(si)
+	_stamp_tax_cost_center(si, project)
 
 	return si
 
@@ -195,23 +197,17 @@ def _resolve_terms(so, selected_rows):
 
 
 def _apply_rate_scaled(si, so, total_portion):
-	"""Keep SO item lines; scale each RATE to the stage percentage.
-
-	qty is untouched (no fractional-qty errors); item, HSN and tax template are
-	preserved from the Sales Order line.
-	"""
+	"""Keep SO item lines; scale each RATE to the stage percentage."""
 	factor = total_portion / 100.0
-	so_rate = {d.name: (flt(d.rate), flt(d.qty)) for d in so.items}
+	so_rate = {d.name: flt(d.rate) for d in so.items}
 	rate_prec = frappe.get_precision("Sales Invoice Item", "rate") or 2
 
 	rows = []
 	for item in si.items:
-		ref = so_rate.get(item.so_detail)
-		if ref is None:
+		orig_rate = so_rate.get(item.so_detail)
+		if orig_rate is None:
 			rows.append(item)
 			continue
-
-		orig_rate, _orig_qty = ref
 		item.rate = flt(orig_rate * factor, rate_prec)
 		item.price_list_rate = 0
 		item.margin_rate_or_amount = 0
@@ -235,7 +231,7 @@ def _uom_needs_whole_number(uom, _cache={}):
 
 
 def _apply_proportional_qty(si, so, total_portion):
-	"""Legacy: scale qty (can fail on whole-number UOMs). Kept for completeness."""
+	"""Legacy: scale qty (can fail on whole-number UOMs)."""
 	factor = total_portion / 100.0
 	so_qty = {d.name: flt(d.qty) for d in so.items}
 	precision = frappe.get_precision("Sales Invoice Item", "qty") or 3
@@ -299,7 +295,6 @@ def _apply_service_item(si, so, selected, total_portion, service_item):
 			"stock_uom": item_doc.stock_uom,
 			"conversion_factor": 1,
 			"rate": amount,
-			"project": so.project,
 		},
 	)
 
@@ -310,34 +305,21 @@ def _apply_service_item(si, so, selected, total_portion, service_item):
 
 
 def _project_for_so(so):
-	"""The Project whose cost center this SO's invoices should post to.
-
-	Prefer an explicit SO project field; otherwise the Project that links back
-	to this Sales Order.
-	"""
 	if so.get("project"):
 		return so.project
 	return frappe.db.get_value("Project", {"sales_order": so.name}, "name")
 
 
-def _apply_project_cost_center(si, so):
-	project = _project_for_so(so)
-	if not project:
-		return
-
+def _apply_project_cost_center(si, project):
 	cc = frappe.db.get_value("Project", project, "cost_center")
+	si.project = project
 	if not cc:
 		return
-
-	si.project = project
 	for item in si.items:
 		item.cost_center = cc
 
 
-def _stamp_tax_cost_center(si):
-	project = si.get("project")
-	if not project:
-		return
+def _stamp_tax_cost_center(si, project):
 	cc = frappe.db.get_value("Project", project, "cost_center")
 	if not cc:
 		return
@@ -385,12 +367,6 @@ def _apply_payment_schedule(si, selected, total_portion):
 
 
 def mark_terms_billed(doc, method=None):
-	"""on_submit: flag source SO payment terms billed, with amount/date/status.
-
-	Each selected term's share of the invoice's net total is its billed amount.
-	If that equals (within a rupee) the term's scheduled amount -> Fully Billed,
-	otherwise Partially Billed.
-	"""
 	terms = _linked_terms(doc)
 	if not terms:
 		return
@@ -423,7 +399,6 @@ def mark_terms_billed(doc, method=None):
 
 
 def unmark_terms_billed(doc, method=None):
-	"""on_cancel: release the payment terms so they can be re-billed."""
 	for row_name in _linked_terms(doc):
 		frappe.db.set_value(
 			"Payment Schedule",
