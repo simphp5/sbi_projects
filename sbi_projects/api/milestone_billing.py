@@ -29,7 +29,7 @@ import json
 
 import frappe
 from frappe import _
-from frappe.utils import flt, nowdate
+from frappe.utils import flt, getdate, nowdate
 
 from erpnext.selling.doctype.sales_order.sales_order import make_sales_invoice
 
@@ -336,6 +336,11 @@ def _apply_payment_schedule(si, selected, total_portion):
 	si.payment_terms_template = None
 	si.set("payment_schedule", [])
 
+	# Invoice is raised today; a stage due date that is already in the past
+	# (the SO was placed long ago) would trip ERPNext's "Due Date cannot be
+	# before Posting Date" check, so clamp each due date to the posting date.
+	posting = getdate(si.posting_date or nowdate())
+
 	count = len(selected)
 	running = 0.0
 
@@ -346,12 +351,16 @@ def _apply_payment_schedule(si, selected, total_portion):
 			portion = flt(flt(term.invoice_portion) * 100.0 / total_portion, 6)
 			running += portion
 
+		due = term.due_date
+		if not due or getdate(due) < posting:
+			due = posting
+
 		si.append(
 			"payment_schedule",
 			{
 				"payment_term": term.payment_term,
 				"description": term.description,
-				"due_date": term.due_date,
+				"due_date": due,
 				"mode_of_payment": term.get("mode_of_payment"),
 				"invoice_portion": portion,
 				"discount_type": term.get("discount_type"),
