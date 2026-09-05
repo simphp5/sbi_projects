@@ -221,8 +221,10 @@ def _apply_rate_scaled(si, so, total_portion):
 		item.margin_rate_or_amount = 0
 		item.discount_percentage = 0
 		item.discount_amount = 0
-		# reference: full SO line value including 18% GST
-		item.sbi_total_incl_gst = flt(so_amount.get(item.so_detail, 0) * 1.18, 2)
+		# reference: full SO line value excluding / including 18% GST
+		_base = flt(so_amount.get(item.so_detail, 0))
+		item.sbi_total_excl_gst = flt(_base, 2)
+		item.sbi_total_incl_gst = flt(_base * 1.18, 2)
 		if flt(item.rate) > 0 and flt(item.qty) > 0:
 			rows.append(item)
 
