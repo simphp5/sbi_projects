@@ -625,12 +625,27 @@ def save_site_shift(project, shift_name, entry_time=None, break1_start=None,
 
 
 # ---- app version (for the in-app update check) ---------------------------
-# Bump APP_VERSION on every release so installed clients are prompted to update.
-APP_VERSION = "2.0.0"
+# Bump APP_VERSION and add a WHATS_NEW entry on every release.
+APP_VERSION = "2.1.0"
+
+WHATS_NEW = {
+	"2.1.0": [
+		"Camera now opens as a full-screen popup - no more scrolling.",
+		"Cleaner, professional attendance screen with a single Punch button.",
+		"In-app update check with a What's New list.",
+	],
+	"2.0.0": [
+		"Shift-based punch suggestions.",
+		"Expense, Progress, Material, Verify and Today tabs.",
+	],
+}
 
 
 @frappe.whitelist(allow_guest=True)
 def app_version():
-	"""Current deployed app version. The client compares this to its own build
-	string and, if different, offers a one-tap update (clears caches + reloads)."""
-	return {"version": APP_VERSION}
+	"""Current deployed app version + what changed. The client compares this to
+	its own build string and, if different, offers a one-tap update."""
+	return {
+		"version": APP_VERSION,
+		"whats_new": WHATS_NEW.get(APP_VERSION, []),
+	}

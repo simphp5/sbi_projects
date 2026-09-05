@@ -15,7 +15,7 @@ no_cache = 1
 ALL_SITES_ROLES = {"System Manager", "Projects Manager", "Site Cost Approver", "Administrator"}
 
 # keep in step with APP_VERSION in sbi_site_api.py
-APP_VERSION = "2.0.0"
+APP_VERSION = "2.1.0"
 
 
 def get_context(context):

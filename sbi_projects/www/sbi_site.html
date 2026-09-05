@@ -20,6 +20,7 @@
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
     font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
   .wrap{max-width:560px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column}
 
@@ -95,6 +96,25 @@
   .camtools .ct{width:40px;height:40px;border-radius:50%;border:0;background:rgba(0,0,0,.5);
     color:#fff;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;font-family:inherit}
   .camtools .ct[aria-pressed="true"]{background:var(--brand)}
+  /* big graphical action button */
+  .bigaction{display:flex;align-items:center;gap:14px;width:100%;background:var(--card);
+    border:2px solid var(--line);border-radius:16px;padding:18px 18px;font-family:inherit;
+    box-shadow:0 1px 3px rgba(0,0,0,.06);transition:transform .08s}
+  .bigaction:active{transform:scale(.98)}
+  .bigaction .ba-ic{width:52px;height:52px;flex:0 0 auto;border-radius:14px;background:var(--brand);
+    color:#fff;font-size:26px;display:flex;align-items:center;justify-content:center}
+  .bigaction .ba-tx{text-align:left;line-height:1.2}
+  .bigaction .ba-tx b{display:block;font-size:17px;color:var(--ink);font-weight:800}
+  .bigaction .ba-tx small{display:block;font-size:13px;color:var(--soft);margin-top:3px;font-weight:600}
+  /* full-screen camera popup */
+  .camoverlay{position:fixed;inset:0;z-index:2000;background:#000;
+    display:flex;flex-direction:column}
+  .camtop{display:flex;align-items:center;justify-content:space-between;
+    padding:14px 16px;background:var(--brand);color:#fff}
+  .camtop .camtitle{font-size:18px;font-weight:800}
+  .camtop .camclose{width:40px;height:40px;border-radius:50%;border:0;
+    background:rgba(255,255,255,.2);color:#fff;font-size:18px;font-family:inherit}
+  .camoverlay .stage{flex:1;border-radius:0;aspect-ratio:auto;height:auto;min-height:0}
   .track{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
   .ring{position:absolute;inset:0;pointer-events:none;border:4px solid transparent;border-radius:14px;
     transition:border-color .15s}
@@ -209,12 +229,30 @@
         <div class="ptgrid" id="ptGrid"></div>
       </div>
 
+      <!-- big graphical action: opens the camera popup -->
+      <button type="button" class="bigaction" id="btnPunch">
+        <span class="ba-ic">&#128247;</span>
+        <span class="ba-tx"><b>Open camera to punch</b><small id="baSub">Face attendance</small></span>
+      </button>
+
+      <div class="today hidden" id="todayA">
+        <h3 id="todayName">Today</h3>
+        <div class="chips" id="todayChips"></div>
+      </div>
+      <div class="note" id="noteA" data-tone="">Select the punch type, then open the camera.</div>
+    </section>
+
+    <!-- FULL-SCREEN CAMERA POPUP -->
+    <div class="camoverlay hidden" id="camOverlay">
+      <div class="camtop">
+        <div class="camtitle" id="camTitle">Punch</div>
+        <button type="button" class="camclose" id="btnCamClose">&#10005;</button>
+      </div>
       <div class="stage" id="stageA" data-face="no">
         <video id="camA" playsinline muted autoplay></video>
         <div class="spot"></div>
         <canvas id="trackA" class="track"></canvas>
         <div class="ring"></div>
-        <!-- small camera controls, overlaid top-left -->
         <div class="camtools">
           <button type="button" class="ct" id="flipA" title="Flip camera">&#8646;</button>
           <button type="button" class="ct" id="darkA" aria-pressed="true" title="Dark background">&#9789;</button>
@@ -230,12 +268,7 @@
           <div class="sub" id="subA">Look at the camera and hold still.</div>
         </div>
       </div>
-      <div class="note" id="noteA" data-tone="">Point the camera at a worker's face.</div>
-      <div class="today hidden" id="todayA">
-        <h3 id="todayName">Today</h3>
-        <div class="chips" id="todayChips"></div>
-      </div>
-    </section>
+    </div>
 
     <!-- WORKERS (this site only) -->
     <section id="workers" class="hidden">
@@ -315,7 +348,7 @@
     mode:"attend", ready:false, wt:"Labour", punchType:null, punchReason:null,
     gps:null, lastId:null, opts:{},
     facingA:"user", facingE:"user", darkA:true, darkE:true,
-    shift:null
+    shift:null, camOpen:false
   };
 
   function api(method,args,_retried){
@@ -401,11 +434,20 @@
   }
   function camOn(){
     if(S.mode!=="attend")return;
+    // open the full-screen camera popup and start the camera
+    var ov=$("camOverlay"); if(ov) ov.classList.remove("hidden");
+    S.camOpen=true;
+    var t=$("camTitle"); if(t) t.textContent=($("pbLabel")?$("pbLabel").textContent:"Punch");
     if(streams["a"]){camKick();return;}
     startCam($("camA"),"a",S.facingA).then(function(){
       aBusy=false;aGood=0;attendLoop();camKick();
-      camHint("Camera on. Show faces one by one.");
+      camHint("Show faces one by one.");
     });
+  }
+  function closeCam(){
+    S.camOpen=false;
+    var ov=$("camOverlay"); if(ov) ov.classList.add("hidden");
+    stopCam("a");cancelCount();clearBox("trackA");
   }
   function camOff(){
     stopCam("a");cancelCount();clearBox("trackA");
@@ -508,7 +550,7 @@
   },2000);
 
   function attendLoop(){
-    if(S.mode!=="attend"||!S.ready){return setTimeout(attendLoop,400);}
+    if(S.mode!=="attend"||!S.ready||!S.camOpen){return setTimeout(attendLoop,400);}
     if(aBusy){return setTimeout(attendLoop,300);}
     var v=$("camA"), stage=$("stageA");
     if(!v||!v.videoWidth){return setTimeout(attendLoop,250);}
@@ -1019,7 +1061,8 @@
     document.querySelectorAll("#ptGrid .pt").forEach(function(x){x.setAttribute("aria-pressed","false");});
     btn.setAttribute("aria-pressed","true");
     // reflect on the primary bar and collapse the panel
-    setPunchBar(btn.textContent + (S.punchReason?(" ("+S.punchReason+")"):""), "Ready - show the face", true);
+    setPunchBar(btn.textContent + (S.punchReason?(" ("+S.punchReason+")"):""), "Ready", true);
+    var bsub=$("baSub"); if(bsub) bsub.textContent=btn.textContent+" - tap to open camera";
     hidePtPanel();
     note($("noteA"),"","Punch type: "+btn.textContent+(S.punchReason?(" ("+S.punchReason+")"):"")+". Show faces to the camera.");
   }
@@ -1129,8 +1172,8 @@
     if(bd<=PUNCH_BUFFER_MIN){
       S.punchType=best[1];S.punchReason=null;markPtype(btn);
       setPunchBar(plabel(best[1]), sh.shift_name+" - "+tstr, true);
-      note($("noteA"),"",sh.shift_name+" - now: "+plabel(best[1])+" ("+tstr+"). Camera starting...");
-      camOn();
+      var bsub=$("baSub"); if(bsub) bsub.textContent=plabel(best[1])+" - tap to open camera";
+      note($("noteA"),"",sh.shift_name+" - "+plabel(best[1])+" ("+tstr+"). Tap the button to punch.");
     }else{
       btn.classList.add("suggest");
       setPunchBar(plabel(best[1])+"?", "Nearest ("+tstr+"), "+Math.round(bd)+" min away - tap Change to confirm", false);
@@ -1208,10 +1251,11 @@
     $("enroll").classList.toggle("hidden",m!=="enroll");
     $("btnMode").textContent=m==="enroll"?"Attendance":"Add worker";
     stopCam("a");stopCam("e");cancelCount();clearBox("trackA");clearBox("trackE");
+    S.camOpen=false; var _ov=$("camOverlay"); if(_ov) _ov.classList.add("hidden");
     if(m==="attend"){
       resetEnroll();
       if(!S.shift){api("get_shift",{project:PROJECT}).then(function(sh){S.shift=sh||{};});}
-      if(S.punchType){ camOn(); } else { camHint("Select the punch type to start the camera"); }
+      // do not auto-open the camera; the user taps the big Punch button
     }else if(m==="enroll"){
       startCam($("camE"),"e",S.facingE).then(function(){resetEnroll();enrollLoop();});
     }else if(m==="workers"){
@@ -1272,22 +1316,23 @@
     host.innerHTML=html;
   }
 
-  function showUpdateGate(server){
+  function showUpdateGate(server, whatsNew){
+    var items=(whatsNew&&whatsNew.length)
+      ? '<ul style="text-align:left;max-width:340px;margin:16px auto 0;padding-left:20px;line-height:1.6;font-size:14px;opacity:.95">'+
+          whatsNew.map(function(x){return "<li>"+esc(x)+"</li>";}).join("")+"</ul>"
+      : "";
     var d=document.createElement("div");
-    d.style.cssText="position:fixed;inset:0;z-index:9999;background:var(--brand);color:#fff;"+
+    d.style.cssText="position:fixed;inset:0;z-index:9999;background:var(--brand);color:#fff;overflow:auto;"+
       "display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px;font-family:inherit";
     d.innerHTML=
-      '<div style="font-size:22px;font-weight:800;margin-bottom:8px">Update required</div>'+
-      '<div style="font-size:15px;opacity:.92;max-width:320px;line-height:1.5">'+
-        'A new version of the SBI Site app is available. Update now to continue.</div>'+
-      '<div style="font-size:12px;opacity:.7;margin-top:10px">Installed '+APP_VERSION+' &#8594; Latest '+server+'</div>'+
-      '<button id="btnDoUpdate" style="margin-top:24px;background:#fff;color:var(--brand);border:0;'+
-        'border-radius:12px;padding:16px 28px;font-size:17px;font-weight:800;font-family:inherit">Update now</button>';
+      '<div style="font-size:23px;font-weight:800;margin-bottom:6px">Update available</div>'+
+      '<div style="font-size:12px;opacity:.75">Installed '+esc(APP_VERSION)+' &#8594; Latest '+esc(server)+'</div>'+
+      '<div style="font-size:14px;font-weight:700;opacity:.95;margin-top:18px">What\'s new</div>'+
+      items+
+      '<button id="btnDoUpdate" style="margin-top:26px;background:#fff;color:var(--brand);border:0;'+
+        'border-radius:12px;padding:16px 30px;font-size:17px;font-weight:800;font-family:inherit">Update now</button>';
     document.body.appendChild(d);
-    $("btnDoUpdate").onclick=function(){
-      this.textContent="Updating...";
-      doHardUpdate();
-    };
+    $("btnDoUpdate").onclick=function(){ this.textContent="Updating..."; doHardUpdate(); };
   }
 
   function doHardUpdate(){
@@ -1316,9 +1361,10 @@
     fetch("/api/method/sbi_projects.sbi_projects.sbi_site_api.app_version",{credentials:"same-origin"})
       .then(function(r){return r.json();})
       .then(function(j){
-        var server=j&&j.message&&j.message.version;
+        var m=j&&j.message;
+        var server=m&&m.version;
         if(server && APP_VERSION && server!==APP_VERSION){
-          showUpdateGate(server);
+          showUpdateGate(server, m.whats_new||[]);
         }
       }).catch(function(){});
   }
@@ -1337,6 +1383,11 @@
     buildPtypes();setupDrawer();setupTabs();loadHeaderInfo();loadShifts();
     var bs=$("btnShifts"); if(bs) bs.onclick=openShifts;
     var pc=$("pbChange"); if(pc) pc.onclick=togglePtPanel;
+    var bp=$("btnPunch"); if(bp) bp.onclick=function(){
+      if(!S.punchType){ showPtPanel(); note($("noteA"),"warn","Choose the punch type first (or set a shift)."); beep("warn"); return; }
+      camOn();
+    };
+    var cc=$("btnCamClose"); if(cc) cc.onclick=closeCam;
     $("wsInactive").onchange=loadRoster;
     $("btnBackToAttend").onclick=function(){setMode("attend");};
     $("btnRetake").onclick=function(){resetEnroll();};
