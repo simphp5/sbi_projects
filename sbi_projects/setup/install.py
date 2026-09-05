@@ -11,6 +11,7 @@ from sbi_projects.setup.quantity_rules import setup_quantity_rules
 from sbi_projects.setup.peb_link_fields import create_peb_link_fields
 from sbi_projects.setup.cockpit_install import install_cockpit
 from sbi_projects.setup.milestone_status_fields import create_milestone_status_fields
+from sbi_projects.setup.si_item_columns import create_si_item_columns
 
 
 def after_install():
@@ -40,6 +41,7 @@ def after_install():
 		create_peb_link_fields,
 		install_cockpit,
 		create_milestone_status_fields,
+		create_si_item_columns,
 	)
 	for step in steps:
 		try:

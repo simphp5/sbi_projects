@@ -165,6 +165,12 @@ def _build_invoice(so, selected, billing_mode, service_item, project):
 	# cost center: item + tax -> project General leaf
 	_apply_project_cost_center(si, project)
 
+	# milestone display columns on each item line
+	_stamp_item_columns(si, so, selected, total_portion, project)
+
+	# ensure an 18% GST line where the item carries no tax template
+	_ensure_default_gst(si)
+
 	si.run_method("calculate_taxes_and_totals")
 	_stamp_tax_cost_center(si, project)
 
@@ -202,6 +208,8 @@ def _apply_rate_scaled(si, so, total_portion):
 	so_rate = {d.name: flt(d.rate) for d in so.items}
 	rate_prec = frappe.get_precision("Sales Invoice Item", "rate") or 2
 
+	so_amount = {d.name: flt(d.amount) for d in so.items}
+
 	rows = []
 	for item in si.items:
 		orig_rate = so_rate.get(item.so_detail)
@@ -213,6 +221,8 @@ def _apply_rate_scaled(si, so, total_portion):
 		item.margin_rate_or_amount = 0
 		item.discount_percentage = 0
 		item.discount_amount = 0
+		# reference: full SO line value including 18% GST
+		item.sbi_total_incl_gst = flt(so_amount.get(item.so_detail, 0) * 1.18, 2)
 		if flt(item.rate) > 0 and flt(item.qty) > 0:
 			rows.append(item)
 
@@ -297,6 +307,66 @@ def _apply_service_item(si, so, selected, total_portion, service_item):
 			"rate": amount,
 		},
 	)
+
+
+# ---------------------------------------------------------------------------
+# Milestone display columns + default GST
+# ---------------------------------------------------------------------------
+
+
+def _stamp_item_columns(si, so, selected, total_portion, project):
+	"""Fill the reference columns (project / stage / term / portion) on each
+	invoice item line. Display only; does not affect totals or GST."""
+	stage = ", ".join(
+		[(t.get("sbi_stage") or t.payment_term or _("Term {0}").format(t.idx)) for t in selected]
+	)[:140]
+	term = ", ".join([(t.payment_term or "") for t in selected if t.payment_term])[:140]
+	for item in si.items:
+		item.sbi_project = project
+		item.sbi_stage = stage
+		item.sbi_payment_term = term
+		item.sbi_invoice_portion = flt(total_portion, 6)
+
+
+def _ensure_default_gst(si):
+	"""Apply an 18% GST tax template only when the invoice has no taxes yet.
+
+	If the items already resolve a tax template (Item Tax Template / the SO
+	taxes copied by make_sales_invoice), that is respected and this does
+	nothing. Rare non-18% cases stay user-editable.
+	"""
+	if si.get("taxes"):
+		return
+
+	template = _default_gst_template(si.company)
+	if not template:
+		return
+
+	si.taxes_and_charges = template
+	from erpnext.controllers.accounts_controller import get_taxes_and_charges
+
+	for row in get_taxes_and_charges("Sales Taxes and Charges Template", template):
+		si.append("taxes", row)
+
+
+def _default_gst_template(company):
+	"""Find an in-state Output GST @18% sales tax template for the company."""
+	# prefer a template whose name hints at output GST / 18
+	candidates = frappe.get_all(
+		"Sales Taxes and Charges Template",
+		filters={"company": company, "disabled": 0},
+		fields=["name", "is_default"],
+	)
+	if not candidates:
+		return None
+	for c in candidates:
+		n = (c.name or "").lower()
+		if "output" in n and ("18" in n or "in-state" in n or "in state" in n):
+			return c.name
+	for c in candidates:
+		if c.is_default:
+			return c.name
+	return candidates[0].name
 
 
 # ---------------------------------------------------------------------------
