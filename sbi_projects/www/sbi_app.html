@@ -1,0 +1,59 @@
+{% raw %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SBI Site Attendance</title>
+<link rel="manifest" href="/sbi_site_manifest.json">
+<meta name="theme-color" content="#be1e2d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SBI Site">
+<link rel="apple-touch-icon" href="/assets/sbi_projects/site_app/apple-touch-icon.png">
+<link rel="icon" href="/assets/sbi_projects/site_app/icon-192.png">
+<style>
+  html,body{margin:0;height:100%;background:#be1e2d;color:#fff;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+  img{height:80px;background:#fff;padding:10px;border-radius:18px}
+  h1{margin:18px 0 6px;font-size:22px;font-weight:800}
+  p{margin:0;opacity:.9;font-size:14px}
+  .sp{margin-top:22px;width:34px;height:34px;border:3px solid rgba(255,255,255,.35);
+    border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  a.btn{margin-top:22px;background:#fff;color:#be1e2d;text-decoration:none;
+    padding:14px 26px;border-radius:12px;font-weight:800;font-size:16px}
+</style>
+</head>
+<body>
+  <img src="/assets/sbi_projects/site_app/sbi-logo-full.png" alt="SBI">
+  <h1>SBI Site Attendance</h1>
+  <p id="msg">Starting the app...</p>
+  <div class="sp" id="sp"></div>
+  <a class="btn" id="openBtn" href="/sbi_site" style="display:none">Open app</a>
+
+  <script>
+    // register the service worker so this counts as an installable PWA
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sbi_site_sw.js", { scope: "/" }).catch(function(){});
+    }
+    var loggedIn = {{ "true" if logged_in else "false" }};
+    // if launched as an installed app, go straight to the real app
+    var standalone = window.matchMedia("(display-mode: standalone)").matches
+      || window.navigator.standalone === true;
+    if (loggedIn) {
+      location.replace("/sbi_site");
+    } else {
+      document.getElementById("msg").textContent = "Please sign in to continue.";
+      document.getElementById("sp").style.display = "none";
+      var b = document.getElementById("openBtn");
+      b.href = "/login?redirect-to=/sbi_site";
+      b.textContent = "Sign in";
+      b.style.display = "inline-block";
+    }
+  </script>
+</body>
+</html>
+{% endraw %}
