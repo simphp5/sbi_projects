@@ -1,0 +1,77 @@
+{% raw %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SBI Site App - Download</title>
+<link rel="icon" href="/assets/sbi_projects/site_app/icon-192.png">
+<style>
+  :root{--brand:#be1e2d;--ink:#141414;--soft:#6b7280;--line:#e5e7eb;--bg:#f5f6f8;--card:#fff}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:520px;margin:0 auto;padding:0 16px 40px}
+  .hero{background:var(--brand);color:#fff;text-align:center;padding:36px 20px 30px;
+    border-radius:0 0 24px 24px;margin-bottom:24px}
+  .hero img{height:64px;background:#fff;padding:8px;border-radius:14px}
+  .hero h1{margin:16px 0 4px;font-size:24px;font-weight:800}
+  .hero p{margin:0;opacity:.9;font-size:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;
+    padding:18px;margin-bottom:14px;display:flex;align-items:center;gap:16px;
+    box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .card .ic{width:52px;height:52px;flex:0 0 auto;border-radius:14px;display:flex;
+    align-items:center;justify-content:center;font-size:26px;color:#fff}
+  .ic.android{background:#3ddc84}.ic.apple{background:#111}.ic.windows{background:#0078d4}.ic.web{background:var(--brand)}
+  .card .tx{flex:1;min-width:0}
+  .card .tx b{display:block;font-size:16px;font-weight:800}
+  .card .tx small{display:block;color:var(--soft);font-size:13px;margin-top:2px}
+  .card a,.card button{background:var(--brand);color:#fff;border:0;border-radius:10px;
+    padding:11px 16px;font-size:14px;font-weight:800;text-decoration:none;white-space:nowrap;
+    font-family:inherit;cursor:pointer}
+  .card a.disabled{background:var(--line);color:var(--soft);pointer-events:none}
+  .note{text-align:center;color:var(--soft);font-size:13px;margin-top:18px;line-height:1.6}
+  .ver{text-align:center;color:var(--soft);font-size:12px;margin-top:8px}
+</style>
+</head>
+<body>
+  <div class="hero">
+    <img src="/assets/sbi_projects/site_app/sbi-logo-full.png" alt="SBI">
+    <h1>SBI Site App</h1>
+    <p>Face attendance and site management</p>
+  </div>
+  <div class="wrap">
+
+    <div class="card">
+      <div class="ic web">&#127760;</div>
+      <div class="tx"><b>Open web app</b><small>Works on any phone, no install</small></div>
+      <a href="/sbi_site">Open</a>
+    </div>
+
+    <div class="card">
+      <div class="ic android">&#128241;</div>
+      <div class="tx"><b>Android app (APK)</b><small>Install on Android phones/tablets</small></div>
+      {% if apk_url %}<a href="{{ apk_url }}">Download</a>{% else %}<a class="disabled">Soon</a>{% endif %}
+    </div>
+
+    <div class="card">
+      <div class="ic apple">&#63743;</div>
+      <div class="tx"><b>iPhone / iPad</b><small>Install from the App Store</small></div>
+      {% if ios_url %}<a href="{{ ios_url }}">Open</a>{% else %}<a class="disabled">Soon</a>{% endif %}
+    </div>
+
+    <div class="card">
+      <div class="ic windows">&#128421;</div>
+      <div class="tx"><b>Windows app (EXE)</b><small>Install on a Windows PC</small></div>
+      {% if exe_url %}<a href="{{ exe_url }}">Download</a>{% else %}<a class="disabled">Soon</a>{% endif %}
+    </div>
+
+    <div class="note">
+      On Android/iPhone you can also open the web app and choose<br>
+      "Add to Home screen" to install it like an app.
+    </div>
+    <div class="ver">SBI Site App</div>
+  </div>
+</body>
+</html>
+{% endraw %}
