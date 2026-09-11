@@ -87,3 +87,40 @@ fixtures = [
 # SBI: open the print view in a new browser tab
 # ---------------------------------------------------------------------------
 app_include_js = "/assets/sbi_projects/js/sbi_print_newtab.js"
+
+
+# --- SBI print format wiring (auto-added) ---
+try:
+    jinja
+except NameError:
+    jinja = {}
+
+if not isinstance(jinja, dict):
+    jinja = {}
+
+jinja.setdefault("methods", [])
+for _sbi_m in [
+    "sbi_projects.utils.print_helpers.invoice_ctx",
+    "sbi_projects.utils.print_helpers.stage_line",
+    "sbi_projects.utils.print_helpers.hsn_summary",
+    "sbi_projects.utils.print_helpers.in_words",
+    "sbi_projects.utils.print_helpers.amt",
+    "sbi_projects.utils.print_helpers.pct",
+    "sbi_projects.utils.print_helpers.fdate",
+    "sbi_projects.utils.print_helpers.qr_base64",
+]:
+    if _sbi_m not in jinja["methods"]:
+        jinja["methods"].append(_sbi_m)
+
+try:
+    after_migrate
+except NameError:
+    after_migrate = []
+
+if isinstance(after_migrate, str):
+    after_migrate = [after_migrate]
+
+if "sbi_projects.setup.print_formats.sync_print_formats" not in after_migrate:
+    after_migrate = list(after_migrate) + [
+        "sbi_projects.setup.print_formats.sync_print_formats"
+    ]

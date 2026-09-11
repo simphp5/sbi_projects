@@ -1,0 +1,275 @@
+{%- set c = invoice_ctx(doc) -%}
+<style>
+  .sbi-inv { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #000; width: 100%; }
+  .sbi-inv table { border-collapse: collapse; width: 100%; }
+  .sbi-inv td, .sbi-inv th { vertical-align: top; padding: 3px 5px; }
+  .sbi-inv .bx { border: 1px solid #000; }
+  .sbi-inv .bt { border-top: 1px solid #000; }
+  .sbi-inv .bb { border-bottom: 1px solid #000; }
+  .sbi-inv .bl { border-left: 1px solid #000; }
+  .sbi-inv .br { border-right: 1px solid #000; }
+  .sbi-inv .ctr { text-align: center; }
+  .sbi-inv .rgt { text-align: right; }
+  .sbi-inv .b { font-weight: bold; }
+  .sbi-inv .sm { font-size: 10px; }
+  .sbi-inv .it { font-style: italic; }
+  .sbi-inv .ttl { font-size: 13px; letter-spacing: .5px; }
+  .sbi-inv .lbl { color: #000; }
+  .sbi-inv .co-name { font-size: 13px; font-weight: bold; }
+  .sbi-inv .pty { font-size: 12px; font-weight: bold; }
+  .sbi-inv .nowrap { white-space: nowrap; }
+  .sbi-inv .items td { border-left: 1px solid #000; border-right: 1px solid #000; }
+  .sbi-inv .filler td { height: 130px; border-bottom: 1px solid #000; }
+  .sbi-inv .foot { text-align: center; padding-top: 10px; font-size: 10px; }
+  .sbi-inv .sign { height: 70px; }
+  @media print { .sbi-inv { font-size: 11px; } }
+</style>
+
+<div class="sbi-inv">
+
+  {%- if c.is_einvoice %}
+  <table>
+    <tr>
+      <td style="width:70%">
+        <div class="ctr ttl" style="margin-bottom:8px;">Tax Invoice</div>
+        <table class="sm">
+          <tr><td style="width:70px">IRN</td><td class="b" style="word-break:break-all">{{ c.irn }}</td></tr>
+          <tr><td>Ack No.</td><td class="b">{{ c.ack_no }}</td></tr>
+          <tr><td>Ack Date</td><td class="b">{{ c.ack_date }}</td></tr>
+        </table>
+      </td>
+      <td class="ctr" style="width:30%">
+        <div class="sm">e-Invoice</div>
+        {%- if c.qr %}
+        <img src="data:image/png;base64,{{ c.qr }}" style="width:120px;height:120px;margin-top:4px;">
+        {%- endif %}
+      </td>
+    </tr>
+  </table>
+  {%- else %}
+  <div class="ctr ttl" style="margin-bottom:8px;">Tax Invoice</div>
+  {%- endif %}
+
+  <!-- ============ header ============ -->
+  <table class="bx">
+    <tr>
+      <td class="br bb" style="width:55%">
+        <table>
+          <tr>
+            {%- if c.logo %}
+            <td style="width:80px"><img src="{{ c.logo }}" style="max-width:75px;max-height:55px;"></td>
+            {%- endif %}
+            <td>
+              <div class="co-name">{{ c.company.name }}</div>
+              {%- for l in c.company.lines %}<div>{{ l }}</div>{% endfor %}
+              <div>GSTIN/UIN : {{ c.company.gstin }}</div>
+              <div>State Name : {{ c.company.state }}, Code : {{ c.company.state_code }}</div>
+              {%- if c.company.email %}<div>E-Mail : {{ c.company.email }}</div>{% endif %}
+            </td>
+          </tr>
+        </table>
+      </td>
+      <td class="bb" style="width:45%;padding:0">
+        <table>
+          <tr>
+            <td class="br bb" style="width:50%">
+              <div class="sm lbl">Invoice No</div>
+              <div class="b">{{ c.invoice_no }}</div>
+            </td>
+            <td class="bb" style="width:50%">
+              <div class="sm lbl">Dated</div>
+              <div class="b">{{ c.invoice_date }}</div>
+            </td>
+          </tr>
+          <tr>
+            <td class="br">
+              <div class="sm lbl">Reference No. &amp; Date</div>
+              <div class="b">{{ c.po_no }}{% if c.po_date %} dt. {{ c.po_date }}{% endif %}&nbsp;</div>
+            </td>
+            <td>
+              <div class="sm lbl">Other References</div>
+              <div class="b">&nbsp;</div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td class="br bb">
+        <div class="sm lbl">Consignee (Ship to)</div>
+        <div class="pty">{{ c.consignee.name }}</div>
+        {%- for l in c.consignee.lines %}<div>{{ l }}</div>{% endfor %}
+        <div>GSTIN/UIN &nbsp;: {{ c.consignee.gstin }}</div>
+        <div>State Name &nbsp;: {{ c.consignee.state }}, Code : {{ c.consignee.state_code }}</div>
+      </td>
+      <td class="bb">&nbsp;</td>
+    </tr>
+    <tr>
+      <td class="br bb">
+        <div class="sm lbl">Buyer (Bill to)</div>
+        <div class="pty">{{ c.buyer.name }}</div>
+        {%- for l in c.buyer.lines %}<div>{{ l }}</div>{% endfor %}
+        <div>GSTIN/UIN &nbsp;: {{ c.buyer.gstin }}</div>
+        <div>State Name &nbsp;: {{ c.buyer.state }}, Code : {{ c.buyer.state_code }}</div>
+      </td>
+      <td class="bb">&nbsp;</td>
+    </tr>
+  </table>
+
+  <!-- ============ items ============ -->
+  <table class="bl br bb">
+    <tr class="b ctr">
+      <td class="br bb" style="width:6%">Sl<br>No</td>
+      <td class="br bb" style="width:54%">Particulars</td>
+      <td class="br bb" style="width:16%">HSN/SAC</td>
+      <td class="bb" style="width:24%">Amount</td>
+    </tr>
+
+    {%- for row in doc.items %}
+    {%- set sl = stage_line(row) %}
+    <tr>
+      <td class="br ctr">{{ loop.index }}</td>
+      <td class="br">
+        <div class="b" style="font-size:12px">{{ row.item_name }}</div>
+        {%- if row.description and row.description|striptags|trim != row.item_name %}
+        <div class="it">{{ row.description|striptags|trim|replace("\n", "<br>")|safe }}</div>
+        {%- endif %}
+        {%- if sl %}<div class="it">{{ sl }}</div>{% endif %}
+      </td>
+      <td class="br ctr">{{ row.gst_hsn_code or "" }}</td>
+      <td class="rgt b">{{ amt(row.amount) }}</td>
+    </tr>
+    {%- endfor %}
+
+    {%- for t in c.tax_rows %}
+    <tr>
+      <td class="br">&nbsp;</td>
+      <td class="br rgt b">{{ t.label }}</td>
+      <td class="br">&nbsp;</td>
+      <td class="rgt b">{{ amt(t.amount) }}</td>
+    </tr>
+    {%- endfor %}
+
+    <tr class="filler">
+      <td class="br">&nbsp;</td>
+      <td class="br">&nbsp;</td>
+      <td class="br">&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+
+    <tr class="b">
+      <td class="br">&nbsp;</td>
+      <td class="br rgt">Total</td>
+      <td class="br">&nbsp;</td>
+      <td class="rgt" style="font-size:13px">&#8377; {{ amt(c.grand_total) }}</td>
+    </tr>
+  </table>
+
+  <!-- ============ amount in words ============ -->
+  <table>
+    <tr>
+      <td style="padding:3px 0">
+        <div class="sm lbl">Amount Chargeable (in words)</div>
+        <div class="b" style="font-size:12px">{{ in_words(c.grand_total, doc.currency) }}</div>
+      </td>
+      <td class="rgt sm it" style="width:20%">E. &amp; O.E</td>
+    </tr>
+  </table>
+
+  <!-- ============ hsn summary ============ -->
+  <table class="bx">
+    {%- if c.hsn.has_igst %}
+    <tr class="b ctr">
+      <td class="br bb" rowspan="2" style="width:34%;vertical-align:middle">HSN/SAC</td>
+      <td class="br bb" rowspan="2" style="width:18%;vertical-align:middle">Taxable<br>Value</td>
+      <td class="br bb" colspan="2" style="width:30%">IGST</td>
+      <td class="bb" rowspan="2" style="width:18%;vertical-align:middle">Total<br>Tax Amount</td>
+    </tr>
+    <tr class="b ctr">
+      <td class="br bb" style="width:10%">Rate</td>
+      <td class="br bb" style="width:20%">Amount</td>
+    </tr>
+    {%- for r in c.hsn.rows %}
+    <tr>
+      <td class="br bb">{{ r.hsn }}</td>
+      <td class="br bb rgt">{{ amt(r.taxable) }}</td>
+      <td class="br bb ctr">{{ pct(r.igst_rate) }}%</td>
+      <td class="br bb rgt">{{ amt(r.igst) }}</td>
+      <td class="bb rgt">{{ amt(r.total_tax) }}</td>
+    </tr>
+    {%- endfor %}
+    <tr class="b">
+      <td class="br rgt">Total</td>
+      <td class="br rgt">{{ amt(c.hsn.total.taxable) }}</td>
+      <td class="br">&nbsp;</td>
+      <td class="br rgt">{{ amt(c.hsn.total.igst) }}</td>
+      <td class="rgt">{{ amt(c.hsn.total.total_tax) }}</td>
+    </tr>
+    {%- else %}
+    <tr class="b ctr">
+      <td class="br bb" rowspan="2" style="width:28%;vertical-align:middle">HSN/SAC</td>
+      <td class="br bb" rowspan="2" style="width:14%;vertical-align:middle">Taxable<br>Value</td>
+      <td class="br bb" colspan="2" style="width:22%">CGST</td>
+      <td class="br bb" colspan="2" style="width:22%">SGST/UTGST</td>
+      <td class="bb" rowspan="2" style="width:14%;vertical-align:middle">Total<br>Tax Amount</td>
+    </tr>
+    <tr class="b ctr">
+      <td class="br bb" style="width:7%">Rate</td>
+      <td class="br bb" style="width:15%">Amount</td>
+      <td class="br bb" style="width:7%">Rate</td>
+      <td class="br bb" style="width:15%">Amount</td>
+    </tr>
+    {%- for r in c.hsn.rows %}
+    <tr>
+      <td class="br bb">{{ r.hsn }}</td>
+      <td class="br bb rgt">{{ amt(r.taxable) }}</td>
+      <td class="br bb ctr">{{ pct(r.cgst_rate) }}%</td>
+      <td class="br bb rgt">{{ amt(r.cgst) }}</td>
+      <td class="br bb ctr">{{ pct(r.sgst_rate) }}%</td>
+      <td class="br bb rgt">{{ amt(r.sgst) }}</td>
+      <td class="bb rgt">{{ amt(r.total_tax) }}</td>
+    </tr>
+    {%- endfor %}
+    <tr class="b">
+      <td class="br rgt">Total</td>
+      <td class="br rgt">{{ amt(c.hsn.total.taxable) }}</td>
+      <td class="br">&nbsp;</td>
+      <td class="br rgt">{{ amt(c.hsn.total.cgst) }}</td>
+      <td class="br">&nbsp;</td>
+      <td class="br rgt">{{ amt(c.hsn.total.sgst) }}</td>
+      <td class="rgt">{{ amt(c.hsn.total.total_tax) }}</td>
+    </tr>
+    {%- endif %}
+  </table>
+
+  <!-- ============ tax in words + bank ============ -->
+  <table>
+    <tr>
+      <td style="padding:4px 0">
+        <span class="sm lbl">Tax Amount (in words)</span>
+        <span class="b" style="font-size:12px;padding-left:14px">{{ in_words(c.hsn.total.total_tax, doc.currency) }}</span>
+      </td>
+    </tr>
+  </table>
+
+  <table class="bx">
+    <tr>
+      <td>
+        <div class="sm lbl">Company's Bank Details</div>
+        <table class="sm">
+          <tr><td style="width:130px">Bank Name</td><td class="b">{{ c.bank.bank_name }}</td></tr>
+          <tr><td>A/c No.</td><td class="b">{{ c.bank.account_no }}</td></tr>
+          <tr><td>Branch &amp; IFS Code</td><td class="b">{{ c.bank.branch }}</td></tr>
+        </table>
+      </td>
+      <td class="rgt" style="width:40%">
+        <div class="b">for {{ c.company.name }}</div>
+        <div class="sign">&nbsp;</div>
+        <div class="sm">Authorised Signatory</div>
+      </td>
+    </tr>
+  </table>
+
+  <div class="foot">This is a Computer Generated Invoice</div>
+
+</div>
