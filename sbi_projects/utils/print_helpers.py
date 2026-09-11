@@ -103,7 +103,36 @@ def _pick(row, fields):
 	return None
 
 
-def stage_parts(row):
+def _stage_no_from_sales_order(row):
+	"""Milestone position = row index of this payment term in the SO payment schedule."""
+	so = row.get("sales_order")
+	if not so:
+		return None
+	term = row.get("payment_term")
+	if term:
+		idx = frappe.db.get_value(
+			"Payment Schedule",
+			{"parent": so, "parenttype": "Sales Order", "payment_term": term},
+			"idx",
+		)
+		if idx:
+			return int(idx)
+
+	description = row.get("description") or ""
+	if description:
+		schedule = frappe.get_all(
+			"Payment Schedule",
+			filters={"parent": so, "parenttype": "Sales Order"},
+			fields=["idx", "description"],
+			order_by="idx",
+		)
+		for entry in schedule:
+			if entry.description and entry.description.strip()[:40] in description:
+				return int(entry.idx)
+	return None
+
+
+def stage_parts(row, parent=None):
 	"""Return (stage_no, stage_name, portion) for a Sales Invoice Item row."""
 	stage_no = _pick(row, _STAGE_NO)
 	stage_name = _pick(row, _STAGE_NAME)
@@ -120,6 +149,11 @@ def stage_parts(row):
 		match = re.search(r"(\d+)", str(term))
 		if match:
 			stage_no = match.group(1)
+	if not stage_no:
+		stage_no = _stage_no_from_sales_order(row)
+	if not stage_no and parent is not None:
+		stage_no = parent.get("sbi_stage_no") or None
+
 	if stage_name:
 		stage_name = re.sub(
 			r"^\s*stage\s*[#:\-]*\s*\d*\s*[-:]*\s*", "", str(stage_name), flags=re.I
@@ -127,9 +161,9 @@ def stage_parts(row):
 	return stage_no, stage_name, portion
 
 
-def stage_line(row):
+def stage_line(row, parent=None):
 	"""Build:  Stage : #2 - Plinth Beam - 30%"""
-	stage_no, stage_name, portion = stage_parts(row)
+	stage_no, stage_name, portion = stage_parts(row, parent)
 	if not (stage_no or stage_name or portion):
 		return ""
 	parts = ["Stage : #%s" % stage_no if stage_no else "Stage"]
@@ -314,12 +348,16 @@ def bank_block(doc=None, company=None, bank_account=None):
 	if not name and company:
 		name = frappe.db.get_value("Company", company, "default_bank_account")
 	if not name and company:
-		name = frappe.db.get_value(
-			"Bank Account",
+		for filters in (
 			{"company": company, "is_company_account": 1, "disabled": 0},
-			"name",
-			order_by="is_default desc, modified desc",
-		)
+			{"company": company, "disabled": 0},
+			{"is_company_account": 1, "disabled": 0},
+		):
+			name = frappe.db.get_value(
+				"Bank Account", filters, "name", order_by="is_default desc, modified desc"
+			)
+			if name:
+				break
 	if not name:
 		return out
 

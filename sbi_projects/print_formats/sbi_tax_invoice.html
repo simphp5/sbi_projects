@@ -127,7 +127,7 @@
     </tr>
 
     {%- for row in doc.items %}
-    {%- set sl = stage_line(row) %}
+    {%- set sl = stage_line(row, doc) %}
     <tr>
       <td class="br ctr">{{ loop.index }}</td>
       <td class="br">

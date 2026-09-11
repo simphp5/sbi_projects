@@ -57,7 +57,7 @@ def sales_invoice_validate(doc, method=None):
 	stage_no = None
 	stage_name = None
 	for row in doc.get("items") or []:
-		no, name, _portion = stage_parts(row)
+		no, name, _portion = stage_parts(row, doc)
 		if no and not stage_no:
 			stage_no = no
 		if name and not stage_name:
@@ -82,3 +82,62 @@ def sales_invoice_validate(doc, method=None):
 					if not doc.get("po_date") and so.po_date:
 						doc.po_date = so.po_date
 				break
+
+
+@frappe.whitelist()
+def backfill_stage_no(limit=500):
+	"""Stamp Stage No / Stage Name on existing Sales Invoices (drafts + submitted)."""
+	from sbi_projects.utils.print_helpers import stage_parts
+
+	frappe.only_for("System Manager")
+	names = frappe.get_all(
+		"Sales Invoice",
+		filters={"docstatus": ["<", 2]},
+		pluck="name",
+		order_by="creation desc",
+		limit_page_length=int(limit),
+	)
+
+	updated = 0
+	for name in names:
+		doc = frappe.get_doc("Sales Invoice", name)
+		stage_no = None
+		stage_name = None
+		for row in doc.get("items") or []:
+			no, sname, _portion = stage_parts(row, doc)
+			if no and not stage_no:
+				stage_no = no
+			if sname and not stage_name:
+				stage_name = sname
+			if stage_no:
+				break
+
+		po_no = doc.get("po_no")
+		po_date = doc.get("po_date")
+		if not po_no:
+			for row in doc.get("items") or []:
+				if row.get("sales_order"):
+					so = frappe.db.get_value(
+						"Sales Order", row.sales_order, ["po_no", "po_date"], as_dict=True
+					)
+					if so and so.po_no:
+						po_no = so.po_no
+						po_date = po_date or so.po_date
+					break
+
+		values = {
+			"sbi_stage_no": str(stage_no) if stage_no else "",
+			"sbi_stage_name": stage_name or "",
+		}
+		if po_no:
+			values["po_no"] = po_no
+			if po_date:
+				values["po_date"] = po_date
+
+		changed = any(doc.get(k) != v for k, v in values.items())
+		if changed:
+			frappe.db.set_value("Sales Invoice", name, values, update_modified=False)
+			updated += 1
+
+	frappe.db.commit()
+	return {"scanned": len(names), "updated": updated}

@@ -42,10 +42,7 @@ frappe.ui.form.on('Sales Invoice', {
                         { fieldtype: 'HTML', fieldname: 'preview' },
                         {
                             fieldtype: 'Link', fieldname: 'bank_account',
-                            label: __('Bank Account'), options: 'Bank Account',
-                            get_query: () => ({
-                                filters: { company: frm.doc.company, is_company_account: 1 }
-                            })
+                            label: __('Bank Account'), options: 'Bank Account'
                         },
                         { fieldtype: 'HTML', fieldname: 'hint' }
                     ],
@@ -259,12 +256,15 @@ def _sync_properties():
 	# let the bank account be corrected after submit (needed by the print dialog)
 	_property_setter("Sales Invoice", "company_bank_account", "allow_on_submit", "1", "Check")
 
+	# show the document ID as the first (subject) column in list views
+	_property_setter("Sales Order", None, "title_field", "name", "Data")
+	_property_setter("Sales Invoice", None, "title_field", "name", "Data")
+
 
 # ---------------------------------------------------------------- list views
 
 
 SO_LIST_FIELDS = [
-	{"fieldname": "name", "label": "ID"},
 	{"fieldname": "customer_name", "label": "Customer Name"},
 	{"fieldname": "project", "label": "Project"},
 	{"fieldname": "grand_total", "label": "Grand Total"},
@@ -272,7 +272,6 @@ SO_LIST_FIELDS = [
 ]
 
 SI_LIST_FIELDS = [
-	{"fieldname": "name", "label": "ID"},
 	{"fieldname": "customer_name", "label": "Customer Name"},
 	{"fieldname": "project", "label": "Project"},
 	{"fieldname": "sbi_stage_no", "label": "Stage No"},
