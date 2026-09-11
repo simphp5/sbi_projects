@@ -1,4 +1,3 @@
-{% raw %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -40,20 +39,20 @@
       navigator.serviceWorker.register("/sbi_site_sw.js", { scope: "/" }).catch(function(){});
     }
     var loggedIn = {{ "true" if logged_in else "false" }};
-    // if launched as an installed app, go straight to the real app
-    var standalone = window.matchMedia("(display-mode: standalone)").matches
-      || window.navigator.standalone === true;
-    if (loggedIn) {
-      location.replace("/sbi_site");
-    } else {
-      document.getElementById("msg").textContent = "Please sign in to continue.";
-      document.getElementById("sp").style.display = "none";
+    var target = loggedIn ? "/sbi_site" : "/login?redirect-to=/sbi_site";
+
+    // always show a manual button quickly, in case the auto-redirect is blocked
+    setTimeout(function(){
+      var sp = document.getElementById("sp");
       var b = document.getElementById("openBtn");
-      b.href = "/login?redirect-to=/sbi_site";
-      b.textContent = "Sign in";
-      b.style.display = "inline-block";
-    }
+      var msg = document.getElementById("msg");
+      if (sp) sp.style.display = "none";
+      if (msg) msg.textContent = loggedIn ? "Ready." : "Please sign in to continue.";
+      if (b){ b.href = target; b.textContent = loggedIn ? "Open app" : "Sign in"; b.style.display = "inline-block"; }
+    }, 1200);
+
+    // try the auto-redirect right away
+    try { location.href = target; } catch(e) {}
   </script>
 </body>
 </html>
-{% endraw %}
