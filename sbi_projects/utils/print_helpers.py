@@ -81,7 +81,7 @@ def qr_base64(data):
 # ---------------------------------------------------------------- stage line
 
 
-_STAGE_NO = ("sbi_stage_no", "stage_no", "sbi_stage_index", "sbi_stage_number", "idx_stage")
+_STAGE_NO = ("sbi_stage_no", "stage_no", "sbi_stage_index", "sbi_stage_number")
 _STAGE_NAME = ("sbi_stage", "sbi_stage_name", "stage", "stage_name", "sbi_milestone", "milestone")
 _STAGE_PCT = (
 	"sbi_invoice_portion",
@@ -103,12 +103,12 @@ def _pick(row, fields):
 	return None
 
 
-def stage_line(row):
-	"""Build:  Stage : #2 - Plinth Beam - 30%"""
+def stage_parts(row):
+	"""Return (stage_no, stage_name, portion) for a Sales Invoice Item row."""
 	stage_no = _pick(row, _STAGE_NO)
 	stage_name = _pick(row, _STAGE_NAME)
 	portion = _pick(row, _STAGE_PCT)
-	term = None
+
 	try:
 		term = row.get("payment_term")
 	except Exception:
@@ -121,11 +121,17 @@ def stage_line(row):
 		if match:
 			stage_no = match.group(1)
 	if stage_name:
-		stage_name = re.sub(r"^\s*stage\s*[#:\-]*\s*\d*\s*[-:]*\s*", "", str(stage_name), flags=re.I).strip()
+		stage_name = re.sub(
+			r"^\s*stage\s*[#:\-]*\s*\d*\s*[-:]*\s*", "", str(stage_name), flags=re.I
+		).strip()
+	return stage_no, stage_name, portion
 
+
+def stage_line(row):
+	"""Build:  Stage : #2 - Plinth Beam - 30%"""
+	stage_no, stage_name, portion = stage_parts(row)
 	if not (stage_no or stage_name or portion):
 		return ""
-
 	parts = ["Stage : #%s" % stage_no if stage_no else "Stage"]
 	if stage_name:
 		parts.append(str(stage_name))
@@ -156,9 +162,9 @@ def _address_block(address_name):
 	return out
 
 
-def _state_code(state, fallback_gstin=None):
-	if fallback_gstin and len(fallback_gstin) >= 2 and fallback_gstin[:2].isdigit():
-		return fallback_gstin[:2]
+def _state_code(gstin):
+	if gstin and len(gstin) >= 2 and gstin[:2].isdigit():
+		return gstin[:2]
 	return ""
 
 
@@ -189,6 +195,8 @@ def _item_wise_tax(doc):
 			detail = json.loads(tax.item_wise_tax_detail)
 		except Exception:
 			continue
+		if not isinstance(detail, dict):
+			continue
 		for code, value in detail.items():
 			if isinstance(value, dict):
 				rate = flt(value.get("tax_rate"))
@@ -204,6 +212,21 @@ def _item_wise_tax(doc):
 	return out
 
 
+def _blank_row(hsn):
+	return {
+		"hsn": hsn,
+		"taxable": 0.0,
+		"cgst_rate": 0.0,
+		"cgst": 0.0,
+		"sgst_rate": 0.0,
+		"sgst": 0.0,
+		"igst_rate": 0.0,
+		"igst": 0.0,
+		"cess": 0.0,
+		"total_tax": 0.0,
+	}
+
+
 def hsn_summary(doc):
 	"""Return {'rows': [...], 'total': {...}, 'has_igst': bool}"""
 	if isinstance(doc, str):
@@ -216,21 +239,7 @@ def hsn_summary(doc):
 	for row in doc.get("items") or []:
 		hsn = row.get("gst_hsn_code") or row.get("hsn_code") or ""
 		code_to_hsn.setdefault(row.item_code, hsn)
-		entry = rows.setdefault(
-			hsn,
-			{
-				"hsn": hsn,
-				"taxable": 0.0,
-				"cgst_rate": 0.0,
-				"cgst": 0.0,
-				"sgst_rate": 0.0,
-				"sgst": 0.0,
-				"igst_rate": 0.0,
-				"igst": 0.0,
-				"cess": 0.0,
-				"total_tax": 0.0,
-			},
-		)
+		entry = rows.setdefault(hsn, _blank_row(hsn))
 		entry["taxable"] += flt(row.get("net_amount") or row.get("amount"))
 
 	for code, buckets in item_tax.items():
@@ -246,15 +255,38 @@ def hsn_summary(doc):
 				if key != "cess":
 					entry[key + "_rate"] = flt(buckets[key]["rate"]) or entry[key + "_rate"]
 
+	# ---- fallback: item_wise_tax_detail missing / unparseable -> distribute
+	parsed_tax = sum(
+		[r["cgst"] + r["sgst"] + r["igst"] + r["cess"] for r in rows.values()]
+	)
+	doc_tax = sum([flt(t.base_tax_amount or t.tax_amount) for t in (doc.get("taxes") or [])])
+	if rows and flt(parsed_tax, 2) == 0 and flt(doc_tax, 2) != 0:
+		base = sum([r["taxable"] for r in rows.values()]) or 1.0
+		for tax in doc.get("taxes") or []:
+			key = _tax_key(tax.account_head)
+			if not key:
+				continue
+			amount = flt(tax.base_tax_amount or tax.tax_amount)
+			if not amount:
+				continue
+			rate = flt(tax.rate)
+			if not rate and base:
+				rate = flt(amount * 100.0 / base, 2)
+			keys = list(rows.keys())
+			running = 0.0
+			for idx, hsn in enumerate(keys):
+				entry = rows[hsn]
+				if idx == len(keys) - 1:
+					share = amount - running
+				else:
+					share = flt(amount * entry["taxable"] / base, 2)
+					running += share
+				entry[key] += share
+				if key != "cess":
+					entry[key + "_rate"] = rate or entry[key + "_rate"]
+
 	out_rows = []
-	total = {
-		"taxable": 0.0,
-		"cgst": 0.0,
-		"sgst": 0.0,
-		"igst": 0.0,
-		"cess": 0.0,
-		"total_tax": 0.0,
-	}
+	total = {"taxable": 0.0, "cgst": 0.0, "sgst": 0.0, "igst": 0.0, "cess": 0.0, "total_tax": 0.0}
 	for entry in rows.values():
 		entry["total_tax"] = entry["cgst"] + entry["sgst"] + entry["igst"] + entry["cess"]
 		out_rows.append(entry)
@@ -262,11 +294,85 @@ def hsn_summary(doc):
 			total[key] += entry[key]
 
 	out_rows.sort(key=lambda x: x["hsn"] or "")
-	has_igst = total["igst"] > 0
-	return {"rows": out_rows, "total": total, "has_igst": has_igst}
+	return {"rows": out_rows, "total": total, "has_igst": total["igst"] > 0}
+
+
+# ---------------------------------------------------------------- bank
+
+
+def bank_block(doc=None, company=None, bank_account=None):
+	out = {
+		"bank_account": "",
+		"bank_name": "",
+		"account_no": "",
+		"branch": "",
+		"complete": False,
+	}
+	name = bank_account
+	if not name and doc is not None:
+		name = doc.get("company_bank_account")
+	if not name and company:
+		name = frappe.db.get_value("Company", company, "default_bank_account")
+	if not name and company:
+		name = frappe.db.get_value(
+			"Bank Account",
+			{"company": company, "is_company_account": 1, "disabled": 0},
+			"name",
+			order_by="is_default desc, modified desc",
+		)
+	if not name:
+		return out
+
+	ba = frappe.get_doc("Bank Account", name)
+	bank_name = ba.get("sbi_print_bank_name") or ""
+	if not bank_name and ba.get("bank"):
+		bank_name = frappe.db.get_value("Bank", ba.bank, "bank_name") or ba.bank
+
+	branch_name = ba.get("sbi_branch_name") or ""
+	ifsc = ba.get("branch_code") or ""
+	branch = " & ".join([x for x in [branch_name, ifsc] if x])
+
+	out.update(
+		{
+			"bank_account": ba.name,
+			"bank_name": bank_name,
+			"account_no": ba.get("bank_account_no") or "",
+			"branch": branch,
+		}
+	)
+	out["complete"] = bool(out["bank_name"] and out["account_no"] and ifsc)
+	return out
+
+
+@frappe.whitelist()
+def bank_details_for(invoice):
+	"""Used by the print dialog on Sales Invoice."""
+	doc = frappe.get_doc("Sales Invoice", invoice)
+	doc.check_permission("read")
+	return bank_block(doc=doc, company=doc.company)
 
 
 # ---------------------------------------------------------------- main ctx
+
+
+def _reference(doc):
+	"""Reference No. & Date = Customer Order No / date, falling back to the Sales Order."""
+	po_no = doc.get("po_no") or ""
+	po_date = doc.get("po_date")
+	if po_no and po_date:
+		return po_no, po_date
+
+	so_name = None
+	for row in doc.get("items") or []:
+		if row.get("sales_order"):
+			so_name = row.sales_order
+			break
+	if so_name:
+		so = frappe.db.get_value("Sales Order", so_name, ["po_no", "po_date"], as_dict=True)
+		if so:
+			po_no = po_no or so.po_no or ""
+			po_date = po_date or so.po_date
+	return po_no, po_date
 
 
 def invoice_ctx(doc):
@@ -284,20 +390,16 @@ def invoice_ctx(doc):
 
 	tax_rows = []
 	for tax in doc.get("taxes") or []:
-		if not flt(tax.tax_amount):
+		if not flt(tax.base_tax_amount or tax.tax_amount):
 			continue
 		key = _tax_key(tax.account_head)
-		label = {
-			"cgst": "CGST",
-			"sgst": "SGST",
-			"igst": "IGST",
-			"cess": "CESS",
-		}.get(key)
+		label = {"cgst": "CGST", "sgst": "SGST", "igst": "IGST", "cess": "CESS"}.get(key)
 		if not label:
 			label = (tax.description or tax.account_head or "").split(" - ")[0]
 		tax_rows.append({"label": label, "amount": flt(tax.base_tax_amount or tax.tax_amount)})
 
-	logo = company.get("company_logo") or frappe.db.get_single_value("Website Settings", "app_logo") or ""
+	po_no, po_date = _reference(doc)
+	logo = company.get("company_logo") or ""
 
 	return {
 		"is_einvoice": bool(doc.get("irn")),
@@ -311,48 +413,29 @@ def invoice_ctx(doc):
 			"lines": company_addr["lines"],
 			"gstin": company_gstin,
 			"state": company_addr["state"] or "Tamil Nadu",
-			"state_code": company_addr["state_code"] or _state_code(None, company_gstin),
-			"email": company.get("email") or doc.get("contact_email") or "",
+			"state_code": company_addr["state_code"] or _state_code(company_gstin),
+			"email": company.get("email") or "",
 		},
 		"buyer": {
 			"name": doc.customer_name,
 			"lines": buyer_addr["lines"],
 			"gstin": buyer_gstin,
 			"state": buyer_addr["state"],
-			"state_code": buyer_addr["state_code"] or _state_code(None, buyer_gstin),
+			"state_code": buyer_addr["state_code"] or _state_code(buyer_gstin),
 		},
 		"consignee": {
 			"name": doc.customer_name,
 			"lines": shipping_addr["lines"] or buyer_addr["lines"],
 			"gstin": shipping_gstin,
 			"state": shipping_addr["state"] or buyer_addr["state"],
-			"state_code": shipping_addr["state_code"] or _state_code(None, shipping_gstin),
+			"state_code": shipping_addr["state_code"] or _state_code(shipping_gstin),
 		},
 		"invoice_no": doc.name,
 		"invoice_date": fdate(doc.posting_date),
-		"po_no": doc.get("po_no") or "",
-		"po_date": fdate(doc.get("po_date")),
+		"po_no": po_no,
+		"po_date": fdate(po_date),
 		"tax_rows": tax_rows,
 		"grand_total": flt(doc.base_rounded_total or doc.base_grand_total or doc.grand_total),
-		"total_tax": sum([r["amount"] for r in tax_rows]),
-		"bank": _bank_block(doc, company),
+		"bank": bank_block(doc=doc, company=doc.company),
 		"hsn": hsn_summary(doc),
 	}
-
-
-def _bank_block(doc, company):
-	name = doc.get("company_bank_account") or company.get("default_bank_account")
-	out = {"bank_name": "", "account_no": "", "branch": "", "ifsc": ""}
-	if name and frappe.db.exists("Bank Account", name):
-		ba = frappe.get_doc("Bank Account", name)
-		out["bank_name"] = ba.get("bank") or ""
-		out["account_no"] = ba.get("bank_account_no") or ""
-		out["branch"] = ba.get("branch_code") or ""
-		out["ifsc"] = ba.get("branch_code") or ""
-		if ba.get("bank"):
-			bank = frappe.db.get_value(
-				"Bank", ba.bank, ["bank_name"], as_dict=True
-			)
-			if bank:
-				out["bank_name"] = bank.bank_name
-	return out

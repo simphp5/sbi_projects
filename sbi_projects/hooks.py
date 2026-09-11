@@ -124,3 +124,33 @@ if "sbi_projects.setup.print_formats.sync_print_formats" not in after_migrate:
     after_migrate = list(after_migrate) + [
         "sbi_projects.setup.print_formats.sync_print_formats"
     ]
+
+
+# --- SBI sales naming wiring (auto-added) ---
+try:
+    doc_events
+except NameError:
+    doc_events = {}
+
+if not isinstance(doc_events, dict):
+    doc_events = {}
+
+
+def _sbi_add_event(_dt, _event, _method):
+    _entry = doc_events.setdefault(_dt, {})
+    _existing = _entry.get(_event)
+    if _existing is None:
+        _entry[_event] = _method
+    elif isinstance(_existing, str):
+        if _existing != _method:
+            _entry[_event] = [_existing, _method]
+    elif isinstance(_existing, (list, tuple)):
+        _existing = list(_existing)
+        if _method not in _existing:
+            _existing.append(_method)
+        _entry[_event] = _existing
+
+
+_sbi_add_event("Sales Order", "autoname", "sbi_projects.setup.sales_naming.sales_order_autoname")
+_sbi_add_event("Sales Invoice", "autoname", "sbi_projects.setup.sales_naming.sales_invoice_autoname")
+_sbi_add_event("Sales Invoice", "validate", "sbi_projects.setup.sales_naming.sales_invoice_validate")
