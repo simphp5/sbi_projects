@@ -6,3 +6,7 @@ node_modules/
 .venv/
 
 .early.coverage
+install_*.ps1
+*.torrent
+*.bak
+*.bak2
