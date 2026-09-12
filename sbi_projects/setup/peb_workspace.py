@@ -1,28 +1,26 @@
 # Copyright (c) 2026, Velmaska and contributors
 # For license information, please see license.txt
 """
-The PEB Estimation workspace.
+The BOQ workspace.
 
-Without this, the module page lists whatever doctypes Frappe happens to pick
-up, in no useful order, and everything else has to be reached by typing a URL.
+Every link is numbered so a new user can simply follow the sequence: finish
+1.1 to 1.6 once, then 2.x onward for each job. The numbering mirrors how a BOQ
+itself is written, which makes it read naturally to anyone in the trade.
 
-The layout follows the order the work is actually done:
+Card 1 is one-time setup and is deliberately ordered -- Work Item cannot pick a
+resource that does not exist, and the Rate Card cannot price a resource with no
+type. Cards 2 to 4 are the per-job flow.
 
-    shortcuts   the four things opened every day
-    Estimation  the enquiry-to-BOQ flow
-    Pricing     the four masters, in the order they must be filled
-    Questions   the client questionnaire
-    Downstream  where a BOQ goes once it is priced
-
-Rebuilt on every migrate, so the layout lives here rather than in the UI.
+Rebuilt on every migrate, so this file is the layout. Changes made in the UI
+are overwritten.
 """
 
 import frappe
 
-WORKSPACE = "PEB Estimation"
+WORKSPACE = "BOQ"
 MODULE = "PEB Estimation"
 
-# Opened most days -- these become the tiles across the top.
+# Opened most days -- tiles across the top.
 SHORTCUTS = [
 	("Building Enquiry", "Blue"),
 	("Estimation Sheet BOQ", "Green"),
@@ -30,58 +28,79 @@ SHORTCUTS = [
 	("Sales Order", "Grey"),
 ]
 
-# (card label, [(doctype, optional description), ...])
+# (card label, [(number, doctype, note), ...])
 CARDS = [
 	(
-		"Estimation",
+		"1. Masters — set up once",
 		[
-			("Building Enquiry", "Client requirement, collected through the portal"),
-			("Estimation Sheet BOQ", "Quantities, rates and the resource plan"),
-			("Quantity Rule", "Formulas that turn parameters into quantities"),
+			("1.1", "Resource Type",
+			 "Categories, and how each is counted: by quantity, day, hour or trip"),
+			("1.2", "Resource",
+			 "Cement, mason, JCB — one list, so a name is never spelled twice"),
+			("1.3", "Rate Card",
+			 "Price per resource. Change a price here and every work item reprices"),
+			("1.4", "Work Item",
+			 "What one unit consumes. The heart of the system — fill this carefully"),
+			("1.5", "Payment Terms Template",
+			 "The billing stages. Everything stage-wise reads from here"),
+			("1.6", "Quantity Rule",
+			 "PEB only. Formulas that turn client answers into quantities"),
 		],
 	),
 	(
-		"Pricing Masters",
+		"2. Client requirement — each job",
 		[
-			("Resource Type", "1. Categories, and how each is counted"),
-			("Resource", "2. Cement, mason, JCB -- the single list"),
-			("Rate Card", "3. Price per resource"),
-			("Work Item", "4. Per-unit norms. The heart of the system"),
+			("2.1", "Building Work Type",
+			 "PEB civil only, structure only, both, or other"),
+			("2.2", "Building Parameter Section",
+			 "The 14 sections of the questionnaire"),
+			("2.3", "Building Parameter",
+			 "The 143 questions behind those sections"),
+			("2.4", "Building Parameter Template",
+			 "What gets sent. Must be Approved before a client can see it"),
+			("2.5", "Building Enquiry",
+			 "Create it, send the secure link, the client fills it in"),
 		],
 	),
 	(
-		"Client Questionnaire",
+		"3. Estimate and quote",
 		[
-			("Building Work Type", "PEB civil, structure, both, other"),
-			("Building Parameter Section", "The 14 sections"),
-			("Building Parameter", "The 143 questions"),
-			("Building Parameter Template", "What gets sent to a client"),
+			("3.1", "Estimation Sheet BOQ",
+			 "Quantities, rates, and the manpower and material the job needs"),
+			("3.2", "Quotation",
+			 "Created from the BOQ. Markup is folded into the rates"),
 		],
 	),
 	(
-		"Downstream",
+		"4. After the order",
 		[
-			("Quotation", "Markup folded into the rates"),
-			("Sales Order", "Carries the BOQ link and the stages"),
-			("Project", "Site execution"),
-			("Material Request", "Materials from the BOQ roll-up"),
+			("4.1", "Sales Order",
+			 "Carries the BOQ link and the payment stages forward"),
+			("4.2", "Project",
+			 "Created with its stages. Site execution starts here"),
+			("4.3", "Material Request",
+			 "Materials from the BOQ roll-up. Labour and plant are left out"),
 		],
 	),
 ]
 
+INTRO = (
+	"Follow the numbers. Card 1 is done once, when the system is set up. "
+	"Cards 2 to 4 are the path every job takes, from enquiry to site."
+)
+
 
 def setup_workspace():
-	"""Create or rebuild the workspace. Safe to run on every migrate."""
+	"""Create or rebuild the BOQ workspace. Safe on every migrate."""
 	if not frappe.db.exists("DocType", "Workspace"):
-		return 0
-	if not frappe.db.exists("Module Def", MODULE):
 		return 0
 
 	doc = _get_doc()
 
 	doc.label = WORKSPACE
 	doc.title = WORKSPACE
-	doc.module = MODULE
+	if frappe.db.exists("Module Def", MODULE):
+		doc.module = MODULE
 	doc.icon = "sitemap"
 	doc.public = 1
 	doc.is_hidden = 0
@@ -125,7 +144,7 @@ def _add_shortcuts(doc):
 
 def _add_cards(doc):
 	for card_label, entries in CARDS:
-		usable = [(dt, d) for dt, d in entries if frappe.db.exists("DocType", dt)]
+		usable = [e for e in entries if frappe.db.exists("DocType", e[1])]
 		if not usable:
 			continue
 
@@ -136,13 +155,14 @@ def _add_cards(doc):
 			"hidden": 0,
 			"onboard": 0,
 		})
-		for doctype, description in usable:
+		for number, doctype, note in usable:
 			doc.append("links", {
 				"type": "Link",
-				"label": doctype,
+				# the number is carried in the label so it shows on the card
+				"label": "{0}  {1}".format(number, doctype),
 				"link_type": "DocType",
 				"link_to": doctype,
-				"description": description,
+				"description": note,
 				"hidden": 0,
 				"onboard": 0,
 				"is_query_report": 0,
@@ -150,17 +170,12 @@ def _add_cards(doc):
 
 
 def _content():
-	"""The block layout Frappe renders: a heading, the tiles, then the cards."""
 	blocks = [
 		_block("header", {
-			"text": '<span class="h4"><b>PEB Estimation</b></span>',
+			"text": '<span class="h4"><b>Bill of Quantities</b></span>',
 			"col": 12,
 		}),
-		_block("paragraph", {
-			"text": "Set the masters up once, in the order shown, then work "
-			        "left to right: enquiry, BOQ, quotation.",
-			"col": 12,
-		}),
+		_block("paragraph", {"text": INTRO, "col": 12}),
 	]
 
 	present = [s for s, _ in SHORTCUTS if frappe.db.exists("DocType", s)]
@@ -174,7 +189,7 @@ def _content():
 	blocks.append(_block("spacer", {"col": 12}))
 
 	for card_label, entries in CARDS:
-		if any(frappe.db.exists("DocType", dt) for dt, _ in entries):
+		if any(frappe.db.exists("DocType", e[1]) for e in entries):
 			blocks.append(_block("card", {"card_name": card_label, "col": 4}))
 
 	return blocks
