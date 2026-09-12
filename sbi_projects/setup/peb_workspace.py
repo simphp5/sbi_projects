@@ -101,7 +101,7 @@ def setup_workspace():
 	doc.title = WORKSPACE
 	if frappe.db.exists("Module Def", MODULE):
 		doc.module = MODULE
-	doc.icon = "sitemap"
+	doc.icon = "file"
 	doc.public = 1
 	doc.is_hidden = 0
 	if doc.meta.has_field("sequence_id"):
