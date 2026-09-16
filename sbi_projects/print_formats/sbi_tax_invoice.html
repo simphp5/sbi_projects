@@ -8,7 +8,6 @@
   .sbi-inv table.sub td { padding: 3px 5px; }
   .sbi-inv .bt { border-top: 1px solid #000; }
   .sbi-inv .bb { border-bottom: 1px solid #000; }
-  .sbi-inv .bl { border-left: 1px solid #000; }
   .sbi-inv .br { border-right: 1px solid #000; }
   .sbi-inv .ctr { text-align: center; }
   .sbi-inv .rgt { text-align: right; }
@@ -19,9 +18,10 @@
   .sbi-inv .co-name { font-size: 13px; font-weight: bold; }
   .sbi-inv .pty { font-size: 12px; font-weight: bold; }
   .sbi-inv .pad0 { padding: 0; }
-  .sbi-inv .filler td { height: 120px; }
+  .sbi-inv .filler td { height: 110px; }
   .sbi-inv .foot { text-align: center; padding-top: 8px; font-size: 10px; }
-  .sbi-inv .sign { height: 62px; }
+  .sbi-inv .sign { height: 58px; }
+  .sbi-inv .wrap { word-wrap: break-word; overflow-wrap: break-word; }
 </style>
 
 <div class="sbi-inv">
@@ -32,7 +32,7 @@
       <td style="width:70%">
         <div class="ctr ttl" style="margin-bottom:6px;">Tax Invoice</div>
         <table class="sm">
-          <tr><td style="width:70px">IRN</td><td class="b" style="word-break:break-all">{{ c.irn }}</td></tr>
+          <tr><td style="width:70px">IRN</td><td class="b wrap">{{ c.irn }}</td></tr>
           <tr><td>Ack No.</td><td class="b">{{ c.ack_no }}</td></tr>
           <tr><td>Ack Date</td><td class="b">{{ c.ack_date }}</td></tr>
         </table>
@@ -49,12 +49,12 @@
 
   <table class="main">
     <colgroup>
-      <col style="width:6%"><col style="width:54%"><col style="width:16%"><col style="width:24%">
+      <col style="width:6%"><col style="width:52%"><col style="width:17%"><col style="width:25%">
     </colgroup>
 
-    <!-- ============ company / invoice meta ============ -->
+    <!-- ===== company | invoice no | dated ===== -->
     <tr>
-      <td colspan="2" class="br bb">
+      <td colspan="2" rowspan="2" class="br bb">
         <table class="sub">
           <tr>
             {%- if c.logo %}<td style="width:78px;padding-left:0"><img src="{{ c.logo }}" style="max-width:72px;max-height:52px;"></td>{% endif %}
@@ -68,33 +68,29 @@
           </tr>
         </table>
       </td>
-      <td colspan="2" class="bb pad0">
-        <table class="sub">
-          <tr>
-            <td class="br bb" style="width:50%">
-              <div class="sm">Invoice No</div>
-              <div class="b">{{ c.invoice_no }}</div>
-            </td>
-            <td class="bb" style="width:50%">
-              <div class="sm">Dated</div>
-              <div class="b">{{ c.invoice_date }}</div>
-            </td>
-          </tr>
-          <tr>
-            <td class="br">
-              <div class="sm">Reference No. &amp; Date</div>
-              <div class="b">{{ c.po_no }}{% if c.po_date %} dt. {{ c.po_date }}{% endif %}&nbsp;</div>
-            </td>
-            <td>
-              <div class="sm">Other References</div>
-              <div class="b">&nbsp;</div>
-            </td>
-          </tr>
-        </table>
+      <td class="br bb wrap">
+        <div class="sm">Invoice No</div>
+        <div class="b">{{ c.invoice_no }}</div>
+      </td>
+      <td class="bb">
+        <div class="sm">Dated</div>
+        <div class="b">{{ c.invoice_date }}</div>
       </td>
     </tr>
 
-    <!-- ============ consignee ============ -->
+    <!-- ===== reference | other references (project) ===== -->
+    <tr>
+      <td class="br bb wrap">
+        <div class="sm">Reference No. &amp; Date</div>
+        <div class="b">{{ c.po_no }}{% if c.po_date %} dt. {{ c.po_date }}{% endif %}&nbsp;</div>
+      </td>
+      <td class="bb wrap">
+        <div class="sm">Other References</div>
+        <div class="b">{% if c.project %}Project : {{ c.project }}{% else %}&nbsp;{% endif %}</div>
+      </td>
+    </tr>
+
+    <!-- ===== consignee | buyer (same row) ===== -->
     <tr>
       <td colspan="2" class="br bb">
         <div class="sm">Consignee (Ship to)</div>
@@ -103,22 +99,16 @@
         <div>GSTIN/UIN &nbsp;: {{ c.consignee.gstin }}</div>
         <div>State Name &nbsp;: {{ c.consignee.state }}, Code : {{ c.consignee.state_code }}</div>
       </td>
-      <td colspan="2" class="bb">&nbsp;</td>
-    </tr>
-
-    <!-- ============ buyer ============ -->
-    <tr>
-      <td colspan="2" class="br bb">
+      <td colspan="2" class="bb">
         <div class="sm">Buyer (Bill to)</div>
         <div class="pty">{{ c.buyer.name }}</div>
         {%- for l in c.buyer.lines %}<div>{{ l }}</div>{% endfor %}
         <div>GSTIN/UIN &nbsp;: {{ c.buyer.gstin }}</div>
         <div>State Name &nbsp;: {{ c.buyer.state }}, Code : {{ c.buyer.state_code }}</div>
       </td>
-      <td colspan="2" class="bb">&nbsp;</td>
     </tr>
 
-    <!-- ============ items ============ -->
+    <!-- ===== items ===== -->
     <tr class="b ctr">
       <td class="br bb">Sl<br>No</td>
       <td class="br bb">Particulars</td>
@@ -151,6 +141,15 @@
     </tr>
     {%- endfor %}
 
+    {%- if c.round_off and (c.round_off > 0.004 or c.round_off < -0.004) %}
+    <tr>
+      <td class="br">&nbsp;</td>
+      <td class="br rgt b">Round Off</td>
+      <td class="br">&nbsp;</td>
+      <td class="rgt b">{{ amt(c.round_off) }}</td>
+    </tr>
+    {%- endif %}
+
     <tr class="filler">
       <td class="br">&nbsp;</td>
       <td class="br">&nbsp;</td>
@@ -159,24 +158,24 @@
     </tr>
 
     <tr class="b">
-      <td class="br bt">&nbsp;</td>
-      <td class="br bt rgt">Total</td>
-      <td class="br bt">&nbsp;</td>
-      <td class="bt rgt" style="font-size:13px">&#8377; {{ amt(c.grand_total) }}</td>
+      <td class="br bt bb">&nbsp;</td>
+      <td class="br bt bb rgt">Total</td>
+      <td class="br bt bb">&nbsp;</td>
+      <td class="bt bb rgt" style="font-size:13px">&#8377; {{ amt(c.rounded_total) }}</td>
     </tr>
 
-    <!-- ============ amount in words ============ -->
+    <!-- ===== amount in words ===== -->
     <tr>
-      <td colspan="3" class="bt">
+      <td colspan="3" class="br bb">
         <div class="sm">Amount Chargeable (in words)</div>
-        <div class="b" style="font-size:12px">{{ in_words(c.grand_total, doc.currency) }}</div>
+        <div class="b" style="font-size:12px">{{ in_words(c.rounded_total, doc.currency) }}</div>
       </td>
-      <td class="bt rgt sm it" style="vertical-align:bottom">E. &amp; O.E</td>
+      <td class="bb rgt sm it" style="vertical-align:bottom">E. &amp; O.E</td>
     </tr>
 
-    <!-- ============ hsn / gst summary ============ -->
+    <!-- ===== gst summary ===== -->
     <tr>
-      <td colspan="4" class="pad0 bt">
+      <td colspan="4" class="pad0 bb">
         <table class="sub">
           {%- if c.hsn.has_igst %}
           <tr class="b ctr">
@@ -244,34 +243,34 @@
       </td>
     </tr>
 
-    <!-- ============ tax in words ============ -->
+    <!-- ===== tax in words ===== -->
     <tr>
-      <td colspan="4" class="bt">
+      <td colspan="4" class="bb">
         <span class="sm">Tax Amount (in words)</span>
         <span class="b" style="font-size:12px;padding-left:14px">{{ in_words(c.hsn.total.total_tax, doc.currency) }}</span>
       </td>
     </tr>
 
-    <!-- ============ bank + signature ============ -->
+    <!-- ===== bank | prepared by | authorised signatory ===== -->
     <tr>
-      <td colspan="4" class="pad0 bt">
-        <table class="sub">
-          <tr>
-            <td style="width:60%">
-              <div class="sm">Company's Bank Details</div>
-              <table class="sub sm">
-                <tr><td style="width:125px;padding-left:0">Bank Name</td><td class="b">{{ c.bank.bank_name }}</td></tr>
-                <tr><td style="padding-left:0">A/c No.</td><td class="b">{{ c.bank.account_no }}</td></tr>
-                <tr><td style="padding-left:0">Branch &amp; IFS Code</td><td class="b">{{ c.bank.branch }}</td></tr>
-              </table>
-            </td>
-            <td class="rgt" style="width:40%">
-              <div class="b">for {{ c.company.name }}</div>
-              <div class="sign">&nbsp;</div>
-              <div class="sm">Authorised Signatory</div>
-            </td>
-          </tr>
+      <td colspan="2" class="br">
+        <div class="sm">Company's Bank Details</div>
+        <table class="sub sm">
+          <tr><td style="width:125px;padding-left:0">Bank Name</td><td class="b">{{ c.bank.bank_name }}</td></tr>
+          <tr><td style="padding-left:0">A/c No.</td><td class="b">{{ c.bank.account_no }}</td></tr>
+          <tr><td style="padding-left:0">Branch &amp; IFS Code</td><td class="b">{{ c.bank.branch }}</td></tr>
         </table>
+      </td>
+      <td class="br ctr">
+        <div class="sm">&nbsp;</div>
+        <div class="sign">&nbsp;</div>
+        <div class="sm">Prepared By</div>
+        <div class="sm b">{{ c.prepared_by }}</div>
+      </td>
+      <td class="ctr">
+        <div class="b sm">for {{ c.company.name }}</div>
+        <div class="sign">&nbsp;</div>
+        <div class="sm">Authorised Signatory</div>
       </td>
     </tr>
   </table>

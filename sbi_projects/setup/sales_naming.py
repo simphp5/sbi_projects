@@ -72,22 +72,23 @@ def sales_invoice_validate(doc, method=None):
 
 	# Reference No. & Date -> pull Customer Order No from the linked Sales Order
 	if not doc.get("po_no"):
-		for row in doc.get("items") or []:
-			if row.get("sales_order"):
-				so = frappe.db.get_value(
-					"Sales Order", row.sales_order, ["po_no", "po_date"], as_dict=True
-				)
-				if so and so.po_no:
-					doc.po_no = so.po_no
-					if not doc.get("po_date") and so.po_date:
-						doc.po_date = so.po_date
-				break
+		from sbi_projects.utils.print_helpers import linked_sales_order
+
+		so_name = linked_sales_order(doc)
+		if so_name:
+			so = frappe.db.get_value(
+				"Sales Order", so_name, ["po_no", "po_date", "transaction_date"], as_dict=True
+			)
+			if so and so.po_no:
+				doc.po_no = so.po_no
+				if not doc.get("po_date"):
+					doc.po_date = so.po_date or so.transaction_date
 
 
 @frappe.whitelist()
 def backfill_stage_no(limit=500):
 	"""Stamp Stage No / Stage Name on existing Sales Invoices (drafts + submitted)."""
-	from sbi_projects.utils.print_helpers import stage_parts
+	from sbi_projects.utils.print_helpers import linked_sales_order, stage_parts
 
 	frappe.only_for("System Manager")
 	names = frappe.get_all(
@@ -115,15 +116,14 @@ def backfill_stage_no(limit=500):
 		po_no = doc.get("po_no")
 		po_date = doc.get("po_date")
 		if not po_no:
-			for row in doc.get("items") or []:
-				if row.get("sales_order"):
-					so = frappe.db.get_value(
-						"Sales Order", row.sales_order, ["po_no", "po_date"], as_dict=True
-					)
-					if so and so.po_no:
-						po_no = so.po_no
-						po_date = po_date or so.po_date
-					break
+			so_name = linked_sales_order(doc)
+			if so_name:
+				so = frappe.db.get_value(
+					"Sales Order", so_name, ["po_no", "po_date", "transaction_date"], as_dict=True
+				)
+				if so and so.po_no:
+					po_no = so.po_no
+					po_date = po_date or so.po_date or so.transaction_date
 
 		values = {
 			"sbi_stage_no": str(stage_no) if stage_no else "",

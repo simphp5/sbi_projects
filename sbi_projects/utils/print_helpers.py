@@ -4,7 +4,7 @@ import json
 import re
 
 import frappe
-from frappe.utils import flt, formatdate, money_in_words
+from frappe.utils import flt, formatdate, money_in_words, rounded
 
 
 # ---------------------------------------------------------------- formatting
@@ -56,7 +56,6 @@ def fdate(value, fmt="dd-MMM-yy"):
 
 
 def qr_base64(data):
-	"""Return base64 PNG for the e-invoice signed QR string."""
 	if not data:
 		return ""
 	try:
@@ -78,7 +77,84 @@ def qr_base64(data):
 		return ""
 
 
-# ---------------------------------------------------------------- stage line
+# ---------------------------------------------------------------- lookups
+
+
+def _get(obj, field):
+	if obj is None:
+		return None
+	try:
+		return obj.get(field)
+	except Exception:
+		return getattr(obj, field, None)
+
+
+_SO_LINK_FIELDS = ("sales_order", "sbi_sales_order", "against_sales_order")
+
+
+def linked_sales_order(doc, row=None):
+	"""Find the Sales Order behind this invoice - link field, then project."""
+	for candidate in (row, doc):
+		for field in _SO_LINK_FIELDS:
+			value = _get(candidate, field)
+			if value:
+				return value
+
+	for item in _get(doc, "items") or []:
+		for field in _SO_LINK_FIELDS:
+			value = _get(item, field)
+			if value:
+				return value
+
+	project = _get(doc, "project")
+	if not project and row is not None:
+		project = _get(row, "project")
+	if not project:
+		for item in _get(doc, "items") or []:
+			project = _get(item, "project")
+			if project:
+				break
+	if project:
+		return frappe.db.get_value(
+			"Sales Order",
+			{"project": project, "docstatus": 1},
+			"name",
+			order_by="transaction_date desc",
+		)
+	return None
+
+
+_SCHEDULE_CACHE = {}
+
+
+def _schedule_rows(so):
+	if not so:
+		return []
+	if so in _SCHEDULE_CACHE:
+		return _SCHEDULE_CACHE[so]
+	try:
+		rows = frappe.get_all(
+			"Payment Schedule",
+			filters={"parent": so, "parenttype": "Sales Order"},
+			fields=["*"],
+			order_by="idx",
+		)
+	except Exception:
+		rows = []
+	_SCHEDULE_CACHE[so] = rows
+	return rows
+
+
+_SCHEDULE_STAGE_FIELDS = (
+	"sbi_project_stage",
+	"project_stage",
+	"sbi_stage",
+	"stage",
+	"sbi_site_stage",
+)
+
+
+# ---------------------------------------------------------------- stage
 
 
 _STAGE_NO = ("sbi_stage_no", "stage_no", "sbi_stage_index", "sbi_stage_number")
@@ -94,65 +170,65 @@ _STAGE_PCT = (
 
 def _pick(row, fields):
 	for f in fields:
-		try:
-			value = row.get(f)
-		except Exception:
-			value = getattr(row, f, None)
+		value = _get(row, f)
 		if value not in (None, "", 0, 0.0):
 			return value
 	return None
 
 
-def _stage_no_from_sales_order(row):
-	"""Milestone position = row index of this payment term in the SO payment schedule."""
-	so = row.get("sales_order")
-	if not so:
-		return None
-	term = row.get("payment_term")
-	if term:
-		idx = frappe.db.get_value(
-			"Payment Schedule",
-			{"parent": so, "parenttype": "Sales Order", "payment_term": term},
-			"idx",
-		)
-		if idx:
-			return int(idx)
+def _match_schedule(so, term, description=None):
+	"""Return (sl_no, project_stage, invoice_portion) for the matching schedule row."""
+	rows = _schedule_rows(so)
+	if not rows:
+		return None, None, None
 
-	description = row.get("description") or ""
-	if description:
-		schedule = frappe.get_all(
-			"Payment Schedule",
-			filters={"parent": so, "parenttype": "Sales Order"},
-			fields=["idx", "description"],
-			order_by="idx",
-		)
-		for entry in schedule:
-			if entry.description and entry.description.strip()[:40] in description:
-				return int(entry.idx)
-	return None
+	match = None
+	if term:
+		for entry in rows:
+			if entry.get("payment_term") == term:
+				match = entry
+				break
+	if not match and description:
+		text = str(description)
+		for entry in rows:
+			desc = entry.get("description") or entry.get("payment_term") or ""
+			if desc and desc.strip()[:35] in text:
+				match = entry
+				break
+	if not match:
+		return None, None, None
+
+	stage = None
+	for field in _SCHEDULE_STAGE_FIELDS:
+		if match.get(field):
+			stage = match.get(field)
+			break
+	return match.get("idx"), stage, match.get("invoice_portion")
 
 
 def stage_parts(row, parent=None):
-	"""Return (stage_no, stage_name, portion) for a Sales Invoice Item row."""
+	"""Return (stage_no, stage_name, portion)."""
 	stage_no = _pick(row, _STAGE_NO)
 	stage_name = _pick(row, _STAGE_NAME)
 	portion = _pick(row, _STAGE_PCT)
+	term = _get(row, "payment_term")
 
-	try:
-		term = row.get("payment_term")
-	except Exception:
-		term = getattr(row, "payment_term", None)
+	so = linked_sales_order(parent, row) if parent is not None else _get(row, "sales_order")
+	sched_no, sched_stage, sched_portion = _match_schedule(so, term, _get(row, "description"))
 
-	if not stage_name and term:
-		stage_name = term
+	if not stage_no:
+		stage_no = sched_no
 	if not stage_no and term:
 		match = re.search(r"(\d+)", str(term))
 		if match:
 			stage_no = match.group(1)
-	if not stage_no:
-		stage_no = _stage_no_from_sales_order(row)
 	if not stage_no and parent is not None:
-		stage_no = parent.get("sbi_stage_no") or None
+		stage_no = _get(parent, "sbi_stage_no") or None
+
+	if not stage_name:
+		stage_name = sched_stage or term
+	if not portion:
+		portion = sched_portion
 
 	if stage_name:
 		stage_name = re.sub(
@@ -162,7 +238,7 @@ def stage_parts(row, parent=None):
 
 
 def stage_line(row, parent=None):
-	"""Build:  Stage : #2 - Plinth Beam - 30%"""
+	"""Build:  Stage : #8 - Completion of Grade Slab - 10%"""
 	stage_no, stage_name, portion = stage_parts(row, parent)
 	if not (stage_no or stage_name or portion):
 		return ""
@@ -178,7 +254,7 @@ def stage_line(row, parent=None):
 
 
 def _address_block(address_name):
-	out = {"lines": [], "gstin": "", "state": "", "state_code": ""}
+	out = {"lines": [], "gstin": "", "state": "", "state_code": "", "title": ""}
 	if not address_name or not frappe.db.exists("Address", address_name):
 		return out
 	doc = frappe.get_doc("Address", address_name)
@@ -193,7 +269,27 @@ def _address_block(address_name):
 	out["gstin"] = doc.get("gstin") or ""
 	out["state"] = doc.get("state") or doc.get("gst_state") or ""
 	out["state_code"] = doc.get("gst_state_number") or ""
+	out["title"] = doc.get("address_title") or ""
 	return out
+
+
+def _customer_shipping_address(customer):
+	if not customer:
+		return None
+	rows = frappe.get_all(
+		"Dynamic Link",
+		filters={"link_doctype": "Customer", "link_name": customer, "parenttype": "Address"},
+		pluck="parent",
+	)
+	if not rows:
+		return None
+	name = frappe.db.get_value(
+		"Address",
+		{"name": ["in", rows], "address_type": "Shipping", "disabled": 0},
+		"name",
+		order_by="is_shipping_address desc, modified desc",
+	)
+	return name
 
 
 def _state_code(gstin):
@@ -219,7 +315,6 @@ def _tax_key(account_head):
 
 
 def _item_wise_tax(doc):
-	"""item_code -> {cgst: {rate, amount}, ...}"""
 	out = {}
 	for tax in doc.get("taxes") or []:
 		key = _tax_key(tax.account_head)
@@ -262,7 +357,6 @@ def _blank_row(hsn):
 
 
 def hsn_summary(doc):
-	"""Return {'rows': [...], 'total': {...}, 'has_igst': bool}"""
 	if isinstance(doc, str):
 		doc = frappe.get_doc("Sales Invoice", doc)
 
@@ -289,10 +383,7 @@ def hsn_summary(doc):
 				if key != "cess":
 					entry[key + "_rate"] = flt(buckets[key]["rate"]) or entry[key + "_rate"]
 
-	# ---- fallback: item_wise_tax_detail missing / unparseable -> distribute
-	parsed_tax = sum(
-		[r["cgst"] + r["sgst"] + r["igst"] + r["cess"] for r in rows.values()]
-	)
+	parsed_tax = sum([r["cgst"] + r["sgst"] + r["igst"] + r["cess"] for r in rows.values()])
 	doc_tax = sum([flt(t.base_tax_amount or t.tax_amount) for t in (doc.get("taxes") or [])])
 	if rows and flt(parsed_tax, 2) == 0 and flt(doc_tax, 2) != 0:
 		base = sum([r["taxable"] for r in rows.values()]) or 1.0
@@ -303,9 +394,7 @@ def hsn_summary(doc):
 			amount = flt(tax.base_tax_amount or tax.tax_amount)
 			if not amount:
 				continue
-			rate = flt(tax.rate)
-			if not rate and base:
-				rate = flt(amount * 100.0 / base, 2)
+			rate = flt(tax.rate) or flt(amount * 100.0 / base, 2)
 			keys = list(rows.keys())
 			running = 0.0
 			for idx, hsn in enumerate(keys):
@@ -335,13 +424,7 @@ def hsn_summary(doc):
 
 
 def bank_block(doc=None, company=None, bank_account=None):
-	out = {
-		"bank_account": "",
-		"bank_name": "",
-		"account_no": "",
-		"branch": "",
-		"complete": False,
-	}
+	out = {"bank_account": "", "bank_name": "", "account_no": "", "branch": "", "complete": False}
 	name = bank_account
 	if not name and doc is not None:
 		name = doc.get("company_bank_account")
@@ -366,9 +449,8 @@ def bank_block(doc=None, company=None, bank_account=None):
 	if not bank_name and ba.get("bank"):
 		bank_name = frappe.db.get_value("Bank", ba.bank, "bank_name") or ba.bank
 
-	branch_name = ba.get("sbi_branch_name") or ""
 	ifsc = ba.get("branch_code") or ""
-	branch = " & ".join([x for x in [branch_name, ifsc] if x])
+	branch = " & ".join([x for x in [ba.get("sbi_branch_name") or "", ifsc] if x])
 
 	out.update(
 		{
@@ -384,7 +466,6 @@ def bank_block(doc=None, company=None, bank_account=None):
 
 @frappe.whitelist()
 def bank_details_for(invoice):
-	"""Used by the print dialog on Sales Invoice."""
 	doc = frappe.get_doc("Sales Invoice", invoice)
 	doc.check_permission("read")
 	return bank_block(doc=doc, company=doc.company)
@@ -394,23 +475,34 @@ def bank_details_for(invoice):
 
 
 def _reference(doc):
-	"""Reference No. & Date = Customer Order No / date, falling back to the Sales Order."""
+	"""Reference No. & Date = Customer Order No + its date, from the Sales Order."""
 	po_no = doc.get("po_no") or ""
 	po_date = doc.get("po_date")
 	if po_no and po_date:
 		return po_no, po_date
 
-	so_name = None
-	for row in doc.get("items") or []:
-		if row.get("sales_order"):
-			so_name = row.sales_order
-			break
+	so_name = linked_sales_order(doc)
 	if so_name:
-		so = frappe.db.get_value("Sales Order", so_name, ["po_no", "po_date"], as_dict=True)
+		so = frappe.db.get_value(
+			"Sales Order", so_name, ["po_no", "po_date", "transaction_date"], as_dict=True
+		)
 		if so:
 			po_no = po_no or so.po_no or ""
-			po_date = po_date or so.po_date
+			po_date = po_date or so.po_date or so.transaction_date
 	return po_no, po_date
+
+
+def _project_label(doc):
+	project = doc.get("project")
+	if not project:
+		for row in doc.get("items") or []:
+			if row.get("project"):
+				project = row.project
+				break
+	if not project:
+		return ""
+	label = frappe.db.get_value("Project", project, "project_name") or project
+	return label
 
 
 def invoice_ctx(doc):
@@ -420,7 +512,10 @@ def invoice_ctx(doc):
 	company = frappe.get_doc("Company", doc.company)
 	company_addr = _address_block(doc.get("company_address"))
 	buyer_addr = _address_block(doc.get("customer_address"))
-	shipping_addr = _address_block(doc.get("shipping_address_name"))
+
+	ship_name = doc.get("shipping_address_name") or _customer_shipping_address(doc.get("customer"))
+	shipping_addr = _address_block(ship_name)
+	has_shipping = bool(shipping_addr["lines"])
 
 	company_gstin = doc.get("company_gstin") or company_addr.get("gstin") or ""
 	buyer_gstin = doc.get("billing_address_gstin") or buyer_addr.get("gstin") or ""
@@ -436,8 +531,14 @@ def invoice_ctx(doc):
 			label = (tax.description or tax.account_head or "").split(" - ")[0]
 		tax_rows.append({"label": label, "amount": flt(tax.base_tax_amount or tax.tax_amount)})
 
+	grand = flt(doc.base_grand_total or doc.grand_total)
+	rounded_total = flt(doc.base_rounded_total)
+	if not rounded_total:
+		rounded_total = flt(rounded(grand, 0))
+	round_off = flt(rounded_total - grand, 2)
+
 	po_no, po_date = _reference(doc)
-	logo = company.get("company_logo") or ""
+	prepared_by = frappe.db.get_value("User", doc.owner, "full_name") or doc.owner
 
 	return {
 		"is_einvoice": bool(doc.get("irn")),
@@ -445,7 +546,7 @@ def invoice_ctx(doc):
 		"ack_no": doc.get("ack_no") or "",
 		"ack_date": fdate(doc.get("ack_date")),
 		"qr": qr_base64(doc.get("signed_qr_code")),
-		"logo": logo,
+		"logo": company.get("company_logo") or "",
 		"company": {
 			"name": company.company_name,
 			"lines": company_addr["lines"],
@@ -462,18 +563,26 @@ def invoice_ctx(doc):
 			"state_code": buyer_addr["state_code"] or _state_code(buyer_gstin),
 		},
 		"consignee": {
-			"name": doc.customer_name,
-			"lines": shipping_addr["lines"] or buyer_addr["lines"],
+			"name": (shipping_addr["title"] or doc.customer_name) if has_shipping else doc.customer_name,
+			"lines": shipping_addr["lines"] if has_shipping else buyer_addr["lines"],
 			"gstin": shipping_gstin,
-			"state": shipping_addr["state"] or buyer_addr["state"],
-			"state_code": shipping_addr["state_code"] or _state_code(shipping_gstin),
+			"state": (shipping_addr["state"] if has_shipping else buyer_addr["state"]),
+			"state_code": (
+				shipping_addr["state_code"] if has_shipping else buyer_addr["state_code"]
+			)
+			or _state_code(shipping_gstin),
+			"from_shipping": has_shipping,
 		},
 		"invoice_no": doc.name,
 		"invoice_date": fdate(doc.posting_date),
 		"po_no": po_no,
 		"po_date": fdate(po_date),
+		"project": _project_label(doc),
 		"tax_rows": tax_rows,
-		"grand_total": flt(doc.base_rounded_total or doc.base_grand_total or doc.grand_total),
+		"grand_total": grand,
+		"round_off": round_off,
+		"rounded_total": rounded_total,
+		"prepared_by": prepared_by,
 		"bank": bank_block(doc=doc, company=doc.company),
 		"hsn": hsn_summary(doc),
 	}
