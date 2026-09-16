@@ -159,6 +159,8 @@ _SCHEDULE_STAGE_FIELDS = (
 
 _STAGE_NO = ("sbi_stage_no", "stage_no", "sbi_stage_index", "sbi_stage_number")
 _STAGE_NAME = ("sbi_stage", "sbi_stage_name", "stage", "stage_name", "sbi_milestone", "milestone")
+_TERM_FIELDS = ("payment_term", "sbi_payment_term", "sbi_term", "milestone_term")
+
 _STAGE_PCT = (
 	"sbi_invoice_portion",
 	"invoice_portion",
@@ -184,10 +186,20 @@ def _match_schedule(so, term, description=None):
 
 	match = None
 	if term:
+		term_text = str(term).strip().lower()
 		for entry in rows:
-			if entry.get("payment_term") == term:
+			if str(entry.get("payment_term") or "").strip().lower() == term_text:
 				match = entry
 				break
+		if not match:
+			for entry in rows:
+				for field in _SCHEDULE_STAGE_FIELDS:
+					value = entry.get(field)
+					if value and str(value).strip().lower() == term_text:
+						match = entry
+						break
+				if match:
+					break
 	if not match and description:
 		text = str(description)
 		for entry in rows:
@@ -211,10 +223,12 @@ def stage_parts(row, parent=None):
 	stage_no = _pick(row, _STAGE_NO)
 	stage_name = _pick(row, _STAGE_NAME)
 	portion = _pick(row, _STAGE_PCT)
-	term = _get(row, "payment_term")
+	term = _pick(row, _TERM_FIELDS)
 
 	so = linked_sales_order(parent, row) if parent is not None else _get(row, "sales_order")
 	sched_no, sched_stage, sched_portion = _match_schedule(so, term, _get(row, "description"))
+	if sched_no is None and stage_name:
+		sched_no, sched_stage, sched_portion = _match_schedule(so, stage_name, None)
 
 	if not stage_no:
 		stage_no = sched_no
@@ -474,21 +488,101 @@ def bank_details_for(invoice):
 # ---------------------------------------------------------------- main ctx
 
 
+_ORDER_NO_FIELDS = (
+	"po_no",
+	"sbi_po_no",
+	"sbi_customer_order_no",
+	"customer_order_no",
+	"sbi_customer_po_no",
+	"customer_po_no",
+	"sbi_order_no",
+)
+
+_ORDER_NO_LABELS = (
+	"customer order no",
+	"customer order number",
+	"customer's purchase order",
+	"customer purchase order",
+	"po no",
+	"po number",
+)
+
+_ORDER_DATE_FIELDS = (
+	"po_date",
+	"sbi_po_date",
+	"sbi_customer_order_date",
+	"customer_order_date",
+	"sbi_order_date",
+)
+
+
+def _order_ref_fieldnames(doctype):
+	"""Locate the Customer Order No field (and its date) whatever it is named."""
+	cache_key = "sbi_order_ref_fields_" + doctype
+	cached = frappe.cache().get_value(cache_key)
+	if cached:
+		return cached.get("no"), cached.get("date")
+
+	meta = frappe.get_meta(doctype)
+	fieldnames = {df.fieldname for df in meta.fields}
+
+	no_field = None
+	for candidate in _ORDER_NO_FIELDS:
+		if candidate in fieldnames:
+			no_field = candidate
+			break
+
+	fields = list(meta.fields)
+	if not no_field:
+		for idx, df in enumerate(fields):
+			label = (df.label or "").strip().lower()
+			if label in _ORDER_NO_LABELS and df.fieldtype in ("Data", "Small Text", "Link"):
+				no_field = df.fieldname
+				break
+
+	date_field = None
+	for candidate in _ORDER_DATE_FIELDS:
+		if candidate in fieldnames:
+			date_field = candidate
+			break
+
+	if not date_field and no_field:
+		start = next((i for i, df in enumerate(fields) if df.fieldname == no_field), None)
+		if start is not None:
+			for df in fields[start + 1 : start + 5]:
+				if df.fieldtype in ("Date", "Datetime"):
+					date_field = df.fieldname
+					break
+
+	frappe.cache().set_value(cache_key, {"no": no_field, "date": date_field}, expires_in_sec=3600)
+	return no_field, date_field
+
+
+def order_reference(doc, doctype=None):
+	"""Return (order_no, order_date) read from whichever fields hold them."""
+	doctype = doctype or doc.get("doctype")
+	no_field, date_field = _order_ref_fieldnames(doctype)
+	order_no = ""
+	order_date = None
+	if no_field:
+		order_no = doc.get(no_field) or ""
+	if date_field:
+		order_date = doc.get(date_field)
+	return order_no, order_date
+
+
 def _reference(doc):
 	"""Reference No. & Date = Customer Order No + its date, from the Sales Order."""
-	po_no = doc.get("po_no") or ""
-	po_date = doc.get("po_date")
+	po_no, po_date = order_reference(doc, "Sales Invoice")
 	if po_no and po_date:
 		return po_no, po_date
 
 	so_name = linked_sales_order(doc)
 	if so_name:
-		so = frappe.db.get_value(
-			"Sales Order", so_name, ["po_no", "po_date", "transaction_date"], as_dict=True
-		)
-		if so:
-			po_no = po_no or so.po_no or ""
-			po_date = po_date or so.po_date or so.transaction_date
+		so = frappe.get_doc("Sales Order", so_name)
+		so_no, so_date = order_reference(so, "Sales Order")
+		po_no = po_no or so_no or ""
+		po_date = po_date or so_date or so.get("transaction_date")
 	return po_no, po_date
 
 
@@ -640,6 +734,16 @@ def debug_invoice(invoice):
 	]
 
 	po_no, po_date = _reference(doc)
+	so_ref_fields = _order_ref_fieldnames("Sales Order")
+	so_dump = {}
+	if so_name:
+		so_doc = frappe.get_doc("Sales Order", so_name)
+		for key, value in (so_doc.as_dict() or {}).items():
+			if value in (None, "", 0, 0.0) or isinstance(value, (list, dict)):
+				continue
+			low = key.lower()
+			if key.startswith("sbi_") or "po_" in low or "order_no" in low or "customer" in low:
+				so_dump[key] = str(value)[:60]
 	pf = frappe.db.get_value("Print Format", "SBI Tax Invoice", ["modified", "disabled"], as_dict=True)
 	html = frappe.db.get_value("Print Format", "SBI Tax Invoice", "html") or ""
 
@@ -652,6 +756,8 @@ def debug_invoice(invoice):
 		"resolved_sales_order": so_name,
 		"resolved_reference": [po_no, str(po_date or "")],
 		"resolved_project_label": _project_label(doc),
+		"order_ref_fieldnames_on_so": list(so_ref_fields),
+		"sales_order_fields": so_dump,
 		"shipping_address_name": doc.get("shipping_address_name"),
 		"payment_schedule": schedule,
 		"items": items,
