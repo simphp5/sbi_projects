@@ -586,3 +586,75 @@ def invoice_ctx(doc):
 		"bank": bank_block(doc=doc, company=doc.company),
 		"hsn": hsn_summary(doc),
 	}
+
+
+# ---------------------------------------------------------------- diagnostics
+
+
+@frappe.whitelist()
+def debug_invoice(invoice):
+	"""Show exactly what the print format resolves for one Sales Invoice."""
+	frappe.only_for("System Manager")
+	doc = frappe.get_doc("Sales Invoice", invoice)
+
+	interesting = ("stage", "portion", "milestone", "sales_order", "payment_term", "project")
+
+	items = []
+	for row in doc.get("items") or []:
+		fields = {}
+		for key, value in (row.as_dict() or {}).items():
+			if value in (None, "", 0, 0.0):
+				continue
+			low = key.lower()
+			if key.startswith("sbi_") or any(word in low for word in interesting):
+				fields[key] = str(value)[:80]
+		so = linked_sales_order(doc, row)
+		sched_no, sched_stage, sched_portion = _match_schedule(
+			so, row.get("payment_term"), row.get("description")
+		)
+		items.append(
+			{
+				"item_code": row.item_code,
+				"gst_hsn_code": row.get("gst_hsn_code") or "(EMPTY - set HSN on the Item master)",
+				"fields_found": fields,
+				"resolved_sales_order": so,
+				"schedule_match_idx": sched_no,
+				"schedule_stage": sched_stage,
+				"schedule_portion": sched_portion,
+				"stage_parts": list(stage_parts(row, doc)),
+				"stage_line": stage_line(row, doc),
+			}
+		)
+
+	so_name = linked_sales_order(doc)
+	schedule = [
+		{
+			"idx": r.get("idx"),
+			"payment_term": r.get("payment_term"),
+			"invoice_portion": r.get("invoice_portion"),
+			"stage_fields": {
+				f: r.get(f) for f in _SCHEDULE_STAGE_FIELDS if r.get(f)
+			},
+		}
+		for r in _schedule_rows(so_name)
+	]
+
+	po_no, po_date = _reference(doc)
+	pf = frappe.db.get_value("Print Format", "SBI Tax Invoice", ["modified", "disabled"], as_dict=True)
+	html = frappe.db.get_value("Print Format", "SBI Tax Invoice", "html") or ""
+
+	return {
+		"invoice": doc.name,
+		"invoice_po_no_field": doc.get("po_no"),
+		"invoice_po_date_field": str(doc.get("po_date") or ""),
+		"invoice_project_field": doc.get("project"),
+		"parent_sbi_stage_no": doc.get("sbi_stage_no"),
+		"resolved_sales_order": so_name,
+		"resolved_reference": [po_no, str(po_date or "")],
+		"resolved_project_label": _project_label(doc),
+		"shipping_address_name": doc.get("shipping_address_name"),
+		"payment_schedule": schedule,
+		"items": items,
+		"print_format_modified": str(pf.modified) if pf else "(missing)",
+		"print_format_is_v4": "Prepared By" in html,
+	}

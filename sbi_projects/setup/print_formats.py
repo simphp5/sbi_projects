@@ -244,6 +244,18 @@ def _property_setter(doctype, fieldname, prop, value, prop_type="Data"):
 	ps.insert(ignore_permissions=True)
 
 
+def _remove_property_setter(doctype, fieldname, prop):
+	filters = {
+		"doc_type": doctype,
+		"property": prop,
+		"doctype_or_field": "DocField" if fieldname else "DocType",
+	}
+	if fieldname:
+		filters["field_name"] = fieldname
+	for name in frappe.get_all("Property Setter", filters=filters, pluck="name"):
+		frappe.delete_doc("Property Setter", name, force=True, ignore_permissions=True)
+
+
 def _sync_properties():
 	# custom naming series options
 	_property_setter("Sales Order", "naming_series", "options", SO_SERIES, "Text")
@@ -256,15 +268,17 @@ def _sync_properties():
 	# let the bank account be corrected after submit (needed by the print dialog)
 	_property_setter("Sales Invoice", "company_bank_account", "allow_on_submit", "1", "Check")
 
-	# show the document ID as the first (subject) column in list views
-	_property_setter("Sales Order", None, "title_field", "name", "Data")
-	_property_setter("Sales Invoice", None, "title_field", "name", "Data")
+	# NOTE: title_field must NOT be forced to "name" - it breaks the list query
+	# and the list comes back empty. Clean up any left over from an earlier build.
+	_remove_property_setter("Sales Order", None, "title_field")
+	_remove_property_setter("Sales Invoice", None, "title_field")
 
 
 # ---------------------------------------------------------------- list views
 
 
 SO_LIST_FIELDS = [
+	{"fieldname": "name", "label": "ID"},
 	{"fieldname": "customer_name", "label": "Customer Name"},
 	{"fieldname": "project", "label": "Project"},
 	{"fieldname": "grand_total", "label": "Grand Total"},
@@ -272,6 +286,7 @@ SO_LIST_FIELDS = [
 ]
 
 SI_LIST_FIELDS = [
+	{"fieldname": "name", "label": "ID"},
 	{"fieldname": "customer_name", "label": "Customer Name"},
 	{"fieldname": "project", "label": "Project"},
 	{"fieldname": "sbi_stage_no", "label": "Stage No"},
@@ -297,8 +312,11 @@ def _sync_list_view(doctype, fields):
 # ---------------------------------------------------------------- entry point
 
 
+@frappe.whitelist()
 def sync_print_formats():
-	"""Idempotent. Wired to after_migrate."""
+	"""Idempotent. Wired to after_migrate; also callable manually to force a re-sync."""
+	if frappe.session and frappe.session.user not in ("Administrator", None):
+		frappe.only_for("System Manager")
 	steps = (
 		("custom fields", _sync_custom_fields),
 		("properties", _sync_properties),
