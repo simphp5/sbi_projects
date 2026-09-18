@@ -172,3 +172,31 @@ for _sbi_pm in [
 ]:
     if _sbi_pm not in jinja["methods"]:
         jinja["methods"].append(_sbi_pm)
+
+
+# --- SBI item HSN wiring (auto-added) ---
+try:
+    doc_events
+except NameError:
+    doc_events = {}
+
+if not isinstance(doc_events, dict):
+    doc_events = {}
+
+
+def _sbi_hsn_event(_dt, _event, _method):
+    _entry = doc_events.setdefault(_dt, {})
+    _existing = _entry.get(_event)
+    if _existing is None:
+        _entry[_event] = _method
+    elif isinstance(_existing, str):
+        if _existing != _method:
+            _entry[_event] = [_existing, _method]
+    elif isinstance(_existing, (list, tuple)):
+        _existing = list(_existing)
+        if _method not in _existing:
+            _existing.append(_method)
+        _entry[_event] = _existing
+
+
+_sbi_hsn_event("Item", "validate", "sbi_projects.setup.item_hsn.item_validate")

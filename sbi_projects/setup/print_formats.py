@@ -357,6 +357,16 @@ def _sync_custom_fields():
 					"description": "Tick only when this stage is deliberately part-billed again",
 				},
 			],
+			"Item Group": [
+				{
+					"fieldname": "sbi_default_hsn",
+					"label": "Default HSN/SAC",
+					"fieldtype": "Link",
+					"options": "GST HSN Code",
+					"insert_after": "parent_item_group",
+					"description": "New items in this group inherit this HSN/SAC automatically",
+				},
+			],
 			"Bank Account": [
 				{
 					"fieldname": "sbi_print_bank_name",
