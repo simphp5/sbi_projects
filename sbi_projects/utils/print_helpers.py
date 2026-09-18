@@ -847,6 +847,14 @@ def purchase_ctx(doc):
 
 	contact = company_contact(doc.company, company_addr_name)
 
+	project_labels = {}
+	for row in doc.get("items") or []:
+		value = row.get("project")
+		if value and value not in project_labels:
+			project_labels[value] = (
+				frappe.db.get_value("Project", value, "project_name") or value
+			)
+
 	terms = doc.get("terms") or ""
 	if not terms and doc.get("tc_name"):
 		terms = frappe.db.get_value("Terms and Conditions", doc.tc_name, "terms") or ""
@@ -891,6 +899,8 @@ def purchase_ctx(doc):
 		"rounded_total": rounded_total,
 		"terms": terms,
 		"terms_html": terms_html(terms),
+		"projects": project_labels,
+		"multi_project": len(project_labels) > 1,
 		"prepared_by": _prepared_by(doc),
 		"hsn": hsn_summary(doc),
 	}

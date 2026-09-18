@@ -154,3 +154,63 @@ def backfill_project_warehouses(dry_run=0):
 		"already_had_one": len(skipped),
 		"dry_run": bool(int(dry_run or 0)),
 	}
+
+
+# ---------------------------------------------------------------- validation
+
+
+def _site_store_map(company):
+	"""warehouse -> project, for warehouses that are project site stores."""
+	rows = frappe.get_all(
+		"Project",
+		filters={PROJECT_FIELD: ["is", "set"]},
+		fields=["name", "project_name", PROJECT_FIELD],
+		limit_page_length=0,
+	)
+	return {
+		r.get(PROJECT_FIELD): {"project": r.name, "label": r.project_name or r.name}
+		for r in rows
+		if r.get(PROJECT_FIELD)
+	}
+
+
+def check_row_warehouse(doc, method=None):
+	"""Block a row whose warehouse is another project's site store."""
+	rows = doc.get("items") or []
+	if not rows:
+		return
+
+	store_map = None
+	for row in rows:
+		project = row.get("project") or row.get("sbi_project") or doc.get("project")
+		warehouse = row.get("warehouse") or row.get("t_warehouse")
+		if not project or not warehouse:
+			continue
+
+		if store_map is None:
+			store_map = _site_store_map(doc.get("company"))
+
+		owner = store_map.get(warehouse)
+		if not owner:
+			# not a project site store (central store, transit, etc.) - allowed
+			continue
+		if owner["project"] == project:
+			continue
+
+		expected = frappe.db.get_value("Project", project, PROJECT_FIELD)
+		project_label = frappe.db.get_value("Project", project, "project_name") or project
+
+		frappe.throw(
+			frappe._(
+				"Row {0}: warehouse <b>{1}</b> is the site store of <b>{2}</b>, "
+				"but this row is booked to project <b>{3}</b>.<br><br>"
+				"Use <b>{4}</b>, or run <b>Tools &gt; Set Store from Project</b>."
+			).format(
+				row.idx,
+				frappe.utils.escape_html(warehouse),
+				frappe.utils.escape_html(owner["label"]),
+				frappe.utils.escape_html(project_label),
+				frappe.utils.escape_html(expected or "the project's own store"),
+			),
+			title=frappe._("Wrong Site Store"),
+		)

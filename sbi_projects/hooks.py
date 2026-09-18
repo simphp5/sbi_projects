@@ -235,3 +235,35 @@ _sbi_pw_event(
     "Project", "on_update",
     "sbi_projects.setup.project_warehouse.project_on_update",
 )
+
+
+# --- SBI site store check (auto-added) ---
+try:
+    doc_events
+except NameError:
+    doc_events = {}
+
+if not isinstance(doc_events, dict):
+    doc_events = {}
+
+
+def _sbi_sc_event(_dt, _event, _method):
+    _entry = doc_events.setdefault(_dt, {})
+    _existing = _entry.get(_event)
+    if _existing is None:
+        _entry[_event] = _method
+    elif isinstance(_existing, str):
+        if _existing != _method:
+            _entry[_event] = [_existing, _method]
+    elif isinstance(_existing, (list, tuple)):
+        _existing = list(_existing)
+        if _method not in _existing:
+            _existing.append(_method)
+        _entry[_event] = _existing
+
+
+for _sbi_dt in ("Purchase Order", "Purchase Receipt", "Material Request"):
+    _sbi_sc_event(
+        _sbi_dt, "validate",
+        "sbi_projects.setup.project_warehouse.check_row_warehouse",
+    )

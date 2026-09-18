@@ -122,6 +122,7 @@
         {%- if row.description and row.description|striptags|trim != row.item_name %}
         <div class="it">{{ row.description|striptags|trim }}</div>
         {%- endif %}
+        {%- if c.multi_project and row.project %}<div class="it">Project : {{ c.projects.get(row.project, row.project) }}</div>{% endif %}
         {%- if row.schedule_date %}<div class="sm">Required by : {{ fdate(row.schedule_date) }}</div>{% endif %}
       </td>
       <td class="br ctr">{{ row.gst_hsn_code or "" }}</td>
