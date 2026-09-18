@@ -7,6 +7,34 @@ from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 PRINT_FORMAT_NAME = "SBI Tax Invoice"
 CLIENT_SCRIPT_NAME = "SBI Sales Invoice Print New Tab"
 
+STORE_SCRIPT = """
+frappe.ui.form.on('__DOCTYPE__', {
+    project(frm) { sbi_set_store(frm); },
+    refresh(frm) {
+        if (frm.doc.docstatus === 0 && frm.doc.project && !frm.doc.set_warehouse) {
+            sbi_set_store(frm);
+        }
+    }
+});
+
+function sbi_set_store(frm) {
+    if (!frm.doc.project || frm.doc.docstatus !== 0) return;
+    frappe.call({
+        method: 'sbi_projects.setup.project_warehouse.warehouse_for_project',
+        args: { project: frm.doc.project }
+    }).then(r => {
+        const wh = r.message;
+        if (!wh) return;
+        frm.set_value('set_warehouse', wh);
+        (frm.doc.items || []).forEach(row => {
+            frappe.model.set_value(row.doctype, row.name, 'warehouse', wh);
+        });
+    });
+}
+"""
+
+STORE_DOCTYPES = ("Purchase Order", "Purchase Receipt", "Material Request")
+
 PURCHASE_FORMATS = (
 	("SBI Purchase Order", "Purchase Order", "sbi_purchase.html"),
 	("SBI Purchase Invoice", "Purchase Invoice", "sbi_purchase.html"),
@@ -381,6 +409,17 @@ def _upsert_client_script(name, doctype, script):
 	doc.save(ignore_permissions=True)
 
 
+def _sync_store_scripts():
+	for doctype in STORE_DOCTYPES:
+		if not frappe.db.exists("DocType", doctype):
+			continue
+		_upsert_client_script(
+			"SBI %s Site Store" % doctype,
+			doctype,
+			STORE_SCRIPT.replace("__DOCTYPE__", doctype),
+		)
+
+
 def _sync_purchase_formats():
 	for name, doctype, filename in PURCHASE_FORMATS:
 		_upsert_print_format(name, doctype, filename)
@@ -482,6 +521,17 @@ def _sync_custom_fields():
 					"insert_after": "sbi_gst_paid",
 					"no_copy": 1,
 					"description": "Tick only when this stage is deliberately part-billed again",
+				},
+			],
+			"Project": [
+				{
+					"fieldname": "sbi_warehouse",
+					"label": "Site Store (Warehouse)",
+					"fieldtype": "Link",
+					"options": "Warehouse",
+					"insert_after": "project_name",
+					"read_only": 1,
+					"description": "Created automatically with the same name as the project",
 				},
 			],
 			"Item Group": [
@@ -628,6 +678,7 @@ def sync_print_formats():
 		("print format", _sync_print_format),
 		("client script", _sync_client_script),
 		("purchase formats", _sync_purchase_formats),
+		("site store scripts", _sync_store_scripts),
 	)
 	for label, fn in steps:
 		try:
