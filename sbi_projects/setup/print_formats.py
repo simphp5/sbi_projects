@@ -13,103 +13,164 @@ PURCHASE_FORMATS = (
 )
 
 PURCHASE_SCRIPT = """
-frappe.ui.form.on('{doctype}', {{
-    refresh(frm) {{
+frappe.ui.form.on('__DOCTYPE__', {
+    refresh(frm) {
         if (frm.is_new()) return;
 
-        const do_print = () => {{
+        const do_print = () => {
             const p = [
                 'doctype=' + encodeURIComponent(frm.doc.doctype),
                 'name=' + encodeURIComponent(frm.doc.name),
-                'format=' + encodeURIComponent('{format}'),
+                'format=' + encodeURIComponent('__FORMAT__'),
                 'no_letterhead=1',
                 '_lang=en'
             ].join('&');
             window.open('/printview?' + p, '_blank');
-        }};
+        };
 
-        const render_preview = (d, text) => {{
-            const lines = (text || '').split('\\n')
-                .map(x => x.trim()).filter(x => x.length);
+        const contact_fields = (state) => ([
+            {
+                fieldtype: 'Section Break', label: __('Company Contact (printed in the header)')
+            },
+            {
+                fieldtype: 'Data', fieldname: 'company_phone', label: __('Phone'),
+                read_only: state.can_edit ? 0 : 1
+            },
+            {
+                fieldtype: 'Column Break'
+            },
+            {
+                fieldtype: 'Data', fieldname: 'company_email', label: __('Email'),
+                options: 'Email', read_only: state.can_edit ? 0 : 1
+            },
+            {
+                fieldtype: 'HTML', fieldname: 'contact_note'
+            },
+            { fieldtype: 'Section Break' }
+        ]);
+
+        const contact_note_html = (state) => {
+            if (!state.can_edit) {
+                return '<div class="text-muted small">' +
+                    __('You do not have permission to edit the Company master.') + '</div>';
+            }
+            const missing = [];
+            if (!state.email) missing.push(__('Email'));
+            if (!state.phone) missing.push(__('Phone'));
+            if (missing.length) {
+                return '<div style="color:#BE1E2D" class="small">' +
+                    __('Not set: ') + missing.join(', ') +
+                    __(' - fill it in and it will be saved to the Company master.') + '</div>';
+            }
+            return '<div class="text-muted small">' +
+                __('Edits here are saved to the Company master and its address.') + '</div>';
+        };
+
+        const save_contact = (state, v) => {
+            const email = (v.company_email || '').trim();
+            const phone = (v.company_phone || '').trim();
+            if (!state.can_edit) return Promise.resolve();
+            if (email === (state.email || '') && phone === (state.phone || '')) {
+                return Promise.resolve();
+            }
+            return frappe.call({
+                method: 'sbi_projects.utils.print_helpers.save_company_contact',
+                args: {
+                    company: state.company, email: email,
+                    phone: phone, address: state.address
+                }
+            });
+        };
+
+        const render_preview = (d, text) => {
+            const lines = (text || '').split('\\n').map(x => x.trim()).filter(x => x.length);
             let html;
-            if (lines.length) {{
+            if (lines.length) {
                 html = '<ol style="margin:0 0 0 18px;padding:0;font-size:12px">' +
                     lines.map(x => '<li style="margin-bottom:3px">' +
                         frappe.utils.escape_html(x) + '</li>').join('') + '</ol>';
-            }} else {{
+            } else {
                 html = '<div style="color:#BE1E2D">' +
                     __('No terms set - this section will print blank.') + '</div>';
-            }}
-            d.fields_dict.preview.$wrapper.html(
-                '<div style="margin-bottom:10px"><b>' + __('Terms of Purchase') +
-                '</b></div>' + html);
-        }};
+            }
+            d.fields_dict.preview.$wrapper.html(html);
+        };
 
-        const verify_terms = () => {{
-            frappe.call({{
-                method: 'sbi_projects.utils.print_helpers.terms_for',
-                args: {{ doctype: frm.doc.doctype, name: frm.doc.name }},
-                freeze: true,
-                freeze_message: __('Loading terms...')
-            }}).then(r => {{
-                const t = r.message || {{}};
+        const verify_before_print = () => {
+            Promise.all([
+                frappe.call({
+                    method: 'sbi_projects.utils.print_helpers.terms_for',
+                    args: { doctype: frm.doc.doctype, name: frm.doc.name }
+                }),
+                frappe.call({
+                    method: 'sbi_projects.utils.print_helpers.contact_for',
+                    args: { doctype: frm.doc.doctype, name: frm.doc.name }
+                })
+            ]).then(([tr, cr]) => {
+                const t = tr.message || {};
+                const state = cr.message || {};
 
-                const d = new frappe.ui.Dialog({{
-                    title: __('Confirm Terms of Purchase'),
+                const d = new frappe.ui.Dialog({
+                    title: __('Check Before Printing'),
                     size: 'large',
-                    fields: [
-                        {{ fieldtype: 'HTML', fieldname: 'preview' }},
-                        {{
+                    fields: contact_fields(state).concat([
+                        {
                             fieldtype: 'Link', fieldname: 'tc_name',
                             label: __('Terms Template'), options: 'Terms and Conditions',
-                            onchange() {{
+                            onchange() {
                                 const v = d.get_value('tc_name');
                                 if (!v) return;
-                                frappe.call({{
+                                frappe.call({
                                     method: 'sbi_projects.utils.print_helpers.terms_template',
-                                    args: {{ tc_name: v }}
-                                }}).then(res => {{
-                                    d.set_value('terms_text', (res.message || {{}}).text || '');
-                                }});
-                            }}
-                        }},
-                        {{
+                                    args: { tc_name: v }
+                                }).then(res => {
+                                    d.set_value('terms_text', (res.message || {}).text || '');
+                                });
+                            }
+                        },
+                        {
                             fieldtype: 'Small Text', fieldname: 'terms_text',
-                            label: __('Terms - one per line (numbered automatically)'),
-                            onchange() {{ render_preview(d, d.get_value('terms_text')); }}
-                        }}
-                    ],
+                            label: __('Terms of Purchase - one per line (numbered automatically)'),
+                            onchange() { render_preview(d, d.get_value('terms_text')); }
+                        },
+                        { fieldtype: 'HTML', fieldname: 'preview' }
+                    ]),
                     primary_action_label: __('Print'),
-                    primary_action(v) {{
+                    primary_action(v) {
                         const text = (v.terms_text || '').trim();
-                        const changed = text !== (t.text || '').trim() ||
+                        const terms_changed = text !== (t.text || '').trim() ||
                             (v.tc_name || '') !== (t.tc_name || '');
-                        if (!changed) {{ d.hide(); do_print(); return; }}
 
-                        if (v.tc_name) frm.set_value('tc_name', v.tc_name);
-                        frm.set_value('terms', text);
-                        frm.save(frm.doc.docstatus === 1 ? 'Update' : 'Save')
-                            .then(() => {{ d.hide(); do_print(); }});
-                    }},
+                        save_contact(state, v).then(() => {
+                            if (!terms_changed) { d.hide(); do_print(); return; }
+                            if (v.tc_name) frm.set_value('tc_name', v.tc_name);
+                            frm.set_value('terms', text);
+                            frm.save(frm.doc.docstatus === 1 ? 'Update' : 'Save')
+                                .then(() => { d.hide(); do_print(); });
+                        });
+                    },
                     secondary_action_label: __('Print without changes'),
-                    secondary_action() {{ d.hide(); do_print(); }}
-                }});
+                    secondary_action() { d.hide(); do_print(); }
+                });
 
                 d.show();
+                d.set_value('company_email', state.email || '');
+                d.set_value('company_phone', state.phone || '');
+                d.fields_dict.contact_note.$wrapper.html(contact_note_html(state));
                 if (t.tc_name) d.set_value('tc_name', t.tc_name);
                 d.set_value('terms_text', t.text || '');
                 render_preview(d, t.text || '');
-            }});
-        }};
+            });
+        };
 
-        frm.print_doc = verify_terms;
+        frm.print_doc = verify_before_print;
 
-        if (!frm.__sbi_print_menu) {{
-            frm.page.add_menu_item(__('Print (new tab)'), verify_terms);
+        if (!frm.__sbi_print_menu) {
+            frm.page.add_menu_item(__('Print (new tab)'), verify_before_print);
             frm.__sbi_print_menu = 1;
-        }}
-    }}
-}});
+        }
+    }
+});
 """
 
 SO_SERIES = "SBI/\nSBIPPL/\nSAL-ORD-.YYYY.-"
@@ -131,36 +192,98 @@ frappe.ui.form.on('Sales Invoice', {
             window.open('/printview?' + p, '_blank');
         };
 
-        const verify_bank = () => {
-            frappe.call({
-                method: 'sbi_projects.utils.print_helpers.bank_details_for',
-                args: { invoice: frm.doc.name },
-                freeze: true,
-                freeze_message: __('Checking bank details...')
-            }).then(r => {
-                const b = r.message || {};
+        const contact_fields = (state) => ([
+            {
+                fieldtype: 'Section Break', label: __('Company Contact (printed in the header)')
+            },
+            {
+                fieldtype: 'Data', fieldname: 'company_phone', label: __('Phone'),
+                read_only: state.can_edit ? 0 : 1
+            },
+            {
+                fieldtype: 'Column Break'
+            },
+            {
+                fieldtype: 'Data', fieldname: 'company_email', label: __('Email'),
+                options: 'Email', read_only: state.can_edit ? 0 : 1
+            },
+            {
+                fieldtype: 'HTML', fieldname: 'contact_note'
+            },
+            { fieldtype: 'Section Break' }
+        ]);
+
+        const contact_note_html = (state) => {
+            if (!state.can_edit) {
+                return '<div class="text-muted small">' +
+                    __('You do not have permission to edit the Company master.') + '</div>';
+            }
+            const missing = [];
+            if (!state.email) missing.push(__('Email'));
+            if (!state.phone) missing.push(__('Phone'));
+            if (missing.length) {
+                return '<div style="color:#BE1E2D" class="small">' +
+                    __('Not set: ') + missing.join(', ') +
+                    __(' - fill it in and it will be saved to the Company master.') + '</div>';
+            }
+            return '<div class="text-muted small">' +
+                __('Edits here are saved to the Company master and its address.') + '</div>';
+        };
+
+        const save_contact = (state, v) => {
+            const email = (v.company_email || '').trim();
+            const phone = (v.company_phone || '').trim();
+            if (!state.can_edit) return Promise.resolve();
+            if (email === (state.email || '') && phone === (state.phone || '')) {
+                return Promise.resolve();
+            }
+            return frappe.call({
+                method: 'sbi_projects.utils.print_helpers.save_company_contact',
+                args: {
+                    company: state.company, email: email,
+                    phone: phone, address: state.address
+                }
+            });
+        };
+
+        const verify_before_print = () => {
+            Promise.all([
+                frappe.call({
+                    method: 'sbi_projects.utils.print_helpers.bank_details_for',
+                    args: { invoice: frm.doc.name }
+                }),
+                frappe.call({
+                    method: 'sbi_projects.utils.print_helpers.contact_for',
+                    args: { doctype: frm.doc.doctype, name: frm.doc.name }
+                })
+            ]).then(([br, cr]) => {
+                const b = br.message || {};
+                const state = cr.message || {};
                 const miss = '<span style="color:#BE1E2D">' + __('Not set') + '</span>';
 
                 const d = new frappe.ui.Dialog({
-                    title: __('Verify Bank Details'),
-                    fields: [
+                    title: __('Check Before Printing'),
+                    size: 'large',
+                    fields: contact_fields(state).concat([
                         { fieldtype: 'HTML', fieldname: 'preview' },
                         {
                             fieldtype: 'Link', fieldname: 'bank_account',
                             label: __('Bank Account'), options: 'Bank Account'
                         },
                         { fieldtype: 'HTML', fieldname: 'hint' }
-                    ],
+                    ]),
                     primary_action_label: __('Print'),
                     primary_action(v) {
-                        if (v.bank_account && v.bank_account !== b.bank_account) {
-                            frm.set_value('company_bank_account', v.bank_account);
-                            frm.save(frm.doc.docstatus === 1 ? 'Update' : 'Save')
-                                .then(() => { d.hide(); do_print(); });
-                        } else {
-                            d.hide();
-                            do_print();
-                        }
+                        save_contact(state, v).then(() => {
+                            if (v.bank_account && v.bank_account !== b.bank_account) {
+                                frm.set_value('company_bank_account', v.bank_account);
+                                frm.save(frm.doc.docstatus === 1 ? 'Update' : 'Save')
+                                    .then(() => { d.hide(); do_print(); });
+                            } else {
+                                d.hide();
+                                do_print();
+                            }
+                        });
                     },
                     secondary_action_label: __('Edit Bank Master'),
                     secondary_action() {
@@ -182,21 +305,25 @@ frappe.ui.form.on('Sales Invoice', {
                     html += '<tr><td style="width:42%"><b>' + x[0] + '</b></td><td>' + x[1] + '</td></tr>';
                 });
                 html += '</table>';
+
+                d.show();
+                d.set_value('company_email', state.email || '');
+                d.set_value('company_phone', state.phone || '');
+                d.fields_dict.contact_note.$wrapper.html(contact_note_html(state));
                 d.fields_dict.preview.$wrapper.html(html);
                 d.fields_dict.hint.$wrapper.html(
                     '<div class="text-muted small" style="margin-top:6px">' +
-                    __('Bank Name and Branch Name printed on the invoice come from the Bank Account master fields "Print Bank Name" and "Branch Name (for print)".') +
+                    __('Bank Name and Branch Name come from the Bank Account master fields "Print Bank Name" and "Branch Name (for print)".') +
                     '</div>'
                 );
                 if (b.bank_account) d.set_value('bank_account', b.bank_account);
-                d.show();
             });
         };
 
-        frm.print_doc = verify_bank;
+        frm.print_doc = verify_before_print;
 
         if (!frm.__sbi_print_menu) {
-            frm.page.add_menu_item(__('Print (new tab)'), verify_bank);
+            frm.page.add_menu_item(__('Print (new tab)'), verify_before_print);
             frm.__sbi_print_menu = 1;
         }
     }
@@ -260,7 +387,7 @@ def _sync_purchase_formats():
 		_upsert_client_script(
 			"SBI %s Print New Tab" % doctype,
 			doctype,
-			PURCHASE_SCRIPT.format(doctype=doctype, format=name),
+			PURCHASE_SCRIPT.replace("__DOCTYPE__", doctype).replace("__FORMAT__", name),
 		)
 		_property_setter(doctype, None, "default_print_format", name, "Data")
 

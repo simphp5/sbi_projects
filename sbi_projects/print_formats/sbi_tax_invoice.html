@@ -63,6 +63,7 @@
               {%- for l in c.company.lines %}<div>{{ l }}</div>{% endfor %}
               <div>GSTIN/UIN : {{ c.company.gstin }}</div>
               <div>State Name : {{ c.company.state }}, Code : {{ c.company.state_code }}</div>
+              {%- if c.company.phone %}<div>Phone : {{ c.company.phone }}</div>{% endif %}
               {%- if c.company.email %}<div>E-Mail : {{ c.company.email }}</div>{% endif %}
             </td>
           </tr>

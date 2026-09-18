@@ -632,6 +632,7 @@ def invoice_ctx(doc):
 	round_off = flt(rounded_total - grand, 2)
 
 	po_no, po_date = _reference(doc)
+	contact = company_contact(doc.company, doc.get("company_address"))
 	prepared_by = _prepared_by(doc)
 
 	return {
@@ -647,7 +648,8 @@ def invoice_ctx(doc):
 			"gstin": company_gstin,
 			"state": company_addr["state"] or "Tamil Nadu",
 			"state_code": company_addr["state_code"] or _state_code(company_gstin),
-			"email": company.get("email") or "",
+			"email": contact.get("email") or "",
+			"phone": contact.get("phone") or "",
 		},
 		"buyer": {
 			"name": doc.customer_name,
@@ -843,6 +845,8 @@ def purchase_ctx(doc):
 		doc_label = "Order No"
 		title = "Purchase Order"
 
+	contact = company_contact(doc.company, company_addr_name)
+
 	terms = doc.get("terms") or ""
 	if not terms and doc.get("tc_name"):
 		terms = frappe.db.get_value("Terms and Conditions", doc.tc_name, "terms") or ""
@@ -863,7 +867,8 @@ def purchase_ctx(doc):
 			"gstin": company_gstin,
 			"state": company_addr["state"] or "",
 			"state_code": company_addr["state_code"] or _state_code(company_gstin),
-			"email": company.get("email") or "",
+			"email": contact.get("email") or "",
+			"phone": contact.get("phone") or "",
 		},
 		"supplier": {
 			"name": doc.get("supplier_name") or doc.get("supplier"),
@@ -966,3 +971,85 @@ def terms_template(tc_name):
 	raw = frappe.db.get_value("Terms and Conditions", tc_name, "terms") or ""
 	lines = terms_to_lines(raw)
 	return {"text": "\n".join(lines), "html": terms_html(raw)}
+
+
+# ---------------------------------------------------------------- contact
+
+
+def company_contact(company, address_name=None):
+	"""Email + phone for the letterhead block: address first, then Company master."""
+	out = {"email": "", "phone": "", "address": address_name or ""}
+
+	if not out["address"] and company:
+		out["address"] = _company_address(company)
+
+	if out["address"] and frappe.db.exists("Address", out["address"]):
+		addr = frappe.db.get_value(
+			"Address", out["address"], ["email_id", "phone"], as_dict=True
+		)
+		if addr:
+			out["email"] = addr.email_id or ""
+			out["phone"] = addr.phone or ""
+
+	if company and (not out["email"] or not out["phone"]):
+		comp = frappe.db.get_value(
+			"Company", company, ["email", "phone_no"], as_dict=True
+		)
+		if comp:
+			out["email"] = out["email"] or comp.email or ""
+			out["phone"] = out["phone"] or comp.phone_no or ""
+
+	placeholder = ("test@test.com", "test@example.com", "admin@example.com")
+	if out["email"].strip().lower() in placeholder:
+		out["email"] = ""
+
+	return out
+
+
+@frappe.whitelist()
+def contact_for(doctype, name):
+	doc = frappe.get_doc(doctype, name)
+	doc.check_permission("read")
+	address = (
+		doc.get("company_address")
+		or doc.get("billing_address")
+		or _company_address(doc.company)
+	)
+	out = company_contact(doc.company, address)
+	out["company"] = doc.company
+	out["can_edit"] = bool(frappe.has_permission("Company", "write"))
+	return out
+
+
+@frappe.whitelist()
+def save_company_contact(company, email=None, phone=None, address=None):
+	"""Write the corrected email / phone back to the Company (and its address)."""
+	frappe.has_permission("Company", "write", throw=True)
+
+	email = (email or "").strip()
+	phone = (phone or "").strip()
+
+	if email:
+		frappe.utils.validate_email_address(email, throw=True)
+
+	values = {}
+	if email:
+		values["email"] = email
+	if phone:
+		values["phone_no"] = phone
+	if values:
+		frappe.db.set_value("Company", company, values)
+
+	if not address:
+		address = _company_address(company)
+	if address and frappe.db.exists("Address", address):
+		addr_values = {}
+		if email:
+			addr_values["email_id"] = email
+		if phone:
+			addr_values["phone"] = phone
+		if addr_values:
+			frappe.db.set_value("Address", address, addr_values)
+
+	frappe.db.commit()
+	return company_contact(company, address)
