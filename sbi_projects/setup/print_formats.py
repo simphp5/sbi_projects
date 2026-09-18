@@ -9,31 +9,89 @@ CLIENT_SCRIPT_NAME = "SBI Sales Invoice Print New Tab"
 
 STORE_SCRIPT = """
 frappe.ui.form.on('__DOCTYPE__', {
-    project(frm) { sbi_set_store(frm); },
     refresh(frm) {
-        if (frm.doc.docstatus === 0 && frm.doc.project && !frm.doc.set_warehouse) {
-            sbi_set_store(frm);
-        }
-    }
+        if (frm.doc.docstatus !== 0) return;
+        frm.add_custom_button(__('Set Store from Project'), () => {
+            sbi_apply_store(frm, false);
+        }, __('Tools'));
+        sbi_apply_store(frm, true);
+    },
+    project(frm) { sbi_apply_store(frm, false); }
 });
 
-function sbi_set_store(frm) {
-    if (!frm.doc.project || frm.doc.docstatus !== 0) return;
-    frappe.call({
+frappe.ui.form.on('__CHILD__', {
+    project(frm, cdt, cdn) { sbi_apply_row(frm, cdt, cdn, false); },
+    sbi_project(frm, cdt, cdn) { sbi_apply_row(frm, cdt, cdn, false); },
+    items_add(frm, cdt, cdn) { sbi_apply_row(frm, cdt, cdn, true); }
+});
+
+function sbi_row_project(frm, row) {
+    return row.project || row.sbi_project || frm.doc.project || null;
+}
+
+function sbi_fetch_store(project) {
+    return frappe.call({
         method: 'sbi_projects.setup.project_warehouse.warehouse_for_project',
-        args: { project: frm.doc.project }
-    }).then(r => {
-        const wh = r.message;
-        if (!wh) return;
-        frm.set_value('set_warehouse', wh);
-        (frm.doc.items || []).forEach(row => {
-            frappe.model.set_value(row.doctype, row.name, 'warehouse', wh);
+        args: { project: project }
+    }).then(r => r.message || null);
+}
+
+function sbi_apply_row(frm, cdt, cdn, only_if_empty) {
+    if (frm.doc.docstatus !== 0) return;
+    const row = locals[cdt][cdn];
+    if (!row) return;
+    const project = sbi_row_project(frm, row);
+    if (!project) return;
+    if (only_if_empty && row.warehouse) return;
+
+    sbi_fetch_store(project).then(wh => {
+        if (wh && row.warehouse !== wh) {
+            frappe.model.set_value(cdt, cdn, 'warehouse', wh);
+        }
+    });
+}
+
+function sbi_apply_store(frm, only_if_empty) {
+    if (frm.doc.docstatus !== 0) return;
+    const rows = frm.doc.items || [];
+    if (!rows.length) return;
+
+    const projects = [];
+    rows.forEach(row => {
+        const p = sbi_row_project(frm, row);
+        if (p && projects.indexOf(p) === -1) projects.push(p);
+    });
+    if (!projects.length) return;
+
+    if (projects.length === 1) {
+        if (only_if_empty && frm.doc.set_warehouse) {
+            const pending = rows.filter(r => !r.warehouse);
+            if (!pending.length) return;
+        }
+        sbi_fetch_store(projects[0]).then(wh => {
+            if (!wh) return;
+            if (frm.doc.set_warehouse !== wh) frm.set_value('set_warehouse', wh);
+            rows.forEach(row => {
+                if (only_if_empty && row.warehouse) return;
+                if (row.warehouse !== wh) {
+                    frappe.model.set_value(row.doctype, row.name, 'warehouse', wh);
+                }
+            });
         });
+        return;
+    }
+
+    rows.forEach(row => {
+        sbi_apply_row(frm, row.doctype, row.name, only_if_empty);
     });
 }
 """
 
-STORE_DOCTYPES = ("Purchase Order", "Purchase Receipt", "Material Request")
+STORE_DOCTYPES = (
+	("Purchase Order", "Purchase Order Item"),
+	("Purchase Receipt", "Purchase Receipt Item"),
+	("Material Request", "Material Request Item"),
+)
 
 PURCHASE_FORMATS = (
 	("SBI Purchase Order", "Purchase Order", "sbi_purchase.html"),
@@ -410,13 +468,13 @@ def _upsert_client_script(name, doctype, script):
 
 
 def _sync_store_scripts():
-	for doctype in STORE_DOCTYPES:
+	for doctype, child in STORE_DOCTYPES:
 		if not frappe.db.exists("DocType", doctype):
 			continue
 		_upsert_client_script(
 			"SBI %s Site Store" % doctype,
 			doctype,
-			STORE_SCRIPT.replace("__DOCTYPE__", doctype),
+			STORE_SCRIPT.replace("__DOCTYPE__", doctype).replace("__CHILD__", child),
 		)
 
 
