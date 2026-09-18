@@ -154,3 +154,21 @@ def _sbi_add_event(_dt, _event, _method):
 _sbi_add_event("Sales Order", "autoname", "sbi_projects.setup.sales_naming.sales_order_autoname")
 _sbi_add_event("Sales Invoice", "autoname", "sbi_projects.setup.sales_naming.sales_invoice_autoname")
 _sbi_add_event("Sales Invoice", "validate", "sbi_projects.setup.sales_naming.sales_invoice_validate")
+
+
+# --- SBI purchase print wiring (auto-added) ---
+try:
+    jinja
+except NameError:
+    jinja = {}
+
+if not isinstance(jinja, dict):
+    jinja = {}
+
+jinja.setdefault("methods", [])
+for _sbi_pm in [
+    "sbi_projects.utils.print_helpers.purchase_ctx",
+    "sbi_projects.utils.print_helpers.fdate",
+]:
+    if _sbi_pm not in jinja["methods"]:
+        jinja["methods"].append(_sbi_pm)

@@ -1,0 +1,265 @@
+{%- set c = purchase_ctx(doc) -%}
+<style>
+  .sbi-pur { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #000; }
+  .sbi-pur table { border-collapse: collapse; width: 100%; }
+  .sbi-pur td { vertical-align: top; padding: 3px 5px; }
+  .sbi-pur table.main { border: 1px solid #000; table-layout: fixed; }
+  .sbi-pur table.sub { border-collapse: collapse; width: 100%; }
+  .sbi-pur table.sub td { padding: 3px 5px; }
+  .sbi-pur .bt { border-top: 1px solid #000; }
+  .sbi-pur .bb { border-bottom: 1px solid #000; }
+  .sbi-pur .br { border-right: 1px solid #000; }
+  .sbi-pur .ctr { text-align: center; }
+  .sbi-pur .rgt { text-align: right; }
+  .sbi-pur .b { font-weight: bold; }
+  .sbi-pur .sm { font-size: 10px; }
+  .sbi-pur .it { font-style: italic; }
+  .sbi-pur .ttl { font-size: 13px; letter-spacing: .5px; }
+  .sbi-pur .co-name { font-size: 13px; font-weight: bold; }
+  .sbi-pur .pty { font-size: 12px; font-weight: bold; }
+  .sbi-pur .pad0 { padding: 0; }
+  .sbi-pur .filler td { height: 90px; }
+  .sbi-pur .foot { text-align: center; padding-top: 8px; font-size: 10px; }
+  .sbi-pur .sign { height: 58px; }
+  .sbi-pur .wrap { word-wrap: break-word; overflow-wrap: break-word; }
+  .sbi-pur .terms { font-size: 10px; }
+  .sbi-pur .terms p { margin: 0 0 3px 0; }
+  .sbi-pur .terms ol, .sbi-pur .terms ul { margin: 0 0 3px 16px; padding: 0; }
+</style>
+
+<div class="sbi-pur">
+
+  <div class="ctr ttl" style="margin-bottom:6px;">{{ c.title }}</div>
+
+  <table class="main">
+    <colgroup>
+      <col style="width:5%"><col style="width:38%"><col style="width:12%">
+      <col style="width:11%"><col style="width:15%"><col style="width:19%">
+    </colgroup>
+
+    <!-- ===== company | doc no | dated ===== -->
+    <tr>
+      <td colspan="4" rowspan="2" class="br bb">
+        <table class="sub">
+          <tr>
+            {%- if c.logo %}<td style="width:78px;padding-left:0"><img src="{{ c.logo }}" style="max-width:72px;max-height:52px;"></td>{% endif %}
+            <td style="padding-left:0">
+              <div class="co-name">{{ c.company.name }}</div>
+              {%- for l in c.company.lines %}<div>{{ l }}</div>{% endfor %}
+              <div>GSTIN/UIN : {{ c.company.gstin }}</div>
+              <div>State Name : {{ c.company.state }}, Code : {{ c.company.state_code }}</div>
+              {%- if c.company.email %}<div>E-Mail : {{ c.company.email }}</div>{% endif %}
+            </td>
+          </tr>
+        </table>
+      </td>
+      <td class="br bb wrap">
+        <div class="sm">{{ c.doc_label }}</div>
+        <div class="b">{{ c.doc_no }}</div>
+      </td>
+      <td class="bb">
+        <div class="sm">Dated</div>
+        <div class="b">{{ c.doc_date }}</div>
+      </td>
+    </tr>
+
+    <tr>
+      <td class="br bb wrap">
+        <div class="sm">{{ c.ref_label }}</div>
+        <div class="b">{{ c.ref_no }}{% if c.ref_date %} dt. {{ c.ref_date }}{% endif %}&nbsp;</div>
+      </td>
+      <td class="bb wrap">
+        <div class="sm">Other References</div>
+        <div class="b">{% if c.project %}Project : {{ c.project }}{% else %}&nbsp;{% endif %}</div>
+      </td>
+    </tr>
+
+    <!-- ===== supplier | ship to ===== -->
+    <tr>
+      <td colspan="3" class="br bb">
+        <div class="sm">Supplier</div>
+        <div class="pty">{{ c.supplier.name }}</div>
+        {%- for l in c.supplier.lines %}<div>{{ l }}</div>{% endfor %}
+        <div>GSTIN/UIN &nbsp;: {{ c.supplier.gstin }}</div>
+        <div>State Name &nbsp;: {{ c.supplier.state }}, Code : {{ c.supplier.state_code }}</div>
+      </td>
+      <td colspan="3" class="bb">
+        <div class="sm">Ship To</div>
+        <div class="pty">{{ c.ship_to.name }}</div>
+        {%- for l in c.ship_to.lines %}<div>{{ l }}</div>{% endfor %}
+        <div>GSTIN/UIN &nbsp;: {{ c.ship_to.gstin }}</div>
+        <div>State Name &nbsp;: {{ c.ship_to.state }}, Code : {{ c.ship_to.state_code }}</div>
+      </td>
+    </tr>
+
+    <!-- ===== items ===== -->
+    <tr class="b ctr">
+      <td class="br bb">Sl<br>No</td>
+      <td class="br bb">Description of Goods / Services</td>
+      <td class="br bb">HSN/SAC</td>
+      <td class="br bb">Quantity</td>
+      <td class="br bb">Rate</td>
+      <td class="bb">Amount</td>
+    </tr>
+
+    {%- for row in doc.items %}
+    <tr>
+      <td class="br ctr">{{ loop.index }}</td>
+      <td class="br">
+        <div class="b" style="font-size:12px">{{ row.item_name }}</div>
+        {%- if row.description and row.description|striptags|trim != row.item_name %}
+        <div class="it">{{ row.description|striptags|trim }}</div>
+        {%- endif %}
+        {%- if row.schedule_date %}<div class="sm">Required by : {{ fdate(row.schedule_date) }}</div>{% endif %}
+      </td>
+      <td class="br ctr">{{ row.gst_hsn_code or "" }}</td>
+      <td class="br rgt">{{ amt(row.qty) }} {{ row.uom or row.stock_uom or "" }}</td>
+      <td class="br rgt">{{ amt(row.rate) }}</td>
+      <td class="rgt b">{{ amt(row.amount) }}</td>
+    </tr>
+    {%- endfor %}
+
+    {%- for t in c.tax_rows %}
+    <tr>
+      <td class="br">&nbsp;</td>
+      <td class="br rgt b" colspan="4">{{ t.label }}</td>
+      <td class="rgt b">{{ amt(t.amount) }}</td>
+    </tr>
+    {%- endfor %}
+
+    {%- if c.round_off and (c.round_off > 0.004 or c.round_off < -0.004) %}
+    <tr>
+      <td class="br">&nbsp;</td>
+      <td class="br rgt b" colspan="4">Round Off</td>
+      <td class="rgt b">{{ amt(c.round_off) }}</td>
+    </tr>
+    {%- endif %}
+
+    <tr class="filler">
+      <td class="br">&nbsp;</td><td class="br">&nbsp;</td><td class="br">&nbsp;</td>
+      <td class="br">&nbsp;</td><td class="br">&nbsp;</td><td>&nbsp;</td>
+    </tr>
+
+    <tr class="b">
+      <td class="br bt bb">&nbsp;</td>
+      <td class="br bt bb rgt" colspan="4">Total</td>
+      <td class="bt bb rgt" style="font-size:13px">&#8377; {{ amt(c.rounded_total) }}</td>
+    </tr>
+
+    <!-- ===== amount in words ===== -->
+    <tr>
+      <td colspan="5" class="br bb">
+        <div class="sm">Amount Chargeable (in words)</div>
+        <div class="b" style="font-size:12px">{{ in_words(c.rounded_total, doc.currency) }}</div>
+      </td>
+      <td class="bb rgt sm it" style="vertical-align:bottom">E. &amp; O.E</td>
+    </tr>
+
+    <!-- ===== gst summary ===== -->
+    <tr>
+      <td colspan="6" class="pad0 bb">
+        <table class="sub">
+          {%- if c.hsn.has_igst %}
+          <tr class="b ctr">
+            <td class="br bb" rowspan="2" style="width:34%;vertical-align:middle">HSN/SAC</td>
+            <td class="br bb" rowspan="2" style="width:18%;vertical-align:middle">Taxable<br>Value</td>
+            <td class="br bb" colspan="2" style="width:30%">IGST</td>
+            <td class="bb" rowspan="2" style="width:18%;vertical-align:middle">Total<br>Tax Amount</td>
+          </tr>
+          <tr class="b ctr">
+            <td class="br bb" style="width:10%">Rate</td>
+            <td class="br bb" style="width:20%">Amount</td>
+          </tr>
+          {%- for r in c.hsn.rows %}
+          <tr>
+            <td class="br bb">{{ r.hsn }}</td>
+            <td class="br bb rgt">{{ amt(r.taxable) }}</td>
+            <td class="br bb ctr">{{ pct(r.igst_rate) }}%</td>
+            <td class="br bb rgt">{{ amt(r.igst) }}</td>
+            <td class="bb rgt">{{ amt(r.total_tax) }}</td>
+          </tr>
+          {%- endfor %}
+          <tr class="b">
+            <td class="br rgt">Total</td>
+            <td class="br rgt">{{ amt(c.hsn.total.taxable) }}</td>
+            <td class="br">&nbsp;</td>
+            <td class="br rgt">{{ amt(c.hsn.total.igst) }}</td>
+            <td class="rgt">{{ amt(c.hsn.total.total_tax) }}</td>
+          </tr>
+          {%- else %}
+          <tr class="b ctr">
+            <td class="br bb" rowspan="2" style="width:28%;vertical-align:middle">HSN/SAC</td>
+            <td class="br bb" rowspan="2" style="width:14%;vertical-align:middle">Taxable<br>Value</td>
+            <td class="br bb" colspan="2" style="width:22%">CGST</td>
+            <td class="br bb" colspan="2" style="width:22%">SGST/UTGST</td>
+            <td class="bb" rowspan="2" style="width:14%;vertical-align:middle">Total<br>Tax Amount</td>
+          </tr>
+          <tr class="b ctr">
+            <td class="br bb" style="width:7%">Rate</td>
+            <td class="br bb" style="width:15%">Amount</td>
+            <td class="br bb" style="width:7%">Rate</td>
+            <td class="br bb" style="width:15%">Amount</td>
+          </tr>
+          {%- for r in c.hsn.rows %}
+          <tr>
+            <td class="br bb">{{ r.hsn }}</td>
+            <td class="br bb rgt">{{ amt(r.taxable) }}</td>
+            <td class="br bb ctr">{{ pct(r.cgst_rate) }}%</td>
+            <td class="br bb rgt">{{ amt(r.cgst) }}</td>
+            <td class="br bb ctr">{{ pct(r.sgst_rate) }}%</td>
+            <td class="br bb rgt">{{ amt(r.sgst) }}</td>
+            <td class="bb rgt">{{ amt(r.total_tax) }}</td>
+          </tr>
+          {%- endfor %}
+          <tr class="b">
+            <td class="br rgt">Total</td>
+            <td class="br rgt">{{ amt(c.hsn.total.taxable) }}</td>
+            <td class="br">&nbsp;</td>
+            <td class="br rgt">{{ amt(c.hsn.total.cgst) }}</td>
+            <td class="br">&nbsp;</td>
+            <td class="br rgt">{{ amt(c.hsn.total.sgst) }}</td>
+            <td class="rgt">{{ amt(c.hsn.total.total_tax) }}</td>
+          </tr>
+          {%- endif %}
+        </table>
+      </td>
+    </tr>
+
+    <tr>
+      <td colspan="6" class="bb">
+        <span class="sm">Tax Amount (in words)</span>
+        <span class="b" style="font-size:12px;padding-left:14px">{{ in_words(c.hsn.total.total_tax, doc.currency) }}</span>
+      </td>
+    </tr>
+
+    <!-- ===== terms of purchase ===== -->
+    <tr>
+      <td colspan="6" class="bb">
+        <div class="sm b" style="margin-bottom:3px">Terms of Purchase</div>
+        {%- if c.terms %}
+        <div class="terms">{{ c.terms|safe }}</div>
+        {%- else %}
+        <div class="terms it">&nbsp;</div>
+        {%- endif %}
+      </td>
+    </tr>
+
+    <!-- ===== signatures ===== -->
+    <tr>
+      <td colspan="3" class="br ctr">
+        <div class="sm">&nbsp;</div>
+        <div class="sign">&nbsp;</div>
+        <div class="sm">Prepared By</div>
+        <div class="sm b">{{ c.prepared_by }}</div>
+      </td>
+      <td colspan="3" class="ctr">
+        <div class="b sm">for {{ c.company.name }}</div>
+        <div class="sign">&nbsp;</div>
+        <div class="sm">Authorised Signatory</div>
+      </td>
+    </tr>
+  </table>
+
+  <div class="foot">This is a Computer Generated {{ c.title }}</div>
+
+</div>

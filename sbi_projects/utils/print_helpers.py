@@ -764,3 +764,127 @@ def debug_invoice(invoice):
 		"print_format_modified": str(pf.modified) if pf else "(missing)",
 		"print_format_is_v4": "Prepared By" in html,
 	}
+
+
+# ---------------------------------------------------------------- purchase
+
+
+def _first_address(doc, fields):
+	for field in fields:
+		value = doc.get(field)
+		if value:
+			return value
+	return None
+
+
+def _company_address(company):
+	rows = frappe.get_all(
+		"Dynamic Link",
+		filters={"link_doctype": "Company", "link_name": company, "parenttype": "Address"},
+		pluck="parent",
+	)
+	if not rows:
+		return None
+	return frappe.db.get_value(
+		"Address",
+		{"name": ["in", rows], "disabled": 0},
+		"name",
+		order_by="is_primary_address desc, modified desc",
+	)
+
+
+def purchase_ctx(doc):
+	"""Shared context for the Purchase Order and Purchase Invoice print formats."""
+	if isinstance(doc, str):
+		doc = frappe.get_doc("Purchase Order", doc)
+
+	is_invoice = doc.doctype == "Purchase Invoice"
+	company = frappe.get_doc("Company", doc.company)
+
+	company_addr_name = _first_address(doc, ("billing_address", "company_address")) or _company_address(
+		doc.company
+	)
+	company_addr = _address_block(company_addr_name)
+	supplier_addr = _address_block(doc.get("supplier_address"))
+	ship_addr = _address_block(_first_address(doc, ("shipping_address", "shipping_address_name")))
+	if not ship_addr["lines"]:
+		ship_addr = company_addr
+
+	company_gstin = doc.get("company_gstin") or company_addr.get("gstin") or ""
+	supplier_gstin = doc.get("supplier_gstin") or supplier_addr.get("gstin") or ""
+
+	tax_rows = []
+	for tax in doc.get("taxes") or []:
+		amount = flt(tax.base_tax_amount or tax.tax_amount)
+		if not amount:
+			continue
+		key = _tax_key(tax.account_head)
+		label = {"cgst": "CGST", "sgst": "SGST", "igst": "IGST", "cess": "CESS"}.get(key)
+		if not label:
+			label = (tax.description or tax.account_head or "").split(" - ")[0]
+		tax_rows.append({"label": label, "amount": amount})
+
+	grand = flt(doc.base_grand_total or doc.grand_total)
+	rounded_total = flt(doc.base_rounded_total)
+	if not rounded_total:
+		rounded_total = flt(rounded(grand, 0))
+	round_off = flt(rounded_total - grand, 2)
+
+	if is_invoice:
+		ref_label = "Supplier Invoice No. & Date"
+		ref_no = doc.get("bill_no") or ""
+		ref_date = doc.get("bill_date")
+		doc_label = "Invoice No"
+		title = "Purchase Invoice"
+	else:
+		ref_label = "Supplier Quotation / Ref"
+		ref_no = doc.get("supplier_quotation") or ""
+		ref_date = None
+		doc_label = "Order No"
+		title = "Purchase Order"
+
+	terms = doc.get("terms") or ""
+	if not terms and doc.get("tc_name"):
+		terms = frappe.db.get_value("Terms and Conditions", doc.tc_name, "terms") or ""
+
+	return {
+		"title": title,
+		"is_invoice": is_invoice,
+		"doc_label": doc_label,
+		"doc_no": doc.name,
+		"doc_date": fdate(doc.get("transaction_date") or doc.get("posting_date")),
+		"ref_label": ref_label,
+		"ref_no": ref_no,
+		"ref_date": fdate(ref_date),
+		"project": _project_label(doc),
+		"company": {
+			"name": company.company_name,
+			"lines": company_addr["lines"],
+			"gstin": company_gstin,
+			"state": company_addr["state"] or "",
+			"state_code": company_addr["state_code"] or _state_code(company_gstin),
+			"email": company.get("email") or "",
+		},
+		"supplier": {
+			"name": doc.get("supplier_name") or doc.get("supplier"),
+			"lines": supplier_addr["lines"],
+			"gstin": supplier_gstin,
+			"state": supplier_addr["state"],
+			"state_code": supplier_addr["state_code"] or _state_code(supplier_gstin),
+		},
+		"ship_to": {
+			"name": ship_addr["title"] or company.company_name,
+			"lines": ship_addr["lines"],
+			"gstin": ship_addr["gstin"] or company_gstin,
+			"state": ship_addr["state"],
+			"state_code": ship_addr["state_code"] or _state_code(company_gstin),
+		},
+		"logo": company.get("company_logo") or "",
+		"tax_rows": tax_rows,
+		"grand_total": grand,
+		"round_off": round_off,
+		"rounded_total": rounded_total,
+		"terms": terms,
+		"prepared_by": frappe.db.get_value("User", doc.owner, "full_name") or doc.owner,
+		"hsn": hsn_summary(doc),
+	}

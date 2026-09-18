@@ -7,6 +7,37 @@ from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 PRINT_FORMAT_NAME = "SBI Tax Invoice"
 CLIENT_SCRIPT_NAME = "SBI Sales Invoice Print New Tab"
 
+PURCHASE_FORMATS = (
+	("SBI Purchase Order", "Purchase Order", "sbi_purchase.html"),
+	("SBI Purchase Invoice", "Purchase Invoice", "sbi_purchase.html"),
+)
+
+PURCHASE_SCRIPT = """
+frappe.ui.form.on('{doctype}', {{
+    refresh(frm) {{
+        if (frm.is_new()) return;
+
+        const do_print = () => {{
+            const p = [
+                'doctype=' + encodeURIComponent(frm.doc.doctype),
+                'name=' + encodeURIComponent(frm.doc.name),
+                'format=' + encodeURIComponent('{format}'),
+                'no_letterhead=1',
+                '_lang=en'
+            ].join('&');
+            window.open('/printview?' + p, '_blank');
+        }};
+
+        frm.print_doc = do_print;
+
+        if (!frm.__sbi_print_menu) {{
+            frm.page.add_menu_item(__('Print (new tab)'), do_print);
+            frm.__sbi_print_menu = 1;
+        }}
+    }}
+}});
+"""
+
 SO_SERIES = "SBI/\nSBIPPL/\nSAL-ORD-.YYYY.-"
 SI_SERIES = "SBI/\nSBIPPL/\nACC-SINV-.YYYY.-\nACC-SINV-RET-.YYYY.-"
 
@@ -102,12 +133,62 @@ frappe.ui.form.on('Sales Invoice', {
 # ---------------------------------------------------------------- print format
 
 
-def _read_html():
-	path = os.path.join(
-		frappe.get_app_path("sbi_projects"), "print_formats", "sbi_tax_invoice.html"
-	)
+def _read_html(filename="sbi_tax_invoice.html"):
+	path = os.path.join(frappe.get_app_path("sbi_projects"), "print_formats", filename)
 	with open(path, "r", encoding="utf-8") as f:
 		return f.read()
+
+
+def _upsert_print_format(name, doctype, filename):
+	values = {
+		"doc_type": doctype,
+		"module": "SBI Projects",
+		"print_format_type": "Jinja",
+		"custom_format": 1,
+		"standard": "No",
+		"disabled": 0,
+		"font_size": 11,
+		"margin_top": 10,
+		"margin_bottom": 10,
+		"margin_left": 10,
+		"margin_right": 10,
+		"default_print_language": "en",
+		"html": _read_html(filename),
+	}
+	if frappe.db.exists("Print Format", name):
+		doc = frappe.get_doc("Print Format", name)
+	else:
+		doc = frappe.new_doc("Print Format")
+		doc.name = name
+	for key, value in values.items():
+		doc.set(key, value)
+	doc.flags.ignore_permissions = True
+	doc.save(ignore_permissions=True)
+
+
+def _upsert_client_script(name, doctype, script):
+	if frappe.db.exists("Client Script", name):
+		doc = frappe.get_doc("Client Script", name)
+	else:
+		doc = frappe.new_doc("Client Script")
+		doc.name = name
+	doc.dt = doctype
+	doc.view = "Form"
+	doc.enabled = 1
+	doc.script = script
+	doc.flags.ignore_permissions = True
+	doc.save(ignore_permissions=True)
+
+
+def _sync_purchase_formats():
+	for name, doctype, filename in PURCHASE_FORMATS:
+		_upsert_print_format(name, doctype, filename)
+		_upsert_client_script(
+			"SBI %s Print New Tab" % doctype,
+			doctype,
+			PURCHASE_SCRIPT.format(doctype=doctype, format=name),
+		)
+		_property_setter(doctype, None, "default_print_format", name, "Data")
 
 
 def _sync_print_format():
@@ -192,6 +273,14 @@ def _sync_custom_fields():
 					"insert_after": "sbi_gst_filed",
 					"allow_on_submit": 1,
 					"no_copy": 1,
+				},
+				{
+					"fieldname": "sbi_allow_duplicate_stage",
+					"label": "Allow Duplicate Stage Billing",
+					"fieldtype": "Check",
+					"insert_after": "sbi_gst_paid",
+					"no_copy": 1,
+					"description": "Tick only when this stage is deliberately part-billed again",
 				},
 			],
 			"Bank Account": [
@@ -322,6 +411,7 @@ def sync_print_formats():
 		("properties", _sync_properties),
 		("print format", _sync_print_format),
 		("client script", _sync_client_script),
+		("purchase formats", _sync_purchase_formats),
 	)
 	for label, fn in steps:
 		try:
