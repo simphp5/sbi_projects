@@ -373,5 +373,249 @@ function loadToday(){
   });
 }
 </script>
+
+<!-- SBI material receipt tab -->
+<style>
+  #tab-rcv .rcvpo{border:1px solid #e2e2e2;border-radius:10px;padding:10px;margin-bottom:10px;background:#fff}
+  #tab-rcv .rcvpo h4{margin:0 0 2px;font-size:14px}
+  #tab-rcv .rcvpo .meta{color:#777;font-size:12px;margin-bottom:8px}
+  #tab-rcv table{width:100%;border-collapse:collapse;font-size:12.5px}
+  #tab-rcv th,#tab-rcv td{padding:5px 4px;border-bottom:1px solid #eee;text-align:left}
+  #tab-rcv th{color:#777;font-weight:600}
+  #tab-rcv td.num,#tab-rcv th.num{text-align:right}
+  #tab-rcv input.q{width:72px;padding:5px;border:1px solid #ccc;border-radius:6px;text-align:right;font-size:13px}
+  #tab-rcv .rcvhist{font-size:12.5px;color:#555;border-bottom:1px solid #eee;padding:6px 0}
+  #tab-rcv .muted{color:#888;font-size:13px;padding:14px 2px}
+</style>
+
+<script>
+(function(){
+  function rel(id){ return document.getElementById(id); }
+
+  function mkSection(){
+    if (rel("tab-rcv")) return;
+    var anchor = rel("tab-day") || rel("tab-ver") || rel("tab-mat");
+    if (!anchor) return;
+    var html =
+      '<section id="tab-rcv" style="display:none">' +
+        '<div class="card">' +
+          '<label>Delivery challan no.</label>' +
+          '<input id="rChallan" type="text" placeholder="Supplier challan / DC number">' +
+          '<label style="margin-top:8px">Challan photo</label>' +
+          '<input id="rPhoto" type="file" accept="image/*" capture="environment">' +
+          '<div id="rPhotoName" style="color:#777;font-size:12px;margin-top:4px"></div>' +
+        '</div>' +
+        '<div id="rcvList"><div class="muted">Loading pending orders...</div></div>' +
+        '<div class="card" style="margin-top:12px">' +
+          '<b style="font-size:13px">Recent receipts</b>' +
+          '<div id="rcvHist" style="margin-top:6px"><div class="muted">-</div></div>' +
+        '</div>' +
+      '</section>';
+    anchor.insertAdjacentHTML("afterend", html);
+  }
+
+  function mkButtons(){
+    var tabs = document.querySelector(".tabs");
+    if (tabs && !tabs.querySelector("[data-t='rcv']")) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.setAttribute("data-t", "rcv");
+      b.textContent = "Receipt";
+      var matBtn = tabs.querySelector("[data-t='mat']");
+      if (matBtn && matBtn.nextSibling) tabs.insertBefore(b, matBtn.nextSibling);
+      else tabs.appendChild(b);
+      b.addEventListener("click", function(){ showRcv(); });
+    }
+
+    var drawItems = document.querySelectorAll(".opsdrawitem");
+    if (drawItems.length && !document.querySelector(".opsdrawitem[data-d='rcv']")) {
+      var d = document.createElement("button");
+      d.type = "button";
+      d.className = "opsdrawitem";
+      d.setAttribute("data-d", "rcv");
+      d.textContent = "Receipt";
+      var matDraw = document.querySelector(".opsdrawitem[data-d='mat']");
+      if (matDraw && matDraw.nextSibling) matDraw.parentNode.insertBefore(d, matDraw.nextSibling);
+      else drawItems[0].parentNode.appendChild(d);
+      d.addEventListener("click", function(){
+        showRcv();
+        var drawer = document.querySelector(".opsdrawer");
+        if (drawer) drawer.classList.remove("open");
+      });
+    }
+
+    document.querySelectorAll(".tabs button").forEach(function(x){
+      if (x.dataset.t === "rcv") return;
+      x.addEventListener("click", function(){ hideRcv(); });
+    });
+    document.querySelectorAll(".opsdrawitem").forEach(function(x){
+      if (x.dataset.d === "rcv") return;
+      x.addEventListener("click", function(){ hideRcv(); });
+    });
+  }
+
+  function hideRcv(){
+    var s = rel("tab-rcv");
+    if (s) s.style.display = "none";
+  }
+
+  function showRcv(){
+    ["exp","prg","mat","ver","day"].forEach(function(t){
+      var e = rel("tab-" + t);
+      if (e) e.style.display = "none";
+    });
+    document.querySelectorAll(".tabs button").forEach(function(x){ x.classList.remove("on"); });
+    var btn = document.querySelector(".tabs button[data-t='rcv']");
+    if (btn) btn.classList.add("on");
+    document.querySelectorAll(".opsdrawitem").forEach(function(x){ x.classList.remove("on"); });
+    var dbtn = document.querySelector(".opsdrawitem[data-d='rcv']");
+    if (dbtn) dbtn.classList.add("on");
+
+    var s = rel("tab-rcv");
+    if (s) s.style.display = "";
+    loadPending();
+    loadHistory();
+  }
+
+  var PHOTO = null;
+
+  function bindPhoto(){
+    var inp = rel("rPhoto");
+    if (!inp || inp.dataset.bound) return;
+    inp.dataset.bound = "1";
+    inp.addEventListener("change", function(){
+      var f = inp.files && inp.files[0];
+      if (!f) { PHOTO = null; rel("rPhotoName").textContent = ""; return; }
+      var fr = new FileReader();
+      fr.onload = function(){
+        PHOTO = fr.result;
+        rel("rPhotoName").textContent = f.name + " attached";
+      };
+      fr.readAsDataURL(f);
+    });
+  }
+
+  function esc(s){
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function loadPending(){
+    var box = rel("rcvList");
+    if (!box) return;
+    box.innerHTML = '<div class="muted">Loading pending orders...</div>';
+    api("sbi_projects.site_receipt_api.pending_purchase_orders", { project: PROJECT })
+      .then(function(r){
+        var list = (r && r.message) || [];
+        if (!list.length) {
+          box.innerHTML = '<div class="muted">No pending purchase orders for this site.</div>';
+          return;
+        }
+        var html = "";
+        list.forEach(function(po){
+          html += '<div class="rcvpo" data-po="' + esc(po.name) + '">';
+          html += "<h4>" + esc(po.supplier_name) + "</h4>";
+          html += '<div class="meta">' + esc(po.name) + " &middot; " + esc(po.date) +
+                  " &middot; " + po.per_received + "% received</div>";
+          html += "<table><tr><th>Item</th><th class='num'>Pending</th><th class='num'>Received now</th></tr>";
+          po.items.forEach(function(it){
+            html += "<tr>" +
+              "<td>" + esc(it.item_name) + "</td>" +
+              "<td class='num'>" + it.pending + " " + esc(it.uom) + "</td>" +
+              "<td class='num'><input class='q' type='number' min='0' step='any' " +
+                "data-row='" + esc(it.row) + "' data-max='" + it.pending + "' placeholder='0'></td>" +
+              "</tr>";
+          });
+          html += "</table>";
+          html += '<button class="btn rcvSave" style="margin-top:9px">Record Receipt</button>';
+          html += "</div>";
+        });
+        box.innerHTML = html;
+
+        box.querySelectorAll(".rcvSave").forEach(function(b){
+          b.addEventListener("click", function(){ saveReceipt(b.closest(".rcvpo"), b); });
+        });
+      })
+      .catch(function(){
+        box.innerHTML = '<div class="muted">Could not load purchase orders.</div>';
+      });
+  }
+
+  function loadHistory(){
+    var box = rel("rcvHist");
+    if (!box) return;
+    api("sbi_projects.site_receipt_api.recent_receipts", { project: PROJECT, limit: 8 })
+      .then(function(r){
+        var list = (r && r.message) || [];
+        if (!list.length) { box.innerHTML = '<div class="muted">No receipts yet.</div>'; return; }
+        var html = "";
+        list.forEach(function(pr){
+          var items = (pr.items || []).map(function(i){
+            return esc(i.item_name) + " " + i.qty + " " + esc(i.uom || "");
+          }).join(", ");
+          html += '<div class="rcvhist"><b>' + esc(pr.posting_date) + "</b> &middot; " +
+                  esc(pr.supplier_name) + "<br>" + items + "</div>";
+        });
+        box.innerHTML = html;
+      });
+  }
+
+  function saveReceipt(card, btn){
+    if (!card) return;
+    var rows = [];
+    var bad = false;
+    card.querySelectorAll("input.q").forEach(function(inp){
+      var q = parseFloat(inp.value);
+      if (!q || q <= 0) return;
+      var max = parseFloat(inp.dataset.max);
+      if (q > max + 0.001) { bad = true; inp.style.borderColor = "#be1e2d"; return; }
+      inp.style.borderColor = "#ccc";
+      rows.push({ row: inp.dataset.row, qty: q });
+    });
+
+    if (bad) { toast("Received qty is more than pending"); return; }
+    if (!rows.length) { toast("Enter received quantity"); return; }
+
+    var challan = (rel("rChallan") || {}).value || "";
+    if (!challan.trim()) { toast("Enter the delivery challan number"); return; }
+
+    btn.disabled = true;
+    btn.textContent = "Saving...";
+    api("sbi_projects.site_receipt_api.create_receipt", {
+      project: PROJECT,
+      purchase_order: card.dataset.po,
+      rows: JSON.stringify(rows),
+      challan_no: challan.trim(),
+      photo: PHOTO || ""
+    }).then(function(r){
+      var m = (r && r.message) || {};
+      toast("Receipt " + (m.name || "") + " recorded");
+      PHOTO = null;
+      if (rel("rPhoto")) rel("rPhoto").value = "";
+      if (rel("rPhotoName")) rel("rPhotoName").textContent = "";
+      if (rel("rChallan")) rel("rChallan").value = "";
+      loadPending();
+      loadHistory();
+    }).catch(function(e){
+      toast("Could not save. Check the quantities.");
+      btn.disabled = false;
+      btn.textContent = "Record Receipt";
+    });
+  }
+
+  function init(){
+    mkSection();
+    mkButtons();
+    bindPhoto();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+</script>
+
 </body>
 </html>
