@@ -1465,5 +1465,38 @@
   else boot();
 })();
 </script>
+
+<!-- SBI receipt shortcut -->
+<style>
+  #sbiRcvFab{position:fixed;right:14px;bottom:18px;z-index:60;display:none;
+    background:#be1e2d;color:#fff;border:0;border-radius:30px;
+    padding:14px 20px;font-size:15px;font-weight:800;font-family:inherit;
+    box-shadow:0 4px 14px rgba(0,0,0,.28);cursor:pointer}
+  #sbiRcvFab span{margin-right:7px}
+  @media (min-width:900px){ #sbiRcvFab{bottom:26px;right:26px} }
+</style>
+<button type="button" id="sbiRcvFab"><span>&#128230;</span>Material Receipt</button>
+<script>
+(function(){
+  function proj(){
+    try { return new URLSearchParams(location.search).get("project") || ""; }
+    catch(e){ return ""; }
+  }
+  function ready(){
+    var b = document.getElementById("sbiRcvFab");
+    if (!b) return;
+    var p = proj();
+    if (!p) { b.style.display = "none"; return; }
+    b.style.display = "block";
+    b.addEventListener("click", function(){
+      location.href = "/sbi_ops?project=" + encodeURIComponent(p) + "#rcv";
+    });
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", ready);
+  } else { ready(); }
+})();
+</script>
+
 </body>
 </html>

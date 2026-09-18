@@ -617,5 +617,25 @@ function loadToday(){
 })();
 </script>
 
+
+<!-- SBI receipt hash open -->
+<script>
+(function(){
+  function openIfAsked(){
+    if (location.hash !== "#rcv") return;
+    var tries = 0;
+    var t = setInterval(function(){
+      var b = document.querySelector(".tabs button[data-t='rcv']");
+      if (b) { clearInterval(t); b.click(); }
+      else if (++tries > 40) { clearInterval(t); }
+    }, 150);
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", openIfAsked);
+  } else { openIfAsked(); }
+  window.addEventListener("hashchange", openIfAsked);
+})();
+</script>
+
 </body>
 </html>
