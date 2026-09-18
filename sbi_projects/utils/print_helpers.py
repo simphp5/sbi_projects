@@ -632,7 +632,7 @@ def invoice_ctx(doc):
 	round_off = flt(rounded_total - grand, 2)
 
 	po_no, po_date = _reference(doc)
-	prepared_by = frappe.db.get_value("User", doc.owner, "full_name") or doc.owner
+	prepared_by = _prepared_by(doc)
 
 	return {
 		"is_einvoice": bool(doc.get("irn")),
@@ -885,6 +885,84 @@ def purchase_ctx(doc):
 		"round_off": round_off,
 		"rounded_total": rounded_total,
 		"terms": terms,
-		"prepared_by": frappe.db.get_value("User", doc.owner, "full_name") or doc.owner,
+		"terms_html": terms_html(terms),
+		"prepared_by": _prepared_by(doc),
 		"hsn": hsn_summary(doc),
 	}
+
+
+# ---------------------------------------------------------------- terms
+
+
+_BULLET_PREFIX = re.compile(r"^\s*(?:\d+\s*[.)\]]|[-*\u2022\u00b7])\s*")
+
+
+def terms_to_lines(raw):
+	"""Split stored terms (HTML or plain text) into clean one-per-line items."""
+	if not raw:
+		return []
+	text = str(raw)
+
+	if "<li" in text.lower():
+		items = re.findall(r"<li[^>]*>(.*?)</li>", text, flags=re.I | re.S)
+	else:
+		text = re.sub(r"<\s*br\s*/?\s*>", "\n", text, flags=re.I)
+		text = re.sub(r"</\s*(p|div|tr)\s*>", "\n", text, flags=re.I)
+		items = text.split("\n")
+
+	lines = []
+	for item in items:
+		clean = re.sub(r"<[^>]+>", " ", item)
+		clean = clean.replace("&nbsp;", " ").replace("&amp;", "&")
+		clean = clean.replace("&lt;", "<").replace("&gt;", ">")
+		clean = re.sub(r"\s+", " ", clean).strip()
+		clean = _BULLET_PREFIX.sub("", clean).strip()
+		if clean:
+			lines.append(clean)
+	return lines
+
+
+def terms_html(raw):
+	"""Render terms as a numbered list: 1. 2. 3."""
+	lines = terms_to_lines(raw)
+	if not lines:
+		return ""
+	items = "".join(
+		["<li>%s</li>" % frappe.utils.escape_html(line) for line in lines]
+	)
+	return '<ol class="sbi-terms">%s</ol>' % items
+
+
+def _prepared_by(doc):
+	"""Full name of the user who entered the document."""
+	user = doc.get("owner")
+	if not user:
+		return ""
+	employee = frappe.db.get_value(
+		"Employee", {"user_id": user, "status": "Active"}, "employee_name"
+	)
+	return employee or frappe.db.get_value("User", user, "full_name") or user
+
+
+@frappe.whitelist()
+def terms_for(doctype, name):
+	"""Feed the 'confirm terms before print' dialog."""
+	doc = frappe.get_doc(doctype, name)
+	doc.check_permission("read")
+	raw = doc.get("terms") or ""
+	if not raw and doc.get("tc_name"):
+		raw = frappe.db.get_value("Terms and Conditions", doc.tc_name, "terms") or ""
+	lines = terms_to_lines(raw)
+	return {
+		"tc_name": doc.get("tc_name") or "",
+		"lines": lines,
+		"text": "\n".join(lines),
+		"html": terms_html(raw),
+	}
+
+
+@frappe.whitelist()
+def terms_template(tc_name):
+	raw = frappe.db.get_value("Terms and Conditions", tc_name, "terms") or ""
+	lines = terms_to_lines(raw)
+	return {"text": "\n".join(lines), "html": terms_html(raw)}

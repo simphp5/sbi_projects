@@ -28,10 +28,84 @@ frappe.ui.form.on('{doctype}', {{
             window.open('/printview?' + p, '_blank');
         }};
 
-        frm.print_doc = do_print;
+        const render_preview = (d, text) => {{
+            const lines = (text || '').split('\\n')
+                .map(x => x.trim()).filter(x => x.length);
+            let html;
+            if (lines.length) {{
+                html = '<ol style="margin:0 0 0 18px;padding:0;font-size:12px">' +
+                    lines.map(x => '<li style="margin-bottom:3px">' +
+                        frappe.utils.escape_html(x) + '</li>').join('') + '</ol>';
+            }} else {{
+                html = '<div style="color:#BE1E2D">' +
+                    __('No terms set - this section will print blank.') + '</div>';
+            }}
+            d.fields_dict.preview.$wrapper.html(
+                '<div style="margin-bottom:10px"><b>' + __('Terms of Purchase') +
+                '</b></div>' + html);
+        }};
+
+        const verify_terms = () => {{
+            frappe.call({{
+                method: 'sbi_projects.utils.print_helpers.terms_for',
+                args: {{ doctype: frm.doc.doctype, name: frm.doc.name }},
+                freeze: true,
+                freeze_message: __('Loading terms...')
+            }}).then(r => {{
+                const t = r.message || {{}};
+
+                const d = new frappe.ui.Dialog({{
+                    title: __('Confirm Terms of Purchase'),
+                    size: 'large',
+                    fields: [
+                        {{ fieldtype: 'HTML', fieldname: 'preview' }},
+                        {{
+                            fieldtype: 'Link', fieldname: 'tc_name',
+                            label: __('Terms Template'), options: 'Terms and Conditions',
+                            onchange() {{
+                                const v = d.get_value('tc_name');
+                                if (!v) return;
+                                frappe.call({{
+                                    method: 'sbi_projects.utils.print_helpers.terms_template',
+                                    args: {{ tc_name: v }}
+                                }}).then(res => {{
+                                    d.set_value('terms_text', (res.message || {{}}).text || '');
+                                }});
+                            }}
+                        }},
+                        {{
+                            fieldtype: 'Small Text', fieldname: 'terms_text',
+                            label: __('Terms - one per line (numbered automatically)'),
+                            onchange() {{ render_preview(d, d.get_value('terms_text')); }}
+                        }}
+                    ],
+                    primary_action_label: __('Print'),
+                    primary_action(v) {{
+                        const text = (v.terms_text || '').trim();
+                        const changed = text !== (t.text || '').trim() ||
+                            (v.tc_name || '') !== (t.tc_name || '');
+                        if (!changed) {{ d.hide(); do_print(); return; }}
+
+                        if (v.tc_name) frm.set_value('tc_name', v.tc_name);
+                        frm.set_value('terms', text);
+                        frm.save(frm.doc.docstatus === 1 ? 'Update' : 'Save')
+                            .then(() => {{ d.hide(); do_print(); }});
+                    }},
+                    secondary_action_label: __('Print without changes'),
+                    secondary_action() {{ d.hide(); do_print(); }}
+                }});
+
+                d.show();
+                if (t.tc_name) d.set_value('tc_name', t.tc_name);
+                d.set_value('terms_text', t.text || '');
+                render_preview(d, t.text || '');
+            }});
+        }};
+
+        frm.print_doc = verify_terms;
 
         if (!frm.__sbi_print_menu) {{
-            frm.page.add_menu_item(__('Print (new tab)'), do_print);
+            frm.page.add_menu_item(__('Print (new tab)'), verify_terms);
             frm.__sbi_print_menu = 1;
         }}
     }}
@@ -356,6 +430,11 @@ def _sync_properties():
 
 	# let the bank account be corrected after submit (needed by the print dialog)
 	_property_setter("Sales Invoice", "company_bank_account", "allow_on_submit", "1", "Check")
+
+	# let terms be corrected after submit (needed by the purchase print dialog)
+	for _dt in ("Purchase Order", "Purchase Invoice"):
+		_property_setter(_dt, "terms", "allow_on_submit", "1", "Check")
+		_property_setter(_dt, "tc_name", "allow_on_submit", "1", "Check")
 
 	# NOTE: title_field must NOT be forced to "name" - it breaks the list query
 	# and the list comes back empty. Clean up any left over from an earlier build.
