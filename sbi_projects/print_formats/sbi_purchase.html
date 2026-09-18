@@ -2,10 +2,10 @@
 <style>
   .sbi-pur { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #000; }
   .sbi-pur table { border-collapse: collapse; width: 100%; }
-  .sbi-pur td { vertical-align: top; padding: 3px 5px; }
+  .sbi-pur td { vertical-align: top; padding: 2px 5px; }
   .sbi-pur table.main { border: 1px solid #000; table-layout: fixed; }
   .sbi-pur table.sub { border-collapse: collapse; width: 100%; }
-  .sbi-pur table.sub td { padding: 3px 5px; }
+  .sbi-pur table.sub td { padding: 2px 5px; }
   .sbi-pur .bt { border-top: 1px solid #000; }
   .sbi-pur .bb { border-bottom: 1px solid #000; }
   .sbi-pur .br { border-right: 1px solid #000; }
@@ -18,11 +18,20 @@
   .sbi-pur .co-name { font-size: 13px; font-weight: bold; }
   .sbi-pur .pty { font-size: 12px; font-weight: bold; }
   .sbi-pur .pad0 { padding: 0; }
-  .sbi-pur .filler td { height: 90px; }
+  .sbi-pur .filler td { height: 40px; }
   .sbi-pur .foot { text-align: center; padding-top: 8px; font-size: 10px; }
-  .sbi-pur .sign { height: 58px; }
+  .sbi-pur .sign { height: 42px; }
   .sbi-pur .wrap { word-wrap: break-word; overflow-wrap: break-word; }
-  .sbi-pur .terms { font-size: 10px; }
+  .sbi-pur table.main tr { page-break-inside: avoid; break-inside: avoid; }
+  @media print {
+    @page { margin: 8mm; }
+    .sbi-pur { font-size: 10px; }
+    .sbi-pur table.main { page-break-inside: avoid; break-inside: avoid; }
+    .sbi-pur .filler td { height: 18px; }
+    .sbi-pur .sign { height: 34px; }
+    .sbi-pur .foot { padding-top: 4px; }
+  }
+  .sbi-pur .terms { font-size: 9.5px; line-height: 1.25; }
   .sbi-pur .terms p { margin: 0 0 3px 0; }
   .sbi-pur .terms ol, .sbi-pur .terms ul { margin: 0 0 3px 18px; padding: 0; }
   .sbi-pur .terms ol.sbi-terms { list-style: decimal outside; }
@@ -144,10 +153,12 @@
     </tr>
     {%- endif %}
 
+    {%- if doc.items|length < 8 %}
     <tr class="filler">
       <td class="br">&nbsp;</td><td class="br">&nbsp;</td><td class="br">&nbsp;</td>
       <td class="br">&nbsp;</td><td class="br">&nbsp;</td><td>&nbsp;</td>
     </tr>
+    {%- endif %}
 
     <tr class="b">
       <td class="br bt bb">&nbsp;</td>
