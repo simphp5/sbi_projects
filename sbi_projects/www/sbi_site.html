@@ -2056,5 +2056,162 @@ body.sbi-cam .sbiNav{display:none}
 })();
 </script>
 
+
+<!-- SBI geo + worker actions v1 -->
+<style>
+.sbiGeo{cursor:pointer}
+.sbiGeoHelp{
+  position:fixed;left:14px;right:14px;bottom:calc(var(--nav-h, 74px) + 14px);z-index:60;
+  background:#241C18;color:#fff;border-radius:14px;padding:14px 16px;
+  font-size:13.5px;line-height:1.45;box-shadow:0 6px 22px rgba(0,0,0,.35);display:none;
+}
+.sbiGeoHelp b{display:block;font-size:14.5px;font-weight:600;margin-bottom:4px}
+.sbiGeoHelp .x{
+  margin-top:11px;min-height:44px;width:100%;border:0;border-radius:11px;
+  background:#BE1E2D;color:#fff;font-size:14px;font-weight:600;font-family:inherit;
+}
+.sbiWorkRow{display:flex;gap:10px;margin-top:12px}
+.sbiWorkRow button{
+  flex:1;min-height:52px;border:1px solid var(--line,#E2DDD7);background:#fff;
+  border-radius:var(--r-md,14px);font-family:inherit;font-size:14px;font-weight:600;
+  color:var(--ink,#1A1614);display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.sbiWorkRow button .wi{font-size:17px;line-height:1}
+</style>
+
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  window.S = window.S || {};
+
+  /* ---------------- location ---------------- */
+
+  var geoErr = "";
+  var watchId = null;
+
+  function keep(p){
+    var acc = p.coords.accuracy;
+    var cur = window.S.gps;
+    /* keep the tighter reading, but never sit on a stale one for long */
+    if (!cur || !cur.acc || acc <= cur.acc || (Date.now() - (cur.at || 0)) > 60000) {
+      window.S.gps = {
+        lat: p.coords.latitude,
+        lng: p.coords.longitude,
+        acc: acc,
+        at: Date.now()
+      };
+    }
+    geoErr = "";
+  }
+
+  function fail(e){
+    if (e && e.code === 1) geoErr = "denied";
+    else if (e && e.code === 2) geoErr = "unavailable";
+    else if (e && e.code === 3) geoErr = "timeout";
+    else geoErr = "error";
+  }
+
+  function ask(){
+    if (!navigator.geolocation) { geoErr = "unsupported"; return; }
+    var opts = { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 };
+    navigator.geolocation.getCurrentPosition(keep, fail, opts);
+    if (watchId === null) {
+      try {
+        watchId = navigator.geolocation.watchPosition(keep, fail, opts);
+      } catch (e) { fail(e); }
+    }
+  }
+
+  var HELP = {
+    denied: ["Location is blocked",
+             "Tap the lock icon next to the address, open Permissions and allow Location. Then tap the chip again."],
+    unavailable: ["Location unavailable",
+             "Turn on GPS in the phone settings, step outside if you are under a roof, then tap the chip again."],
+    timeout: ["Still looking",
+             "The fix is taking a while. Stay still in the open for a few seconds, then tap the chip again."],
+    unsupported: ["Not supported here",
+             "This browser cannot read location. Open the site in Chrome instead of an in-app browser."],
+    error: ["Location not available",
+             "Something blocked the location request. Tap the chip to try again."]
+  };
+
+  function showHelp(){
+    var box = $("sbiGeoHelp");
+    if (!box) {
+      box = document.createElement("div");
+      box.className = "sbiGeoHelp";
+      box.id = "sbiGeoHelp";
+      box.innerHTML = '<b id="sbiGeoHelpT"></b><span id="sbiGeoHelpB"></span>' +
+                      '<button type="button" class="x">Try again</button>';
+      box.querySelector(".x").addEventListener("click", function(){
+        box.style.display = "none";
+        ask();
+      });
+      document.body.appendChild(box);
+    }
+    var h = HELP[geoErr] || HELP.error;
+    $("sbiGeoHelpT").textContent = h[0];
+    $("sbiGeoHelpB").textContent = h[1];
+    box.style.display = "block";
+  }
+
+  function wireChip(){
+    var c = $("sbiGeo");
+    if (!c || c.dataset.sbiTap) return;
+    c.dataset.sbiTap = "1";
+    c.addEventListener("click", function(){
+      ask();
+      if (!window.S.gps) showHelp();
+    });
+  }
+
+  /* ---------------- worker actions on the punch screen ---------------- */
+
+  function workerRow(){
+    var big = $("btnPunch");
+    if (!big || $("sbiWorkRow")) return;
+    var w = $("btnWorkers"), m = $("btnMode");
+    if (!w && !m) return;
+
+    var row = document.createElement("div");
+    row.className = "sbiWorkRow";
+    row.id = "sbiWorkRow";
+
+    if (w) {
+      var b1 = document.createElement("button");
+      b1.type = "button";
+      b1.innerHTML = '<span class="wi">&#128101;</span>Workers';
+      b1.addEventListener("click", function(){ w.click(); });
+      row.appendChild(b1);
+    }
+    if (m) {
+      var b2 = document.createElement("button");
+      b2.type = "button";
+      b2.innerHTML = '<span class="wi">&#10133;</span>Add worker';
+      b2.addEventListener("click", function(){ m.click(); });
+      row.appendChild(b2);
+    }
+
+    big.parentNode.insertBefore(row, big.nextSibling);
+  }
+
+  function tick(){
+    wireChip();
+    workerRow();
+  }
+
+  function init(){
+    ask();
+    tick();
+    setInterval(tick, 1500);
+    setInterval(ask, 30000);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else { init(); }
+})();
+</script>
+
 </body>
 </html>
