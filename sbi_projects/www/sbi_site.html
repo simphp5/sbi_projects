@@ -1582,5 +1582,395 @@
 })();
 </script>
 
+
+<!-- SBI site shell v1 -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --brand:#BE1E2D; --brand-tint:#FCEEEF;
+  --ink:#1A1614; --soft:#6B635C; --line:#E2DDD7;
+  --bg:#F4F2EF; --card:#FFFFFF; --sunk:#F8F6F3;
+  --ok:#1F6B4A; --okbg:#EAF3EE;
+  --warn:#9A5B0A; --warnbg:#FDF1E3;
+  --err:#BE1E2D; --errbg:#FCEEEF;
+  --r-sm:10px; --r-md:14px; --r-lg:18px;
+  --nav-h:74px;
+}
+html,body{
+  background:var(--bg); color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+
+/* ---- old chrome steps aside --------------------------------------------- */
+.opstabs{display:none !important}
+.bar{display:none !important}
+#sbiRcvFab{display:none !important}
+
+/* ---- new header ---------------------------------------------------------- */
+.sbiHead{
+  width:100vw;position:relative;left:50%;transform:translateX(-50%);
+  background:var(--brand);color:#fff;padding:12px 14px 13px;
+}
+.sbiHeadTop{display:flex;align-items:center;gap:11px}
+.sbiHeadTop .logo{height:36px;background:#fff;padding:4px;border-radius:9px;flex:0 0 auto}
+.sbiHeadTop .tx{flex:1;min-width:0}
+.sbiHeadTop .kicker{
+  font-family:"Bricolage Grotesque",sans-serif;
+  font-size:10.5px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;opacity:.7;
+}
+.sbiHeadTop .name{
+  font-family:"Bricolage Grotesque",sans-serif;
+  font-size:18px;font-weight:700;letter-spacing:-.25px;line-height:1.2;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.sbiBurger{
+  width:44px;height:44px;flex:0 0 auto;border:0;border-radius:12px;
+  background:rgba(255,255,255,.16);color:#fff;font-size:20px;line-height:1;
+  display:flex;align-items:center;justify-content:center;font-family:inherit;
+}
+.sbiChips{display:flex;gap:8px;margin-top:11px}
+.sbiChip{
+  flex:1;min-width:0;background:rgba(0,0,0,.17);border-radius:11px;padding:8px 11px;
+}
+.sbiChip .k{font-size:10px;letter-spacing:.5px;text-transform:uppercase;opacity:.72;display:block}
+.sbiChip .v{
+  font-size:13.5px;font-weight:600;margin-top:2px;display:block;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.sbiChip.cash .v{font-family:"Bricolage Grotesque",sans-serif;font-size:15px;font-weight:700}
+
+/* ---- surfaces ------------------------------------------------------------ */
+main{padding:16px 14px calc(var(--nav-h) + 18px)}
+.note,.today,.ptpanel,.rw{background:var(--card);border:1px solid var(--line);border-radius:var(--r-md)}
+.note{padding:14px 16px;font-size:14.5px;font-weight:500;line-height:1.45}
+.note[data-tone="ok"]{background:var(--okbg);color:var(--ok);border-color:#CFE4D8}
+.note[data-tone="warn"]{background:var(--warnbg);color:var(--warn);border-color:#F0DCBE}
+.note[data-tone="err"]{background:var(--errbg);color:var(--err);border-color:#EED2D5}
+.today{padding:14px 16px}
+.today h3{font-family:"Bricolage Grotesque",sans-serif;font-size:11.5px;font-weight:600;letter-spacing:.7px;color:var(--soft);margin-bottom:10px}
+.chip{background:var(--sunk);border:1px solid var(--line);border-radius:999px;padding:7px 13px;font-size:13px;font-weight:500}
+.chip.done{background:var(--okbg);color:var(--ok);border-color:#CFE4D8;font-weight:600}
+
+.bigaction{border:1px solid var(--line);border-radius:var(--r-lg);padding:19px 18px;gap:16px;box-shadow:0 1px 2px rgba(26,22,20,.05)}
+.bigaction .ba-ic{width:62px;height:62px;border-radius:999px;font-size:28px;box-shadow:0 2px 8px rgba(190,30,45,.26)}
+.bigaction .ba-tx b{font-family:"Bricolage Grotesque",sans-serif;font-size:19px;font-weight:700;letter-spacing:-.25px}
+.bigaction .ba-tx small{font-size:13px;font-weight:400;color:var(--soft);margin-top:4px}
+
+.punchbar{border-radius:var(--r-md);padding:14px 16px;gap:13px}
+.punchbar .pblabel{font-family:"Bricolage Grotesque",sans-serif;font-size:19px;font-weight:700;letter-spacing:-.25px}
+.punchbar .pbsub{font-size:12.5px;opacity:.88;margin-top:3px}
+.punchbar .pbchange{background:rgba(255,255,255,.2);border-radius:10px;min-height:42px;padding:0 14px;font-size:13px;font-weight:600}
+.ptpanel{padding:14px}
+.ptypes .ttl,.ptpanel .ttl{font-family:"Bricolage Grotesque",sans-serif;font-size:11.5px;font-weight:600;letter-spacing:.7px;color:var(--soft);text-transform:uppercase}
+.pt{border:1px solid var(--line);border-radius:var(--r-sm);min-height:52px;font-size:13px;font-weight:500}
+.pt[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
+.pt.suggest{border:1.5px solid var(--brand);background:var(--brand-tint);color:var(--brand);font-weight:600}
+
+.btn{min-height:56px;border-radius:var(--r-md);font-size:16px;font-weight:600;font-family:inherit}
+.btn.ghost{border:1px solid var(--line);color:var(--ink);background:var(--card)}
+.cc{border:1px solid var(--line);border-radius:var(--r-sm);min-height:48px;font-size:14px;font-weight:500}
+.lnk{border-radius:10px;padding:9px 14px;font-size:12.5px;font-weight:600;min-height:40px}
+.seg button{border:1px solid var(--line);border-radius:var(--r-sm);min-height:52px;font-size:15px;font-weight:500}
+.seg button[aria-pressed="true"]{border-color:var(--brand);background:var(--brand-tint);color:var(--brand);font-weight:600}
+label{font-size:12.5px;font-weight:500;color:var(--soft);margin:14px 0 6px}
+input,select{border:1px solid #D8D2CB;border-radius:var(--r-sm);min-height:54px;font-size:16px;font-family:inherit}
+input:focus,select:focus{outline:none;border-color:var(--brand);border-width:1.5px}
+.rw{padding:12px 13px;gap:13px;margin-bottom:9px}
+.rw .av{width:46px;height:46px;border-radius:12px;background:var(--sunk)}
+.rw .nm{font-weight:600;font-size:15px}
+.rw .nm small{font-weight:400;font-size:12.5px;color:var(--soft)}
+.rw .st{font-size:11.5px;font-weight:600;padding:5px 11px;border-radius:999px}
+.stage,.spot,.ring{border-radius:var(--r-lg)}
+.badge .who{font-family:"Bricolage Grotesque",sans-serif;font-size:23px;font-weight:700;letter-spacing:-.3px}
+.count{width:54px;height:54px;font-family:"Bricolage Grotesque",sans-serif;font-size:24px;font-weight:700}
+.camtop .camtitle{font-family:"Bricolage Grotesque",sans-serif;font-size:18px;font-weight:700}
+.punchok .big{font-family:"Bricolage Grotesque",sans-serif;font-size:27px;font-weight:700}
+.drawhead{padding:18px 16px;font-family:"Bricolage Grotesque",sans-serif;font-size:16px;font-weight:700}
+.drawitem{padding:15px 16px;font-size:15px;font-weight:500;border-bottom:1px solid #F2EFEB}
+.drawitem.on{color:var(--brand);font-weight:600;background:var(--brand-tint)}
+.sheet{border-radius:var(--r-lg) var(--r-lg) 0 0}
+.sheet h2{font-family:"Bricolage Grotesque",sans-serif;font-size:18px;font-weight:700;padding:18px}
+
+/* ---- home cards ---------------------------------------------------------- */
+.sbiWait{
+  display:flex;align-items:center;gap:13px;width:100%;text-align:left;
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);
+  padding:14px 16px;margin-top:12px;font-family:inherit;
+}
+.sbiWait .ic{
+  width:42px;height:42px;flex:0 0 auto;border-radius:12px;background:var(--brand-tint);
+  display:flex;align-items:center;justify-content:center;font-size:20px;
+}
+.sbiWait .tx{flex:1;min-width:0}
+.sbiWait .tx b{display:block;font-size:15px;font-weight:600;color:var(--ink)}
+.sbiWait .tx small{display:block;font-size:12.5px;color:var(--soft);margin-top:2px}
+.sbiWait .go{color:#A39A92;font-size:17px}
+
+.sbiSec{font-family:"Bricolage Grotesque",sans-serif;font-size:11.5px;font-weight:600;
+  letter-spacing:.7px;color:var(--soft);text-transform:uppercase;margin:16px 2px 9px}
+.sbiGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.sbiTile{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);
+  padding:14px;min-height:92px;display:flex;flex-direction:column;
+  justify-content:space-between;align-items:flex-start;font-family:inherit;text-align:left;
+}
+.sbiTile .ti{font-size:22px;line-height:1}
+.sbiTile b{font-size:14px;font-weight:600;color:var(--ink)}
+
+/* ---- bottom nav ---------------------------------------------------------- */
+.sbiNav{
+  position:fixed;left:0;right:0;bottom:0;z-index:40;
+  background:var(--card);border-top:1px solid var(--line);
+  display:flex;justify-content:space-between;
+  padding:7px 6px calc(9px + env(safe-area-inset-bottom,0px));
+}
+.sbiNav button{
+  flex:1;min-height:54px;border:0;background:none;font-family:inherit;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  font-size:11px;color:var(--soft);padding:0;
+}
+.sbiNav button .ni{font-size:19px;line-height:1}
+.sbiNav button.on{color:var(--brand);font-weight:600}
+body.sbi-cam .sbiNav{display:none}
+</style>
+
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+
+  function el(tag, cls, html){
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (html != null) n.innerHTML = html;
+    return n;
+  }
+
+  function opsBtn(label){
+    var list = document.querySelectorAll("#opsTabs button");
+    for (var i = 0; i < list.length; i++) {
+      if ((list[i].textContent || "").trim().toLowerCase() === label.toLowerCase()) return list[i];
+    }
+    return null;
+  }
+
+  function fire(label){
+    var b = opsBtn(label);
+    if (b) b.click();
+  }
+
+  /* ---------- header ---------- */
+  function buildHeader(){
+    var bar = document.querySelector(".bar");
+    var wrap = document.querySelector(".wrap");
+    if (!bar || !wrap) return;
+
+    var head = el("div", "sbiHead");
+
+    var top = el("div", "sbiHeadTop");
+    var logo = bar.querySelector("img");
+    if (logo) { logo.className = "logo"; top.appendChild(logo); }
+
+    var tx = el("div", "tx");
+    tx.appendChild(el("span", "kicker", "SBI Site"));
+    var nm = el("span", "name");
+    nm.id = "sbiSiteName";
+    nm.textContent = "Site";
+    tx.appendChild(nm);
+    top.appendChild(tx);
+
+    var burger = el("button", "sbiBurger", "&#9776;");
+    burger.type = "button";
+    burger.setAttribute("aria-label", "Menu");
+    burger.addEventListener("click", function(){ var b = $("btnBurger"); if (b) b.click(); });
+    top.appendChild(burger);
+
+    head.appendChild(top);
+
+    var chips = el("div", "sbiChips");
+    var c1 = el("div", "sbiChip");
+    c1.innerHTML = '<span class="k">Stage</span><span class="v" id="sbiStage">-</span>';
+    var c2 = el("div", "sbiChip cash");
+    c2.innerHTML = '<span class="k">Petty cash</span><span class="v" id="sbiCash">-</span>';
+    chips.appendChild(c1); chips.appendChild(c2);
+    head.appendChild(chips);
+
+    wrap.insertBefore(head, bar);
+
+    /* the old action buttons move into the drawer, ids and handlers intact */
+    var drawer = $("drawer");
+    if (drawer) {
+      ["btnInstall", "btnWorkers", "btnMode"].forEach(function(id){
+        var b = $(id);
+        if (!b) return;
+        b.className = "drawitem" + (b.classList.contains("hidden") ? " hidden" : "");
+        b.removeAttribute("style");
+        drawer.appendChild(b);
+      });
+      var out = $("btnSignout");
+      if (out) { out.className = "drawitem"; out.removeAttribute("style"); drawer.appendChild(out); }
+    }
+
+    mirror();
+  }
+
+  /* keep the new header in step with whatever the page writes */
+  function mirror(){
+    var src = $("siteName"), stage = $("stageLine"), cash = $("cashLine");
+    var nm = $("sbiSiteName");
+    if (nm && src) {
+      var t = (src.childNodes.length ? src.childNodes[1] : null);
+      var txt = t && t.nodeType === 3 ? t.textContent.trim() : "";
+      if (!txt) {
+        txt = (src.textContent || "").replace("SBI Site Attendance", "").trim().split("\n")[0];
+      }
+      if (txt) nm.textContent = txt;
+    }
+    if (stage) {
+      var s = (stage.textContent || "").replace(/^current stage:\s*/i, "").trim();
+      var t2 = $("sbiStage"); if (t2) t2.textContent = s || "-";
+    }
+    if (cash) {
+      var c = (cash.textContent || "").replace(/^petty cash balance:\s*/i, "").trim();
+      var t3 = $("sbiCash"); if (t3) t3.textContent = c || "-";
+    }
+  }
+
+  /* ---------- home cards ---------- */
+  function buildHome(){
+    var attend = $("attend");
+    var big = $("btnPunch");
+    if (!attend || !big) return;
+
+    var wait = el("button", "sbiWait");
+    wait.type = "button";
+    wait.id = "sbiWait";
+    wait.style.display = "none";
+    wait.innerHTML =
+      '<span class="ic">&#128230;</span>' +
+      '<span class="tx"><b id="sbiWaitTitle">Deliveries</b><small id="sbiWaitSub"></small></span>' +
+      '<span class="go">&#8250;</span>';
+    wait.addEventListener("click", goReceipt);
+    big.parentNode.insertBefore(wait, big.nextSibling);
+
+    var sec = el("div", "sbiSec", "Record");
+    var grid = el("div", "sbiGrid");
+    [["&#127981;", "Issue material", "Material"],
+     ["&#128197;", "Expense", "Expense"],
+     ["&#128202;", "Progress", "Progress"],
+     ["&#9989;", "Verify work", "Verify"]].forEach(function(t){
+      var b = el("button", "sbiTile", '<span class="ti">' + t[0] + '</span><b>' + t[1] + '</b>');
+      b.type = "button";
+      b.addEventListener("click", function(){ fire(t[2]); });
+      grid.appendChild(b);
+    });
+    wait.parentNode.insertBefore(sec, wait.nextSibling);
+    sec.parentNode.insertBefore(grid, sec.nextSibling);
+  }
+
+  function project(){
+    try { return new URLSearchParams(location.search).get("project") || ""; }
+    catch (e) { return ""; }
+  }
+
+  function goReceipt(){
+    var p = project();
+    location.href = "/sbi_ops?project=" + encodeURIComponent(p) + "#rcv";
+  }
+
+  function loadWaiting(){
+    var p = project();
+    if (!p) return;
+    fetch("/api/method/sbi_projects.site_receipt_api.pending_purchase_orders?project=" +
+          encodeURIComponent(p), { credentials: "same-origin" })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        var list = (j && j.message) || [];
+        var box = $("sbiWait");
+        if (!box) return;
+        if (!list.length) { box.style.display = "none"; return; }
+        var items = 0, names = [];
+        list.forEach(function(po){
+          items += (po.items || []).length;
+          if (names.indexOf(po.supplier_name) === -1) names.push(po.supplier_name);
+        });
+        $("sbiWaitTitle").textContent =
+          list.length + (list.length === 1 ? " delivery waiting" : " deliveries waiting");
+        $("sbiWaitSub").textContent = names.slice(0, 2).join(", ") + " \u00b7 " + items + " item" + (items === 1 ? "" : "s");
+        box.style.display = "";
+      })
+      .catch(function(){});
+  }
+
+  /* ---------- bottom nav ---------- */
+  var NAV = [
+    ["home",    "&#127968;", "Home"],
+    ["punch",   "&#128100;", "Punch"],
+    ["receipt", "&#128230;", "Receipt"],
+    ["today",   "&#128203;", "Today"],
+    ["more",    "&#8942;",   "More"]
+  ];
+
+  function buildNav(){
+    if ($("sbiNav")) return;
+    var nav = el("div", "sbiNav");
+    nav.id = "sbiNav";
+    NAV.forEach(function(n){
+      var b = el("button", n[0] === "home" ? "on" : "",
+                 '<span class="ni">' + n[1] + '</span><span>' + n[2] + '</span>');
+      b.type = "button";
+      b.dataset.n = n[0];
+      b.addEventListener("click", function(){ navTo(n[0]); });
+      nav.appendChild(b);
+    });
+    document.body.appendChild(nav);
+  }
+
+  function markNav(key){
+    var list = document.querySelectorAll("#sbiNav button");
+    for (var i = 0; i < list.length; i++) {
+      list[i].classList.toggle("on", list[i].dataset.n === key);
+    }
+  }
+
+  function navTo(key){
+    if (key === "receipt") { goReceipt(); return; }
+    if (key === "more")    { var b = $("btnBurger"); if (b) b.click(); return; }
+    if (key === "today")   { markNav("today"); fire("Today"); return; }
+    if (key === "punch")   { markNav("punch"); var p = $("btnPunch"); if (p) p.click(); return; }
+    markNav("home");
+    fire("Attendance");
+    ["workers", "enroll"].forEach(function(id){ var s = $(id); if (s) s.classList.add("hidden"); });
+    var a = $("attend"); if (a) a.classList.remove("hidden");
+  }
+
+  /* hide the bar while the camera overlay is open */
+  function watchCamera(){
+    var ov = $("camOverlay");
+    if (!ov || !window.MutationObserver) return;
+    var sync = function(){ document.body.classList.toggle("sbi-cam", !ov.classList.contains("hidden")); };
+    new MutationObserver(sync).observe(ov, { attributes: true, attributeFilter: ["class"] });
+    sync();
+  }
+
+  function init(){
+    buildHeader();
+    buildHome();
+    buildNav();
+    watchCamera();
+    loadWaiting();
+    setInterval(mirror, 1000);
+    setInterval(loadWaiting, 120000);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+</script>
+
 </body>
 </html>
