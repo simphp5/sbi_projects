@@ -464,7 +464,7 @@
     var ctx=c.getContext("2d");
     ctx.drawImage(video,0,0,c.width,c.height);
     stampPhoto(ctx,c.width,c.height);
-    return c.toDataURL("image/jpeg",0.85);
+    return sbiStampCanvas(c);
   }
 
   // burn the date/time + GPS onto the photo (attendance proof)
@@ -1431,7 +1431,7 @@
     // GPS (non-blocking)
     if(navigator.geolocation){
       navigator.geolocation.watchPosition(function(p){
-        S.gps={lat:p.coords.latitude,lng:p.coords.longitude};
+        S.gps={lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy};
       },function(){},{enableHighAccuracy:true,maximumAge:15000,timeout:12000});
     }
 
@@ -1495,6 +1495,90 @@
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", ready);
   } else { ready(); }
+})();
+</script>
+
+
+<!-- SBI punch geo stamp -->
+<script>
+(function(){
+
+  function siteLabel(){
+    try {
+      var S = window.S || {};
+      var g = window.PROJECT_NAME || S.project_name || S.projectName ||
+              S.site_name || S.siteName || S.project_label;
+      if (g) return String(g);
+      var sel = ".hdr b, header b, .sitename, .hdr .t b, .topbar b, h1, h2";
+      var nodes = document.querySelectorAll(sel);
+      for (var i = 0; i < nodes.length; i++) {
+        var t = (nodes[i].textContent || "").trim();
+        if (t && t.length < 60 && !/sign out|install|menu/i.test(t)) return t;
+      }
+      var t = (document.title || "").replace(/SBI Site.*/i, "").trim();
+      if (t) return t;
+      var p = new URLSearchParams(location.search).get("project");
+      return p || "";
+    } catch (e) { return ""; }
+  }
+
+  function stampLines(){
+    var now = new Date();
+    var pad = function(n){ return (n < 10 ? "0" : "") + n; };
+    var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    var when = pad(now.getDate()) + " " + months[now.getMonth()] + " " + now.getFullYear() +
+               ", " + pad(now.getHours()) + ":" + pad(now.getMinutes()) + ":" + pad(now.getSeconds());
+
+    var site = siteLabel();
+    var top = site ? (site + "  \u00b7  " + when) : when;
+
+    var g = (window.S || {}).gps;
+    var bottom;
+    if (g && g.lat && g.lng) {
+      bottom = g.lat.toFixed(6) + ", " + g.lng.toFixed(6);
+      if (g.acc) bottom += "  \u00b7  \u00b1" + Math.round(g.acc) + " m";
+    } else {
+      bottom = "Location not available";
+    }
+    return [top, bottom];
+  }
+
+  window.sbiStampCanvas = function(c){
+    try {
+      var ctx = c.getContext("2d");
+      var w = c.width, h = c.height;
+      var lines = stampLines();
+
+      var big = Math.max(11, Math.round(w * 0.034));
+      var small = Math.max(10, Math.round(w * 0.028));
+      var padX = Math.round(w * 0.03);
+      var padY = Math.round(big * 0.55);
+      var bandH = padY * 2 + big + small + Math.round(big * 0.35);
+
+      var grad = ctx.createLinearGradient(0, h - bandH * 1.6, 0, h);
+      grad.addColorStop(0, "rgba(0,0,0,0)");
+      grad.addColorStop(0.45, "rgba(0,0,0,0.55)");
+      grad.addColorStop(1, "rgba(0,0,0,0.78)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, h - bandH * 1.6, w, bandH * 1.6);
+
+      ctx.textBaseline = "alphabetic";
+      ctx.textAlign = "left";
+
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = "600 " + big + "px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
+      ctx.fillText(lines[0], padX, h - padY - small - Math.round(big * 0.35));
+
+      ctx.fillStyle = "rgba(255,255,255,0.88)";
+      ctx.font = "500 " + small + "px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
+      ctx.fillText(lines[1], padX, h - padY);
+
+    } catch (e) {
+      // a stamp must never stop a punch
+    }
+    return c.toDataURL("image/jpeg", 0.85);
+  };
+
 })();
 </script>
 
