@@ -645,5 +645,102 @@ function loadToday(){
 })();
 </script>
 
+
+<!-- SBI ops nav v1 -->
+<style>
+:root{ --nav-h:74px; }
+.tabs{display:none !important}
+body{padding-bottom:calc(var(--nav-h) + 8px)}
+.sbiNav{
+  position:fixed;left:0;right:0;bottom:0;z-index:40;
+  background:#FFFFFF;border-top:1px solid #E2DDD7;
+  display:flex;justify-content:space-between;
+  padding:7px 6px calc(9px + env(safe-area-inset-bottom,0px));
+  font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+.sbiNav button{
+  flex:1;min-height:54px;border:0;background:none;font-family:inherit;padding:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  font-size:11px;color:#6B635C;
+}
+.sbiNav button .ni{font-size:19px;line-height:1}
+.sbiNav button.on{color:#BE1E2D;font-weight:600}
+</style>
+
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+
+  function project(){
+    try { return new URLSearchParams(location.search).get("project") || ""; }
+    catch (e) { return ""; }
+  }
+
+  function tabBtn(label){
+    var list = document.querySelectorAll(".tabs button, .opsdrawitem");
+    for (var i = 0; i < list.length; i++) {
+      if ((list[i].textContent || "").trim().toLowerCase() === label.toLowerCase()) return list[i];
+    }
+    return null;
+  }
+
+  var NAV = [
+    ["home",    "&#127968;", "Home"],
+    ["punch",   "&#128100;", "Punch"],
+    ["receipt", "&#128230;", "Receipt"],
+    ["today",   "&#128203;", "Today"],
+    ["more",    "&#8942;",   "More"]
+  ];
+
+  function mark(key){
+    var list = document.querySelectorAll(".sbiNav button");
+    for (var i = 0; i < list.length; i++) {
+      list[i].classList.toggle("on", list[i].dataset.n === key);
+    }
+  }
+
+  function go(key){
+    var p = encodeURIComponent(project());
+    if (key === "home" || key === "punch") { location.href = "/sbi_site?project=" + p; return; }
+    if (key === "more") {
+      var b = document.getElementById("burger");
+      if (b) b.click();
+      return;
+    }
+    if (key === "receipt") {
+      mark("receipt");
+      var r = document.querySelector(".tabs button[data-t='rcv']");
+      if (r) r.click();
+      return;
+    }
+    if (key === "today") {
+      mark("today");
+      var t = tabBtn("Today");
+      if (t) t.click();
+    }
+  }
+
+  function build(){
+    if (document.querySelector(".sbiNav")) return;
+    var nav = document.createElement("div");
+    nav.className = "sbiNav";
+    NAV.forEach(function(n){
+      var b = document.createElement("button");
+      b.type = "button";
+      b.dataset.n = n[0];
+      b.innerHTML = '<span class="ni">' + n[1] + '</span><span>' + n[2] + '</span>';
+      b.addEventListener("click", function(){ go(n[0]); });
+      nav.appendChild(b);
+    });
+    document.body.appendChild(nav);
+    mark(location.hash === "#rcv" ? "receipt" : "today");
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", build);
+  } else { build(); }
+})();
+</script>
+
 </body>
 </html>

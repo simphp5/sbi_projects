@@ -1972,5 +1972,89 @@ body.sbi-cam .sbiNav{display:none}
 })();
 </script>
 
+
+<!-- SBI site polish v1 -->
+<style>
+/* camera tool buttons grow with their label instead of clipping it */
+.camtools{top:12px;left:12px;gap:9px}
+.camtools .ct{
+  width:auto;min-width:42px;height:42px;padding:0 14px;border-radius:999px;
+  font-size:12.5px;font-weight:600;white-space:nowrap;letter-spacing:.1px;
+  background:rgba(0,0,0,.55);
+}
+.camtools .ct[aria-pressed="true"]{background:var(--brand)}
+
+/* live location chip in the camera header */
+.camtop{gap:10px}
+.sbiGeo{
+  display:flex;align-items:center;gap:7px;padding:8px 12px;border-radius:999px;
+  background:rgba(0,0,0,.28);font-size:12.5px;font-weight:600;white-space:nowrap;
+}
+.sbiGeo .dot{width:8px;height:8px;border-radius:999px;background:#E8B23A;flex:0 0 auto}
+.sbiGeo[data-s="ok"] .dot{background:#74C79E}
+.sbiGeo[data-s="far"] .dot{background:#E8B23A}
+.sbiGeo[data-s="no"] .dot{background:#F08A8A}
+</style>
+
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+
+  /* ---- dark background starts off ---- */
+  function darkOff(){
+    var b = $("darkA");
+    if (!b || b.dataset.sbiDone) return;
+    if (b.getAttribute("aria-pressed") === "true") {
+      b.dataset.sbiDone = "1";
+      b.click();
+    }
+  }
+
+  /* ---- live GPS chip ---- */
+  function chip(){
+    var top = document.querySelector(".camtop");
+    if (!top || $("sbiGeo")) return;
+    var c = document.createElement("div");
+    c.className = "sbiGeo";
+    c.id = "sbiGeo";
+    c.setAttribute("data-s", "no");
+    c.innerHTML = '<span class="dot"></span><span id="sbiGeoTx">Locating...</span>';
+    var close = $("btnCamClose");
+    if (close) top.insertBefore(c, close);
+    else top.appendChild(c);
+  }
+
+  function updateChip(){
+    var c = $("sbiGeo"), t = $("sbiGeoTx");
+    if (!c || !t) return;
+    var g = (window.S || {}).gps;
+    if (!g || !g.lat || !g.lng) {
+      c.setAttribute("data-s", "no");
+      t.textContent = "No location";
+      return;
+    }
+    var acc = g.acc ? Math.round(g.acc) : null;
+    if (acc && acc > 60) {
+      c.setAttribute("data-s", "far");
+      t.textContent = "Weak fix \u00b1" + acc + " m";
+    } else {
+      c.setAttribute("data-s", "ok");
+      t.textContent = acc ? ("Location \u00b1" + acc + " m") : "Location on";
+    }
+  }
+
+  function tick(){
+    darkOff();
+    chip();
+    updateChip();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function(){ tick(); });
+  } else { tick(); }
+  setInterval(tick, 1500);
+})();
+</script>
+
 </body>
 </html>
