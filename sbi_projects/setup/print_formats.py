@@ -726,6 +726,12 @@ def _sync_list_view(doctype, fields):
 
 
 @frappe.whitelist()
+def _sync_milestone_ui():
+	from sbi_projects.setup.milestone_ui import sync_milestone_ui
+
+	sync_milestone_ui()
+
+
 def sync_print_formats():
 	"""Idempotent. Wired to after_migrate; also callable manually to force a re-sync."""
 	if frappe.session and frappe.session.user not in ("Administrator", None):
@@ -736,6 +742,7 @@ def sync_print_formats():
 		("print format", _sync_print_format),
 		("client script", _sync_client_script),
 		("purchase formats", _sync_purchase_formats),
+		("milestone ui", _sync_milestone_ui),
 		("site store scripts", _sync_store_scripts),
 	)
 	for label, fn in steps:
