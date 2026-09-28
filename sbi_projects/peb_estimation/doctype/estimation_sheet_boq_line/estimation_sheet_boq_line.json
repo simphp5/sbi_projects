@@ -6,8 +6,10 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "item_no",
   "stage",
   "category",
+  "trade",
   "work_item",
   "description",
   "uom",
@@ -18,6 +20,14 @@
   "remarks"
  ],
  "fields": [
+  {
+   "columns": 1,
+   "description": "1, 2, 3 ... matches the numbering on the estimate",
+   "fieldname": "item_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Item No"
+  },
   {
    "columns": 1,
    "description": "Payment-term stage this line belongs to (Option A: stage column)",
@@ -32,6 +42,15 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Category"
+  },
+  {
+   "columns": 1,
+   "description": "Used for the trade-wise rate per sft",
+   "fieldname": "trade",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Trade",
+   "options": "\nCivil\nPEB\nFilling\nPiling\nOther"
   },
   {
    "columns": 2,

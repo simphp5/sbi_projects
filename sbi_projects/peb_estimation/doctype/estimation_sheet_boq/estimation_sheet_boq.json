@@ -31,6 +31,14 @@
   "stage_count",
   "section_stage_table",
   "stages",
+  "section_takeoff",
+  "takeoff",
+  "section_bbs",
+  "bars",
+  "section_takeoff_totals",
+  "steel_weight",
+  "column_break_tk",
+  "takeoff_rows",
   "section_lines",
   "lines",
   "section_resources",
@@ -201,6 +209,53 @@
    "fieldtype": "Table",
    "label": "Stages",
    "options": "Estimation Sheet BOQ Stage"
+  },
+  {
+   "collapsible": 1,
+   "description": "Measure element by element, the way it is done off a drawing. Qty is Nos multiplied by each dimension you fill in \u2014 leave a dimension blank and it is simply left out of the product, so an area item needs no depth.",
+   "fieldname": "section_takeoff",
+   "fieldtype": "Section Break",
+   "label": "Quantity Take-off"
+  },
+  {
+   "fieldname": "takeoff",
+   "fieldtype": "Table",
+   "label": "Take-off",
+   "options": "Estimation Sheet BOQ Takeoff"
+  },
+  {
+   "collapsible": 1,
+   "description": "Weight is total length times dia squared over 162, the standard for TMT bars. The total feeds the Reinforcement line.",
+   "fieldname": "section_bbs",
+   "fieldtype": "Section Break",
+   "label": "Bar Bending Schedule"
+  },
+  {
+   "fieldname": "bars",
+   "fieldtype": "Table",
+   "label": "Bar Bending Schedule",
+   "options": "Estimation Sheet BOQ Bar"
+  },
+  {
+   "fieldname": "section_takeoff_totals",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "steel_weight",
+   "fieldtype": "Float",
+   "label": "Total Steel (kg)",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_tk",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "takeoff_rows",
+   "fieldtype": "Int",
+   "label": "Take-off Rows",
+   "read_only": 1
   },
   {
    "fieldname": "section_lines",

@@ -41,6 +41,43 @@ frappe.ui.form.on("Estimation Sheet BOQ", {
 			frm.add_custom_button(__("Cost Summary"), () => frm.trigger("cost_summary"), __("Create"));
 		}
 
+
+		// ---- take-off ----
+		if ((frm.doc.takeoff || []).length || (frm.doc.bars || []).length) {
+			frm.add_custom_button(__("Apply Take-off to Lines"), () => {
+				frm.call({
+					doc: frm.doc,
+					method: "apply_takeoff",
+					freeze: true,
+					freeze_message: __("Measuring..."),
+					callback(r) {
+						frm.reload_doc();
+						const m = r.message || {};
+						let msg = __("{0} line(s) updated from {1} take-off row(s).",
+							[m.updated || 0, m.takeoff_rows || 0]);
+						if (m.steel_kg) {
+							msg += " " + __("Steel {0} kg.", [format_number(m.steel_kg, null, 0)]);
+						}
+						if ((m.unmatched || []).length) {
+							frappe.msgprint({
+								title: __("Some measurements have no line"),
+								indicator: "orange",
+								message: msg + "<br><br>"
+									+ __("No BOQ line carries item no: {0}", [m.unmatched.join(", ")])
+									+ "<br>" + __("Add those lines, or correct the item numbers."),
+							});
+						} else {
+							frappe.show_alert({ message: msg, indicator: "green" });
+						}
+					},
+				});
+			}, __("Take-off")).addClass("btn-primary");
+		}
+
+		if ((frm.doc.lines || []).length && frm.doc.built_up_area) {
+			frm.add_custom_button(__("Rate per Sft by Trade"), () => frm.trigger("trade_summary"), __("Create"));
+		}
+
 		// ---- resources ----
 		frm.add_custom_button(__("Roll Up Resources"), () => {
 			frm.call({
@@ -180,6 +217,47 @@ frappe.ui.form.on("Estimation Sheet BOQ", {
 							</tr>
 						</table>
 						<p class="text-muted small" style="margin-top:8px">${__("These are the same buckets as the site cost centres, so estimate and actual can be compared directly.")}</p>`,
+				});
+			},
+		});
+	},
+
+	trade_summary(frm) {
+		frm.call({
+			doc: frm.doc,
+			method: "trade_summary",
+			callback(r) {
+				const m = r.message || {};
+				const rows = m.rows || [];
+				if (!rows.length) {
+					frappe.msgprint(__("Tag the BOQ lines with a trade first."));
+					return;
+				}
+				const body = rows.map((x) =>
+					`<tr>
+						<td style="padding:4px 10px">${frappe.utils.escape_html(x.trade)}</td>
+						<td style="padding:4px 10px;text-align:right">${format_currency(x.loaded, frm.doc.currency)}</td>
+						<td style="padding:4px 10px;text-align:right"><b>${format_currency(x.rate_per_sft, frm.doc.currency)}</b></td>
+					</tr>`).join("");
+				frappe.msgprint({
+					title: __("Rate per sft"),
+					indicator: "blue",
+					message:
+						`<p class="text-muted small">${__("Built-up area {0} sft. Markup is spread across the trades in proportion to value.",
+							[format_number(m.area, null, 0)])}</p>
+						<table style="width:100%;font-size:13px">
+							<tr style="border-bottom:1px solid var(--border-color)">
+								<th style="text-align:left;padding:4px 10px">${__("Trade")}</th>
+								<th style="text-align:right;padding:4px 10px">${__("Amount")}</th>
+								<th style="text-align:right;padding:4px 10px">${__("Rate / sft")}</th>
+							</tr>
+							${body}
+							<tr style="border-top:1px solid var(--border-color);font-weight:600">
+								<td style="padding:6px 10px">${__("Total")}</td>
+								<td style="padding:6px 10px;text-align:right">${format_currency(m.total, frm.doc.currency)}</td>
+								<td style="padding:6px 10px;text-align:right">${format_currency(m.rate_per_sft, frm.doc.currency)}</td>
+							</tr>
+						</table>`,
 				});
 			},
 		});
@@ -422,4 +500,34 @@ function sbi_resource_amount(cdt, cdn) {
 	const row = locals[cdt][cdn];
 	const nos = flt(row.nos) || 1;
 	frappe.model.set_value(cdt, cdn, "amount", nos * flt(row.qty) * flt(row.rate));
+}
+
+frappe.ui.form.on("Estimation Sheet BOQ Takeoff", {
+	nos(frm, cdt, cdn) { sbi_takeoff_qty(cdt, cdn); },
+	length(frm, cdt, cdn) { sbi_takeoff_qty(cdt, cdn); },
+	width(frm, cdt, cdn) { sbi_takeoff_qty(cdt, cdn); },
+	depth(frm, cdt, cdn) { sbi_takeoff_qty(cdt, cdn); },
+});
+
+function sbi_takeoff_qty(cdt, cdn) {
+	// a blank dimension drops out of the product, exactly as on a measurement sheet
+	const row = locals[cdt][cdn];
+	let qty = row.nos === undefined || row.nos === null ? 1 : flt(row.nos);
+	[row.length, row.width, row.depth].forEach((d) => {
+		if (flt(d)) qty *= flt(d);
+	});
+	frappe.model.set_value(cdt, cdn, "qty", qty);
+}
+
+frappe.ui.form.on("Estimation Sheet BOQ Bar", {
+	nos(frm, cdt, cdn) { sbi_bar_weight(cdt, cdn); },
+	length(frm, cdt, cdn) { sbi_bar_weight(cdt, cdn); },
+	bar_dia(frm, cdt, cdn) { sbi_bar_weight(cdt, cdn); },
+});
+
+function sbi_bar_weight(cdt, cdn) {
+	const row = locals[cdt][cdn];
+	const tl = flt(row.nos) * flt(row.length);
+	frappe.model.set_value(cdt, cdn, "total_length", tl);
+	frappe.model.set_value(cdt, cdn, "weight", (tl * Math.pow(flt(row.bar_dia), 2)) / 162);
 }

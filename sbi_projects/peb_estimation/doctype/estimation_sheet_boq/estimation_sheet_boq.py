@@ -9,6 +9,8 @@ from frappe.utils import flt
 
 class EstimationSheetBOQ(Document):
 	def validate(self):
+		self.compute_takeoff()
+		self.compute_bars()
 		self.compute_amounts()
 		self.compute_totals()
 		self.compute_resource_totals()
@@ -439,6 +441,121 @@ class EstimationSheetBOQ(Document):
 				for k, v in sorted(buckets.items(), key=lambda x: -x[1])
 			],
 			"total": total,
+		}
+
+	# ------------------------------------------------------------------ #
+	# Take-off and bar bending schedule
+	# ------------------------------------------------------------------ #
+	def compute_takeoff(self):
+		"""Qty is Nos multiplied by whichever dimensions were filled in.
+
+		A blank dimension is left out of the product rather than treated as
+		zero, which is how a measurement sheet actually reads: an area item
+		carries length and width and no depth, and a running item only a
+		length. Negative Nos gives a deduction, as on any take-off.
+		"""
+		rows = 0
+		for r in (self.takeoff or []):
+			qty = flt(r.nos) if r.nos is not None else 1.0
+			for dim in (r.length, r.width, r.depth):
+				if flt(dim):
+					qty *= flt(dim)
+			r.qty = qty
+			rows += 1
+		self.takeoff_rows = rows
+
+	def compute_bars(self):
+		"""Total length is Nos by length; weight uses the dia-squared-over-162 rule."""
+		total = 0.0
+		for r in (self.bars or []):
+			r.total_length = flt(r.nos) * flt(r.length)
+			r.weight = flt(r.total_length) * (flt(r.bar_dia) ** 2) / 162.0
+			total += flt(r.weight)
+		self.steel_weight = total
+
+	@frappe.whitelist()
+	def apply_takeoff(self):
+		"""Push measured quantities up into the numbered BOQ lines.
+
+		Take-off rows are summed by item number onto the matching line, and the
+		bar schedule is summed onto whichever line its rows point at -- normally
+		the Reinforcement line. Lines with no measurements behind them are left
+		exactly as they are, so a rate-only or lump-sum line is never disturbed.
+		"""
+		self.compute_takeoff()
+		self.compute_bars()
+
+		measured = {}
+		for r in (self.takeoff or []):
+			key = (r.item_no or "").strip()
+			if not key:
+				continue
+			measured[key] = measured.get(key, 0) + flt(r.qty)
+
+		steel = {}
+		for r in (self.bars or []):
+			key = (r.item_no or "").strip()
+			if not key:
+				continue
+			steel[key] = steel.get(key, 0) + flt(r.weight)
+
+		updated, unmatched = 0, []
+		line_keys = {(l.item_no or "").strip() for l in (self.lines or [])}
+
+		for line in (self.lines or []):
+			key = (line.item_no or "").strip()
+			if not key:
+				continue
+			if key in measured:
+				line.qty = measured[key]
+				updated += 1
+			elif key in steel:
+				line.qty = steel[key]
+				updated += 1
+
+		for key in list(measured) + list(steel):
+			if key not in line_keys and key not in unmatched:
+				unmatched.append(key)
+
+		self.compute_amounts()
+		self.compute_totals()
+		self.save(ignore_permissions=True)
+		frappe.db.commit()
+
+		return {
+			"updated": updated,
+			"takeoff_rows": len(self.takeoff or []),
+			"steel_kg": flt(self.steel_weight),
+			"unmatched": sorted(unmatched),
+		}
+
+	@frappe.whitelist()
+	def trade_summary(self):
+		"""Rate per square foot, split by trade -- the figure SBI quotes on."""
+		area = flt(self.built_up_area)
+		buckets = {}
+		for l in (self.lines or []):
+			key = (l.trade or _("Other")).strip()
+			buckets[key] = buckets.get(key, 0) + flt(l.amount)
+
+		base = sum(buckets.values())
+		factor = (flt(self.grand_total) / base) if base else 1.0
+
+		rows = []
+		for name, amount in sorted(buckets.items(), key=lambda x: -x[1]):
+			loaded = amount * factor
+			rows.append({
+				"trade": name,
+				"amount": amount,
+				"loaded": loaded,
+				"rate_per_sft": (loaded / area) if area else 0,
+			})
+
+		return {
+			"rows": rows,
+			"area": area,
+			"total": flt(self.grand_total),
+			"rate_per_sft": (flt(self.grand_total) / area) if area else 0,
 		}
 
 	@frappe.whitelist()

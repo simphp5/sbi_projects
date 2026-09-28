@@ -1,0 +1,107 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-09-28 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "item_no",
+  "element",
+  "nos",
+  "length",
+  "width",
+  "depth",
+  "qty",
+  "uom",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "columns": 1,
+   "description": "The numbered BOQ line this measurement belongs to, e.g. 3 for RCC",
+   "fieldname": "item_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Item No",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "description": "F1, P1, Plinth Beam, Grade Slab",
+   "fieldname": "element",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Element",
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "default": "1",
+   "fieldname": "nos",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Nos"
+  },
+  {
+   "columns": 1,
+   "fieldname": "length",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Length",
+   "precision": "3"
+  },
+  {
+   "columns": 1,
+   "fieldname": "width",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Width",
+   "precision": "3"
+  },
+  {
+   "columns": 1,
+   "fieldname": "depth",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Depth",
+   "precision": "3"
+  },
+  {
+   "columns": 1,
+   "fieldname": "qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Qty",
+   "precision": "4",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "uom",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "UOM"
+  },
+  {
+   "columns": 2,
+   "fieldname": "remarks",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Remarks"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-09-28 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "PEB Estimation",
+ "name": "Estimation Sheet BOQ Takeoff",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

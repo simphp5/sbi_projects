@@ -1,0 +1,105 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-09-28 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "item_no",
+  "element",
+  "layer",
+  "nos",
+  "bar_dia",
+  "spacing",
+  "length",
+  "total_length",
+  "weight"
+ ],
+ "fields": [
+  {
+   "columns": 1,
+   "description": "The BOQ line this steel feeds, normally the Reinforcement line",
+   "fieldname": "item_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Item No",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "element",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Element",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "description": "bottom-long, top-short, Main rod, Ring",
+   "fieldname": "layer",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Layer"
+  },
+  {
+   "columns": 1,
+   "fieldname": "nos",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Nos"
+  },
+  {
+   "columns": 1,
+   "fieldname": "bar_dia",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Dia (mm)"
+  },
+  {
+   "columns": 1,
+   "fieldname": "spacing",
+   "fieldtype": "Float",
+   "label": "Spacing (m)"
+  },
+  {
+   "columns": 1,
+   "fieldname": "length",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Length (m)",
+   "precision": "3"
+  },
+  {
+   "columns": 1,
+   "fieldname": "total_length",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "T.Length (m)",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "weight",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Weight (kg)",
+   "precision": "2",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-09-28 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "PEB Estimation",
+ "name": "Estimation Sheet BOQ Bar",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}
