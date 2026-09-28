@@ -6,6 +6,7 @@ from sbi_projects.setup.so_project_field import create_so_project_field
 from sbi_projects.setup.peb_masters import setup_peb_masters
 from sbi_projects.setup.resource_types import setup_resource_types
 from sbi_projects.setup.resources import setup_resources
+from sbi_projects.setup.peb_workspace import setup_workspace
 from sbi_projects.setup.boq_masters import setup_boq_masters
 from sbi_projects.setup.quantity_rules import setup_quantity_rules
 from sbi_projects.setup.peb_link_fields import create_peb_link_fields
@@ -37,6 +38,7 @@ def after_install():
 		setup_resource_types,
 		setup_resources,
 		setup_boq_masters,
+		setup_workspace,
 		setup_quantity_rules,
 		create_peb_link_fields,
 		install_cockpit,
