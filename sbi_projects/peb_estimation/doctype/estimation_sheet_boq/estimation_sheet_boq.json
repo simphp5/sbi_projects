@@ -31,6 +31,19 @@
   "stage_count",
   "section_stage_table",
   "stages",
+  "section_proposal",
+  "proposal_project_title",
+  "proposal_client",
+  "proposal_location",
+  "proposal_scope",
+  "column_break_prop",
+  "proposal_area_note",
+  "proposal_design_note",
+  "proposal_dimensions",
+  "section_trade",
+  "trade_rows",
+  "section_scope",
+  "scope_rows",
   "section_takeoff",
   "takeoff",
   "section_bbs",
@@ -209,6 +222,83 @@
    "fieldtype": "Table",
    "label": "Stages",
    "options": "Estimation Sheet BOQ Stage"
+  },
+  {
+   "collapsible": 1,
+   "description": "What appears on page one of the proposal. The client never sees the priced BOQ -- only these details, the commercial summary and the scope.",
+   "fieldname": "section_proposal",
+   "fieldtype": "Section Break",
+   "label": "Proposal Details"
+  },
+  {
+   "description": "Workshop building, Warehouse ...",
+   "fieldname": "proposal_project_title",
+   "fieldtype": "Data",
+   "label": "Project"
+  },
+  {
+   "fieldname": "proposal_client",
+   "fieldtype": "Data",
+   "label": "Client"
+  },
+  {
+   "fieldname": "proposal_location",
+   "fieldtype": "Data",
+   "label": "Location"
+  },
+  {
+   "description": "Civil + PEB + Roofing + Cladding (Design and Construction)",
+   "fieldname": "proposal_scope",
+   "fieldtype": "Data",
+   "label": "Scope"
+  },
+  {
+   "fieldname": "column_break_prop",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "15963 sft + Mezzanine 466 sft = Total 16429 sft",
+   "fieldname": "proposal_area_note",
+   "fieldtype": "Small Text",
+   "label": "Area of Building"
+  },
+  {
+   "description": "Mezzanine live load, design wind speed",
+   "fieldname": "proposal_design_note",
+   "fieldtype": "Small Text",
+   "label": "Design Data"
+  },
+  {
+   "description": "Area 1, Length 70.95 m, Width 20.9 m & Clear Height +8.3 m",
+   "fieldname": "proposal_dimensions",
+   "fieldtype": "Small Text",
+   "label": "Dimensions"
+  },
+  {
+   "collapsible": 1,
+   "description": "The four lines the client reads. Built by Create > Rate per Sft by Trade.",
+   "fieldname": "section_trade",
+   "fieldtype": "Section Break",
+   "label": "Commercial Summary"
+  },
+  {
+   "fieldname": "trade_rows",
+   "fieldtype": "Table",
+   "label": "Commercial Summary",
+   "options": "Estimation Sheet BOQ Trade"
+  },
+  {
+   "collapsible": 1,
+   "description": "The tick matrix. Load it from the master, then move anything this client is providing over to their column.",
+   "fieldname": "section_scope",
+   "fieldtype": "Section Break",
+   "label": "Scope of Works"
+  },
+  {
+   "fieldname": "scope_rows",
+   "fieldtype": "Table",
+   "label": "Scope of Works",
+   "options": "Estimation Sheet BOQ Scope"
   },
   {
    "collapsible": 1,

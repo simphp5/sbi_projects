@@ -42,6 +42,40 @@ frappe.ui.form.on("Estimation Sheet BOQ", {
 		}
 
 
+
+		// ---- proposal ----
+		frm.add_custom_button(__("Load Scope of Works"), () => {
+			frm.call({
+				doc: frm.doc, method: "load_scope",
+				args: { replace: 0 }, freeze: true,
+				callback(r) {
+					frm.reload_doc();
+					const m = r.message || {};
+					frappe.show_alert({
+						message: __("{0} scope row(s) added, {1} in total.", [m.added || 0, m.total || 0]),
+						indicator: "green",
+					});
+				},
+			});
+		}, __("Proposal"));
+
+		if ((frm.doc.lines || []).length && frm.doc.built_up_area) {
+			frm.add_custom_button(__("Build Commercial Summary"), () => {
+				frm.call({
+					doc: frm.doc, method: "build_trade_summary", freeze: true,
+					callback(r) {
+						frm.reload_doc();
+						const m = r.message || {};
+						frappe.show_alert({
+							message: __("{0} row(s) - {1}", [
+								m.rows || 0, format_currency(m.total, frm.doc.currency)]),
+							indicator: "green",
+						});
+					},
+				});
+			}, __("Proposal"));
+		}
+
 		// ---- take-off ----
 		if ((frm.doc.takeoff || []).length || (frm.doc.bars || []).length) {
 			frm.add_custom_button(__("Apply Take-off to Lines"), () => {
@@ -531,3 +565,23 @@ function sbi_bar_weight(cdt, cdn) {
 	frappe.model.set_value(cdt, cdn, "total_length", tl);
 	frappe.model.set_value(cdt, cdn, "weight", (tl * Math.pow(flt(row.bar_dia), 2)) / 162);
 }
+
+frappe.ui.form.on("Estimation Sheet BOQ Scope", {
+	scope_item(frm, cdt, cdn) {
+		// pull the standard wording and side across when an item is picked
+		const row = locals[cdt][cdn];
+		if (!row.scope_item) return;
+		frappe.db.get_value("Scope Item", row.scope_item,
+			["scope_section", "default_by", "default_remarks"], (v) => {
+				if (!v) return;
+				frappe.model.set_value(cdt, cdn, "scope_section", v.scope_section);
+				frappe.model.set_value(cdt, cdn, "description", row.scope_item);
+				if (!row.carried_out_by) {
+					frappe.model.set_value(cdt, cdn, "carried_out_by", v.default_by);
+				}
+				if (!row.remarks) {
+					frappe.model.set_value(cdt, cdn, "remarks", v.default_remarks);
+				}
+			});
+	},
+});

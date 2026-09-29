@@ -178,6 +178,8 @@ class EstimationSheetBOQ(Document):
 		if quo.meta.has_field("sbi_estimation_boq"):
 			quo.sbi_estimation_boq = self.name
 
+		self._carry_proposal(quo)
+
 		quo.insert(ignore_permissions=True)
 
 		# nudge the total onto the BOQ grand total, absorbing rounding on the last row
@@ -197,6 +199,42 @@ class EstimationSheetBOQ(Document):
 		frappe.db.commit()
 
 		return {"quotation": quo.name, "rows": len(rows), "total": flt(quo.total)}
+
+	def _carry_proposal(self, quo):
+		"""Copy the proposal details, commercial summary and scope onto the quotation.
+
+		The print format reads the quotation alone, so everything it needs has
+		to live there. Anything the quotation does not carry a field for is
+		skipped rather than failing the whole creation.
+		"""
+		simple = [
+			("proposal_project_title", "sbi_project_title"),
+			("proposal_client", "sbi_client_name"),
+			("proposal_location", "sbi_location"),
+			("proposal_scope", "sbi_scope_note"),
+			("proposal_area_note", "sbi_area_note"),
+			("proposal_design_note", "sbi_design_note"),
+			("proposal_dimensions", "sbi_dimensions"),
+		]
+		for mine, theirs in simple:
+			if quo.meta.has_field(theirs) and self.get(mine):
+				quo.set(theirs, self.get(mine))
+
+		if quo.meta.has_field("sbi_trade_summary"):
+			for r in (self.trade_rows or []):
+				quo.append("sbi_trade_summary", {
+					"trade": r.trade, "area_sft": flt(r.area_sft),
+					"unit_rate": flt(r.unit_rate), "total": flt(r.total),
+					"is_total": r.is_total,
+				})
+
+		if quo.meta.has_field("sbi_scope"):
+			for r in (self.scope_rows or []):
+				quo.append("sbi_scope", {
+					"scope_section": r.scope_section, "scope_item": r.scope_item,
+					"description": r.description, "carried_out_by": r.carried_out_by,
+					"remarks": r.remarks,
+				})
 
 	def _quotation_rows(self, group_by, factor):
 		"""Build quotation item rows, with markup already folded into the rate."""
@@ -557,6 +595,89 @@ class EstimationSheetBOQ(Document):
 			"total": flt(self.grand_total),
 			"rate_per_sft": (flt(self.grand_total) / area) if area else 0,
 		}
+
+	# ------------------------------------------------------------------ #
+	# The proposal the client actually reads
+	# ------------------------------------------------------------------ #
+	@frappe.whitelist()
+	def load_scope(self, replace=0):
+		"""Pull the standard scope matrix in from the master.
+
+		Every job starts from the same list; what changes is which side of the
+		line an item falls on. Rows already present are left alone unless
+		replace is asked for, so a matrix that has been tailored for this
+		client is not undone by pressing the button twice.
+		"""
+		if not frappe.db.exists("DocType", "Scope Item"):
+			frappe.throw(_("The Scope Item master is not installed."))
+
+		items = frappe.get_all(
+			"Scope Item",
+			filters={"is_active": 1},
+			fields=["name", "scope_section", "default_by", "default_remarks", "display_order"],
+			order_by="display_order asc, name asc",
+		)
+		if not items:
+			frappe.throw(_("No active Scope Items. Add them under Scope Item first."))
+
+		if replace in (1, "1", True, "true"):
+			self.scope_rows = []
+
+		seen = {(r.scope_item or r.description or "").strip().lower()
+		        for r in (self.scope_rows or [])}
+
+		added = 0
+		for it in items:
+			if it.name.strip().lower() in seen:
+				continue
+			self.append("scope_rows", {
+				"scope_section": it.scope_section,
+				"scope_item": it.name,
+				"description": it.name,
+				"carried_out_by": it.default_by or "SBI",
+				"remarks": it.default_remarks,
+			})
+			added += 1
+
+		self.save(ignore_permissions=True)
+		frappe.db.commit()
+		return {"added": added, "total": len(self.scope_rows or [])}
+
+	@frappe.whitelist()
+	def build_trade_summary(self):
+		"""Write the commercial summary onto the sheet.
+
+		Same figures as the Rate per Sft view, but stored, so the proposal
+		prints the numbers that were agreed rather than recomputing them later
+		against rates that may since have moved.
+		"""
+		data = self.trade_summary()
+		rows = data.get("rows") or []
+		if not rows:
+			frappe.throw(_("Tag the BOQ lines with a trade first."))
+
+		area = flt(self.built_up_area)
+		self.trade_rows = []
+
+		self.append("trade_rows", {
+			"trade": _("Total cost"),
+			"area_sft": area,
+			"unit_rate": flt(data.get("rate_per_sft")),
+			"total": flt(data.get("total")),
+			"is_total": 1,
+		})
+		for r in rows:
+			self.append("trade_rows", {
+				"trade": r["trade"],
+				"area_sft": area,
+				"unit_rate": flt(r["rate_per_sft"]),
+				"total": flt(r["loaded"]),
+				"is_total": 0,
+			})
+
+		self.save(ignore_permissions=True)
+		frappe.db.commit()
+		return {"rows": len(self.trade_rows), "total": flt(data.get("total"))}
 
 	@frappe.whitelist()
 	def recalculate_rates(self):
