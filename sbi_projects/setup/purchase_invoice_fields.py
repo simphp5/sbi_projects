@@ -45,6 +45,13 @@ SETTERS = [
 	("set_warehouse", "depends_on", "", "Data"),
 	("set_warehouse", "hidden", "0", "Check"),
 	("set_warehouse", "label", "Set Warehouse", "Data"),
+
+	# columns SBI wants on the list
+	("project", "in_list_view", "1", "Check"),
+	("set_warehouse", "in_list_view", "1", "Check"),
+	("posting_date", "in_list_view", "1", "Check"),
+	("total_taxes_and_charges", "in_list_view", "1", "Check"),
+	("grand_total", "in_list_view", "1", "Check"),
 ]
 
 # Same treatment on the item rows, so a single invoice can be split across sites.
@@ -86,6 +93,60 @@ def setup_purchase_invoice_fields():
 			frappe.log_error(frappe.get_traceback(),
 			                 f"PI item field setup: {fieldname}.{prop}")
 
+	_list_view()
+
 	frappe.clear_cache(doctype=DOCTYPE)
 	frappe.db.commit()
 	return done
+
+
+# Columns for the list view, in the order SBI reads them. Days overdue is not
+# here because it is not a stored field -- it is worked out against today's
+# date, which a list column cannot do. The Purchase Invoice Register report
+# carries it, computed live.
+LIST_COLUMNS = [
+	("project", "Project"),
+	("set_warehouse", "Warehouse"),
+	("supplier_name", "Supplier"),
+	("posting_date", "Invoice Date"),
+	("total_taxes_and_charges", "Tax (GST)"),
+	("grand_total", "Grand Total"),
+	("status", "Status"),
+]
+
+
+def _list_view():
+	"""Set the default column order on the Purchase Invoice list.
+
+	Frappe orders list columns by their position in the doctype, so property
+	setters alone cannot produce a chosen sequence. List View Settings can:
+	it stores the columns as an ordered list, which is also what gets saved
+	when someone drags a column in the UI.
+	"""
+	if not frappe.db.exists("DocType", "List View Settings"):
+		return
+
+	meta = frappe.get_meta(DOCTYPE)
+	fields = [
+		{"fieldname": fn, "label": label}
+		for fn, label in LIST_COLUMNS
+		if meta.has_field(fn)
+	]
+	if not fields:
+		return
+
+	try:
+		if frappe.db.exists("List View Settings", DOCTYPE):
+			doc = frappe.get_doc("List View Settings", DOCTYPE)
+		else:
+			doc = frappe.new_doc("List View Settings")
+			doc.name = DOCTYPE
+
+		doc.fields = frappe.as_json(fields)
+		if doc.meta.has_field("total_fields"):
+			doc.total_fields = str(min(len(fields), 10))
+
+		doc.flags.ignore_permissions = True
+		doc.save(ignore_permissions=True)
+	except Exception:
+		frappe.log_error(frappe.get_traceback(), "PI list view columns")
