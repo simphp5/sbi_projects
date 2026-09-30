@@ -23,19 +23,49 @@ class EstimationSheetBOQ(Document):
 			row.amount = flt(row.qty) * flt(row.rate)
 
 	def compute_totals(self):
+		"""Work the totals the way the estimate sheet does.
+
+		The sheet loads site establishment, contingency and incentive onto the
+		measured cost, and then loads overhead and miscellaneous onto that
+		subtotal rather than onto the base -- so the last loading compounds. It
+		then rounds the total up to the nearest ten thousand and the rate per
+		sft to a whole rupee, because a quotation reads better on round numbers.
+
+		Every one of those behaviours can be switched off, and with all of them
+		off the result is the plain flat calculation.
+		"""
 		base = sum(flt(r.amount) for r in (self.lines or []))
 		self.base_total = base
 
-		markup = 0.0
-		for pct in (self.site_establishment_pct, self.contingency_pct,
-		            self.overhead_pct, self.profit_pct, self.incentive_pct):
-			markup += base * (flt(pct) / 100.0)
+		first = sum(flt(p) for p in (self.site_establishment_pct,
+		                             self.contingency_pct,
+		                             self.incentive_pct))
+		second = sum(flt(p) for p in (self.overhead_pct, self.profit_pct))
 
-		self.markup_total = markup
-		self.grand_total = base + markup
+		if self.compound_markup:
+			subtotal = base * (1 + first / 100.0)
+			total = subtotal * (1 + second / 100.0)
+		else:
+			total = base * (1 + (first + second) / 100.0)
+
+		# round the total up to a clean figure, as CEILING does on the sheet
+		step = flt(self.round_total_to)
+		if step > 0 and total > 0:
+			import math
+			total = math.ceil(total / step) * step
+
+		self.markup_total = total - base
+		self.grand_total = total
 
 		area = flt(self.built_up_area)
-		self.rate_per_sft = (base + markup) / area if area else 0
+		rate = (total / area) if area else 0
+
+		if self.round_rate_per_sft and rate:
+			rate = round(rate)
+
+		uplift = flt(self.uplift_factor) or 1.0
+		self.rate_per_sft = rate * uplift
+
 		self.stage_count = len(self.stages or [])
 
 	@frappe.whitelist()
@@ -578,15 +608,19 @@ class EstimationSheetBOQ(Document):
 
 		base = sum(buckets.values())
 		factor = (flt(self.grand_total) / base) if base else 1.0
+		uplift = flt(self.uplift_factor) or 1.0
 
 		rows = []
 		for name, amount in sorted(buckets.items(), key=lambda x: -x[1]):
 			loaded = amount * factor
+			r = (loaded / area) if area else 0
+			if self.round_rate_per_sft and r:
+				r = round(r)
 			rows.append({
 				"trade": name,
 				"amount": amount,
 				"loaded": loaded,
-				"rate_per_sft": (loaded / area) if area else 0,
+				"rate_per_sft": r * uplift,
 			})
 
 		return {

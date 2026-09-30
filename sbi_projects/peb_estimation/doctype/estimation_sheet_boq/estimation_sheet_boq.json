@@ -73,6 +73,13 @@
   "column_break_markup",
   "profit_pct",
   "incentive_pct",
+  "section_markup_rules",
+  "compound_markup",
+  "round_total_to",
+  "column_break_markup_rules",
+  "round_rate_per_sft",
+  "uplift_factor",
+  "uplift_reason",
   "section_downstream",
   "quotation",
   "section_remarks",
@@ -473,6 +480,59 @@
    "fieldname": "incentive_pct",
    "fieldtype": "Percent",
    "label": "Incentive %",
+   "permlevel": 1
+  },
+  {
+   "collapsible": 1,
+   "description": "These reproduce the arithmetic on the estimate sheet. Turn them off to load everything flat on the base.",
+   "fieldname": "section_markup_rules",
+   "fieldtype": "Section Break",
+   "label": "How the loadings are applied",
+   "permlevel": 1
+  },
+  {
+   "default": "1",
+   "description": "On: site establishment, contingency and incentive load the base, then overhead and miscellaneous load that subtotal \u2014 as the sheet does. Off: all five load the base.",
+   "fieldname": "compound_markup",
+   "fieldtype": "Check",
+   "label": "Compound the last loading",
+   "permlevel": 1
+  },
+  {
+   "default": "10000",
+   "description": "Rounds the grand total up to this step, the way CEILING does on the sheet. Zero for no rounding.",
+   "fieldname": "round_total_to",
+   "fieldtype": "Currency",
+   "label": "Round Total Up To",
+   "permlevel": 1
+  },
+  {
+   "fieldname": "column_break_markup_rules",
+   "fieldtype": "Column Break",
+   "permlevel": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "round_rate_per_sft",
+   "fieldtype": "Check",
+   "label": "Round Rate per Sft to a Whole Rupee",
+   "permlevel": 1
+  },
+  {
+   "default": "1.0",
+   "description": "Multiplies the rate per sft at the very end. The September estimate used 1.0677. Leave at 1.0 until SBI confirms what that factor represents.",
+   "fieldname": "uplift_factor",
+   "fieldtype": "Float",
+   "label": "Uplift Factor",
+   "permlevel": 1,
+   "precision": "4"
+  },
+  {
+   "depends_on": "eval:doc.uplift_factor && doc.uplift_factor != 1",
+   "description": "Say what the uplift is for, so the next person does not have to guess.",
+   "fieldname": "uplift_reason",
+   "fieldtype": "Data",
+   "label": "Uplift Reason",
    "permlevel": 1
   },
   {
