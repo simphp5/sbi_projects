@@ -18,13 +18,14 @@
  ],
  "fields": [
   {
-   "columns": 1,
-   "description": "The BOQ line this steel feeds, normally the Reinforcement line",
+   "columns": 2,
+   "description": "Which BOQ line this measurement feeds. Leave blank while measuring.",
    "fieldname": "item_no",
-   "fieldtype": "Data",
+   "fieldtype": "Select",
    "in_list_view": 1,
-   "label": "Item No",
-   "reqd": 1
+   "label": "Work Group",
+   "options": "",
+   "reqd": 0
   },
   {
    "columns": 2,

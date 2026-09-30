@@ -553,10 +553,13 @@ class EstimationSheetBOQ(Document):
 		self.compute_takeoff()
 		self.compute_bars()
 
-		measured = {}
+		# rows with no group are still being measured; count them so nothing
+		# is skipped silently, but do not treat that as an error
+		measured, untagged = {}, []
 		for r in (self.takeoff or []):
 			key = (r.item_no or "").strip()
 			if not key:
+				untagged.append(r.element or _("row {0}").format(r.idx))
 				continue
 			measured[key] = measured.get(key, 0) + flt(r.qty)
 
@@ -564,6 +567,7 @@ class EstimationSheetBOQ(Document):
 		for r in (self.bars or []):
 			key = (r.item_no or "").strip()
 			if not key:
+				untagged.append(r.element or _("bar row {0}").format(r.idx))
 				continue
 			steel[key] = steel.get(key, 0) + flt(r.weight)
 
@@ -595,6 +599,7 @@ class EstimationSheetBOQ(Document):
 			"takeoff_rows": len(self.takeoff or []),
 			"steel_kg": flt(self.steel_weight),
 			"unmatched": sorted(unmatched),
+			"untagged": untagged,
 		}
 
 	@frappe.whitelist()

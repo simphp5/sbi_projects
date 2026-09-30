@@ -22,11 +22,12 @@
  "fields": [
   {
    "columns": 1,
-   "description": "1, 2, 3 ... matches the numbering on the estimate",
+   "description": "A short tag for this item, such as RCC or EW. Measurements carrying the same tag are added into this line. Keep it unique.",
    "fieldname": "item_no",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Item No"
+   "label": "Work Group",
+   "reqd": 0
   },
   {
    "columns": 1,

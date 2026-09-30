@@ -92,13 +92,21 @@ frappe.ui.form.on("Estimation Sheet BOQ", {
 						if (m.steel_kg) {
 							msg += " " + __("Steel {0} kg.", [format_number(m.steel_kg, null, 0)]);
 						}
+						const notes = [];
+						if ((m.untagged || []).length) {
+							notes.push("<b>" + __("Not yet grouped, so not used:") + "</b><br>"
+								+ m.untagged.join(", "));
+						}
 						if ((m.unmatched || []).length) {
+							notes.push("<b>" + __("No BOQ line carries this group:") + "</b><br>"
+								+ m.unmatched.join(", ")
+								+ "<br>" + __("Add those lines, or correct the group."));
+						}
+						if (notes.length) {
 							frappe.msgprint({
-								title: __("Some measurements have no line"),
+								title: __("Applied, with some rows left out"),
 								indicator: "orange",
-								message: msg + "<br><br>"
-									+ __("No BOQ line carries item no: {0}", [m.unmatched.join(", ")])
-									+ "<br>" + __("Add those lines, or correct the item numbers."),
+								message: msg + "<br><br>" + notes.join("<br><br>"),
 							});
 						} else {
 							frappe.show_alert({ message: msg, indicator: "green" });
@@ -137,6 +145,7 @@ frappe.ui.form.on("Estimation Sheet BOQ", {
 		frm.add_custom_button(__("Load Stages"), () => frm.trigger("load_stages"), __("Stages"));
 
 		frm.trigger("apply_stage_options");
+		frm.trigger("apply_group_options");
 
 		// ---- BOQ line import ----
 		frm.add_custom_button(__("Download Template"), () => {
@@ -402,6 +411,25 @@ frappe.ui.form.on("Estimation Sheet BOQ", {
 		d.show();
 	},
 
+	apply_group_options(frm) {
+		// the take-off and bar tables offer whatever groups the lines already carry,
+		// so a new item added to the BOQ shows up without anyone being told
+		const groups = [...new Set(
+			(frm.doc.lines || []).map((l) => (l.item_no || "").trim()).filter(Boolean)
+		)];
+		const opts = [""].concat(groups).join("\n");
+		const hint = groups.length
+			? __("One of the {0} group(s) on the BOQ lines below.", [groups.length])
+			: __("Add the BOQ lines first, then their groups appear here.");
+
+		["takeoff", "bars"].forEach((table) => {
+			const grid = frm.fields_dict[table] && frm.fields_dict[table].grid;
+			if (!grid) return;
+			grid.update_docfield_property("item_no", "options", opts);
+			grid.update_docfield_property("item_no", "description", hint);
+		});
+	},
+
 	apply_stage_options(frm) {
 		// let the line-level Stage field offer the stages defined on this sheet
 		const opts = (frm.doc.stages || []).map((s) => s.stage_name).filter(Boolean);
@@ -584,4 +612,10 @@ frappe.ui.form.on("Estimation Sheet BOQ Scope", {
 				}
 			});
 	},
+});
+
+frappe.ui.form.on("Estimation Sheet BOQ Line", {
+	item_no(frm) { frm.trigger("apply_group_options"); },
+	lines_add(frm) { frm.trigger("apply_group_options"); },
+	lines_remove(frm) { frm.trigger("apply_group_options"); },
 });
