@@ -21,11 +21,10 @@
    "columns": 2,
    "description": "Which BOQ line this measurement feeds. Leave blank while measuring.",
    "fieldname": "item_no",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Work Group",
-   "options": "",
-   "reqd": 0
+   "options": "Work Group"
   },
   {
    "columns": 2,
