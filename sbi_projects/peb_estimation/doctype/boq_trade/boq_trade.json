@@ -1,51 +1,25 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "field:scope_item_name",
- "creation": "2026-09-29 10:00:00.000000",
+ "autoname": "field:trade_name",
+ "creation": "2026-09-30 10:00:00.000000",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "scope_item_name",
-  "scope_section",
-  "column_break_1",
-  "default_by",
+  "trade_name",
   "display_order",
   "is_active",
-  "section_break_1",
-  "default_remarks"
+  "description"
  ],
  "fields": [
   {
-   "fieldname": "scope_item_name",
+   "fieldname": "trade_name",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Scope Item",
+   "label": "Trade",
    "reqd": 1,
    "unique": 1
-  },
-  {
-   "fieldname": "scope_section",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Section",
-   "options": "Scope Section",
-   "reqd": 1
-  },
-  {
-   "fieldname": "column_break_1",
-   "fieldtype": "Column Break"
-  },
-  {
-   "default": "SBI",
-   "fieldname": "default_by",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Carried out by",
-   "options": "SBI\\nClient"
   },
   {
    "fieldname": "display_order",
@@ -61,22 +35,17 @@
    "label": "Is Active"
   },
   {
-   "fieldname": "section_break_1",
-   "fieldtype": "Section Break"
-  },
-  {
-   "description": "The qualification that appears against this item on the proposal",
-   "fieldname": "default_remarks",
+   "fieldname": "description",
    "fieldtype": "Small Text",
-   "label": "Default Remarks"
+   "label": "Description"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-09-29 10:00:00.000000",
+ "modified": "2026-09-30 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "PEB Estimation",
- "name": "Scope Item",
+ "name": "BOQ Trade",
  "owner": "Administrator",
  "permissions": [
   {

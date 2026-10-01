@@ -25,25 +25,8 @@
   "built_up_area",
   "column_break_bldg",
   "rate_card",
-  "section_stages",
-  "payment_terms_template",
-  "column_break_stages",
-  "stage_count",
-  "section_stage_table",
-  "stages",
-  "section_proposal",
-  "proposal_project_title",
-  "proposal_client",
-  "proposal_location",
-  "proposal_scope",
-  "column_break_prop",
-  "proposal_area_note",
-  "proposal_design_note",
-  "proposal_dimensions",
-  "section_trade",
-  "trade_rows",
-  "section_scope",
-  "scope_rows",
+  "section_lines",
+  "lines",
   "section_takeoff",
   "takeoff",
   "section_bbs",
@@ -52,20 +35,18 @@
   "steel_weight",
   "column_break_tk",
   "takeoff_rows",
-  "section_lines",
-  "lines",
+  "section_stages",
+  "payment_terms_template",
+  "column_break_stages",
+  "stage_count",
+  "section_stage_table",
+  "stages",
   "section_resources",
   "resources",
   "section_resource_totals",
   "resource_total",
   "column_break_res",
   "resource_variance",
-  "section_totals",
-  "base_total",
-  "column_break_tot",
-  "markup_total",
-  "grand_total",
-  "rate_per_sft",
   "section_break_markup",
   "site_establishment_pct",
   "contingency_pct",
@@ -80,6 +61,25 @@
   "round_rate_per_sft",
   "uplift_factor",
   "uplift_reason",
+  "section_proposal",
+  "proposal_project_title",
+  "proposal_client",
+  "proposal_location",
+  "proposal_scope",
+  "column_break_prop",
+  "proposal_area_note",
+  "proposal_design_note",
+  "proposal_dimensions",
+  "section_trade",
+  "trade_rows",
+  "section_scope",
+  "scope_rows",
+  "section_totals",
+  "base_total",
+  "column_break_tot",
+  "markup_total",
+  "grand_total",
+  "rate_per_sft",
   "section_downstream",
   "quotation",
   "section_remarks",
@@ -126,7 +126,7 @@
   {
    "fieldname": "section_source",
    "fieldtype": "Section Break",
-   "label": "Source"
+   "label": "1. Source and Customer  \u2014  type here"
   },
   {
    "fieldname": "source",
@@ -174,7 +174,7 @@
   {
    "fieldname": "section_building",
    "fieldtype": "Section Break",
-   "label": "Building"
+   "label": "Building  \u2014  type here"
   },
   {
    "fieldname": "building_name",
@@ -198,10 +198,73 @@
    "options": "Rate Card"
   },
   {
-   "description": "Stages can be typed in directly, or loaded from a Payment Terms Template or the linked Sales Order.",
+   "collapsible": 0,
+   "description": "Add a row per priced item. Give each a Work Group, which the take-off then picks from. Leave Qty blank on anything you are going to measure. Do this before the take-off.",
+   "fieldname": "section_lines",
+   "fieldtype": "Section Break",
+   "label": "2. BOQ Lines  \u2014  type here"
+  },
+  {
+   "fieldname": "lines",
+   "fieldtype": "Table",
+   "label": "Lines",
+   "options": "Estimation Sheet BOQ Line"
+  },
+  {
+   "collapsible": 0,
+   "description": "Measure element by element off the drawing. Qty is Nos times every dimension you fill in, so a blank dimension drops out and a negative Nos is a deduction.",
+   "fieldname": "section_takeoff",
+   "fieldtype": "Section Break",
+   "label": "3. Quantity Take-off  \u2014  type here"
+  },
+  {
+   "fieldname": "takeoff",
+   "fieldtype": "Table",
+   "label": "Take-off",
+   "options": "Estimation Sheet BOQ Takeoff"
+  },
+  {
+   "collapsible": 0,
+   "description": "One row per bar layer. Weight is total length times dia squared over 162.",
+   "fieldname": "section_bbs",
+   "fieldtype": "Section Break",
+   "label": "4. Bar Bending Schedule  \u2014  type here"
+  },
+  {
+   "fieldname": "bars",
+   "fieldtype": "Table",
+   "label": "Bar Bending Schedule",
+   "options": "Estimation Sheet BOQ Bar"
+  },
+  {
+   "collapsible": 0,
+   "fieldname": "section_takeoff_totals",
+   "fieldtype": "Section Break",
+   "label": "5. Apply  \u2014  press Take-off > Apply Take-off to Lines"
+  },
+  {
+   "fieldname": "steel_weight",
+   "fieldtype": "Float",
+   "label": "Total Steel (kg)",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_tk",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "takeoff_rows",
+   "fieldtype": "Int",
+   "label": "Take-off Rows",
+   "read_only": 1
+  },
+  {
+   "collapsible": 0,
+   "description": "Stages are the payment terms. Load them from a Payment Terms Template or the linked Sales Order.",
    "fieldname": "section_stages",
    "fieldtype": "Section Break",
-   "label": "Stages"
+   "label": "6. Stages  \u2014  press Stages > Load Stages, or type"
   },
   {
    "description": "Optional. Load Stages pulls the terms from here.",
@@ -231,145 +294,11 @@
    "options": "Estimation Sheet BOQ Stage"
   },
   {
-   "collapsible": 1,
-   "description": "What appears on page one of the proposal. The client never sees the priced BOQ -- only these details, the commercial summary and the scope.",
-   "fieldname": "section_proposal",
-   "fieldtype": "Section Break",
-   "label": "Proposal Details"
-  },
-  {
-   "description": "Workshop building, Warehouse ...",
-   "fieldname": "proposal_project_title",
-   "fieldtype": "Data",
-   "label": "Project"
-  },
-  {
-   "fieldname": "proposal_client",
-   "fieldtype": "Data",
-   "label": "Client"
-  },
-  {
-   "fieldname": "proposal_location",
-   "fieldtype": "Data",
-   "label": "Location"
-  },
-  {
-   "description": "Civil + PEB + Roofing + Cladding (Design and Construction)",
-   "fieldname": "proposal_scope",
-   "fieldtype": "Data",
-   "label": "Scope"
-  },
-  {
-   "fieldname": "column_break_prop",
-   "fieldtype": "Column Break"
-  },
-  {
-   "description": "15963 sft + Mezzanine 466 sft = Total 16429 sft",
-   "fieldname": "proposal_area_note",
-   "fieldtype": "Small Text",
-   "label": "Area of Building"
-  },
-  {
-   "description": "Mezzanine live load, design wind speed",
-   "fieldname": "proposal_design_note",
-   "fieldtype": "Small Text",
-   "label": "Design Data"
-  },
-  {
-   "description": "Area 1, Length 70.95 m, Width 20.9 m & Clear Height +8.3 m",
-   "fieldname": "proposal_dimensions",
-   "fieldtype": "Small Text",
-   "label": "Dimensions"
-  },
-  {
-   "collapsible": 1,
-   "description": "The four lines the client reads. Built by Create > Rate per Sft by Trade.",
-   "fieldname": "section_trade",
-   "fieldtype": "Section Break",
-   "label": "Commercial Summary"
-  },
-  {
-   "fieldname": "trade_rows",
-   "fieldtype": "Table",
-   "label": "Commercial Summary",
-   "options": "Estimation Sheet BOQ Trade"
-  },
-  {
-   "collapsible": 1,
-   "description": "The tick matrix. Load it from the master, then move anything this client is providing over to their column.",
-   "fieldname": "section_scope",
-   "fieldtype": "Section Break",
-   "label": "Scope of Works"
-  },
-  {
-   "fieldname": "scope_rows",
-   "fieldtype": "Table",
-   "label": "Scope of Works",
-   "options": "Estimation Sheet BOQ Scope"
-  },
-  {
-   "collapsible": 1,
-   "description": "Measure element by element, the way it is done off a drawing. Qty is Nos multiplied by each dimension you fill in \u2014 leave a dimension blank and it is simply left out of the product, so an area item needs no depth.",
-   "fieldname": "section_takeoff",
-   "fieldtype": "Section Break",
-   "label": "Quantity Take-off"
-  },
-  {
-   "fieldname": "takeoff",
-   "fieldtype": "Table",
-   "label": "Take-off",
-   "options": "Estimation Sheet BOQ Takeoff"
-  },
-  {
-   "collapsible": 1,
-   "description": "Weight is total length times dia squared over 162, the standard for TMT bars. The total feeds the Reinforcement line.",
-   "fieldname": "section_bbs",
-   "fieldtype": "Section Break",
-   "label": "Bar Bending Schedule"
-  },
-  {
-   "fieldname": "bars",
-   "fieldtype": "Table",
-   "label": "Bar Bending Schedule",
-   "options": "Estimation Sheet BOQ Bar"
-  },
-  {
-   "fieldname": "section_takeoff_totals",
-   "fieldtype": "Section Break"
-  },
-  {
-   "fieldname": "steel_weight",
-   "fieldtype": "Float",
-   "label": "Total Steel (kg)",
-   "precision": "2",
-   "read_only": 1
-  },
-  {
-   "fieldname": "column_break_tk",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "takeoff_rows",
-   "fieldtype": "Int",
-   "label": "Take-off Rows",
-   "read_only": 1
-  },
-  {
-   "fieldname": "section_lines",
-   "fieldtype": "Section Break",
-   "label": "BOQ Lines"
-  },
-  {
-   "fieldname": "lines",
-   "fieldtype": "Table",
-   "label": "Lines",
-   "options": "Estimation Sheet BOQ Line"
-  },
-  {
-   "description": "Manpower, equipment, transport and subcontract. Rolled up from the BOQ lines via each Work Item's per-unit norms; add your own rows for anything that sits outside a line (supervision, site establishment).",
+   "collapsible": 0,
+   "description": "Fills itself from the work item norms. Add rows by hand for anything no line covers, such as a site supervisor; those are kept when the roll-up is run again.",
    "fieldname": "section_resources",
    "fieldtype": "Section Break",
-   "label": "Resources"
+   "label": "7. Resources  \u2014  press Resources > Roll Up Resources"
   },
   {
    "fieldname": "resources",
@@ -399,46 +328,10 @@
    "read_only": 1
   },
   {
-   "fieldname": "section_totals",
-   "fieldtype": "Section Break",
-   "label": "Totals"
-  },
-  {
-   "fieldname": "base_total",
-   "fieldtype": "Currency",
-   "label": "Base Total",
-   "read_only": 1
-  },
-  {
-   "fieldname": "column_break_tot",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "markup_total",
-   "fieldtype": "Currency",
-   "label": "Markup Total",
-   "permlevel": 1,
-   "read_only": 1
-  },
-  {
-   "fieldname": "grand_total",
-   "fieldtype": "Currency",
-   "label": "Grand Total",
-   "permlevel": 1,
-   "read_only": 1
-  },
-  {
-   "fieldname": "rate_per_sft",
-   "fieldtype": "Currency",
-   "label": "Rate per SFT",
-   "permlevel": 1,
-   "read_only": 1
-  },
-  {
    "collapsible": 1,
    "fieldname": "section_break_markup",
    "fieldtype": "Section Break",
-   "label": "Markup (Owner / Admin only)",
+   "label": "8. Markup  \u2014  type the percentages  (Owner / Admin only)",
    "permlevel": 1
   },
   {
@@ -487,7 +380,7 @@
    "description": "These reproduce the arithmetic on the estimate sheet. Turn them off to load everything flat on the base.",
    "fieldname": "section_markup_rules",
    "fieldtype": "Section Break",
-   "label": "How the loadings are applied",
+   "label": "8a. How the loadings are applied",
    "permlevel": 1
   },
   {
@@ -534,6 +427,120 @@
    "fieldtype": "Data",
    "label": "Uplift Reason",
    "permlevel": 1
+  },
+  {
+   "collapsible": 0,
+   "description": "Page one of the proposal. The client sees these, the commercial summary and the scope, and nothing else.",
+   "fieldname": "section_proposal",
+   "fieldtype": "Section Break",
+   "label": "9. Proposal Details  \u2014  type here"
+  },
+  {
+   "description": "Workshop building, Warehouse ...",
+   "fieldname": "proposal_project_title",
+   "fieldtype": "Data",
+   "label": "Project"
+  },
+  {
+   "fieldname": "proposal_client",
+   "fieldtype": "Data",
+   "label": "Client"
+  },
+  {
+   "fieldname": "proposal_location",
+   "fieldtype": "Data",
+   "label": "Location"
+  },
+  {
+   "description": "Civil + PEB + Roofing + Cladding (Design and Construction)",
+   "fieldname": "proposal_scope",
+   "fieldtype": "Data",
+   "label": "Scope"
+  },
+  {
+   "fieldname": "column_break_prop",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "15963 sft + Mezzanine 466 sft = Total 16429 sft",
+   "fieldname": "proposal_area_note",
+   "fieldtype": "Small Text",
+   "label": "Area of Building"
+  },
+  {
+   "description": "Mezzanine live load, design wind speed",
+   "fieldname": "proposal_design_note",
+   "fieldtype": "Small Text",
+   "label": "Design Data"
+  },
+  {
+   "description": "Area 1, Length 70.95 m, Width 20.9 m & Clear Height +8.3 m",
+   "fieldname": "proposal_dimensions",
+   "fieldtype": "Small Text",
+   "label": "Dimensions"
+  },
+  {
+   "collapsible": 0,
+   "description": "The four lines the client reads. Stored once built, so the proposal shows what was agreed.",
+   "fieldname": "section_trade",
+   "fieldtype": "Section Break",
+   "label": "10. Commercial Summary  \u2014  press Proposal > Build Commercial Summary"
+  },
+  {
+   "fieldname": "trade_rows",
+   "fieldtype": "Table",
+   "label": "Commercial Summary",
+   "options": "Estimation Sheet BOQ Trade"
+  },
+  {
+   "collapsible": 0,
+   "description": "Brings in the standard matrix. Then move anything this client is providing to their column.",
+   "fieldname": "section_scope",
+   "fieldtype": "Section Break",
+   "label": "11. Scope of Works  \u2014  press Proposal > Load Scope of Works"
+  },
+  {
+   "fieldname": "scope_rows",
+   "fieldtype": "Table",
+   "label": "Scope of Works",
+   "options": "Estimation Sheet BOQ Scope"
+  },
+  {
+   "collapsible": 0,
+   "fieldname": "section_totals",
+   "fieldtype": "Section Break",
+   "label": "12. Totals  \u2014  calculated"
+  },
+  {
+   "fieldname": "base_total",
+   "fieldtype": "Currency",
+   "label": "Base Total",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_tot",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "markup_total",
+   "fieldtype": "Currency",
+   "label": "Markup Total",
+   "permlevel": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "grand_total",
+   "fieldtype": "Currency",
+   "label": "Grand Total",
+   "permlevel": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "rate_per_sft",
+   "fieldtype": "Currency",
+   "label": "Rate per SFT",
+   "permlevel": 1,
+   "read_only": 1
   },
   {
    "collapsible": 1,

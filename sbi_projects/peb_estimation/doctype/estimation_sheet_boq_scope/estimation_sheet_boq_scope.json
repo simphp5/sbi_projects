@@ -16,10 +16,10 @@
   {
    "columns": 2,
    "fieldname": "scope_section",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Section",
-   "options": "Client Scope\\nPEB - Civil Works\\nPEB\\nMezzanine\\nOther"
+   "options": "Scope Section"
   },
   {
    "columns": 2,

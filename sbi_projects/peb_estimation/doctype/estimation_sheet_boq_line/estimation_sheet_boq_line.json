@@ -46,12 +46,12 @@
   },
   {
    "columns": 1,
-   "description": "Used for the trade-wise rate per sft",
+   "description": "Which bucket this line falls into for the rate per sft",
    "fieldname": "trade",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Trade",
-   "options": "\nCivil\nPEB\nFilling\nPiling\nOther"
+   "options": "BOQ Trade"
   },
   {
    "columns": 2,
