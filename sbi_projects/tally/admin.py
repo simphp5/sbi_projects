@@ -22,6 +22,7 @@ def generate_agent_key():
 		user = frappe.get_doc({
 			"doctype": "User", "email": email, "first_name": "Tally", "last_name": "Agent",
 			"user_type": "System User", "send_welcome_email": 0, "enabled": 1,
+			"roles": [{"role": r} for r in (AGENT_ROLE, "Accounts User") if frappe.db.exists("Role", r)],
 		})
 		user.flags.ignore_permissions = True
 		user.insert()
@@ -108,6 +109,22 @@ def retry_failed():
 	return {"vouchers": vouchers}
 
 
+@frappe.whitelist()
+def import_anyway(log_name):
+	"""A Tally voucher was skipped as a duplicate, but the user says it is a separate transaction."""
+	frappe.only_for(MANAGERS)
+	log = frappe.get_doc(LOG, log_name)
+	if log.direction != "Import" or log.record_type != "Voucher" or log.status != "Skipped" or not log.tally_guid:
+		frappe.throw("Only Tally vouchers skipped as duplicates can be imported this way.")
+	s = settings()
+	guids = {g for g in (s.force_import_guids or "").split() if g}
+	guids.add(log.tally_guid)
+	set_settings(force_import_guids="\n".join(sorted(guids)), last_alt_vch_id=0)
+	frappe.db.set_value(LOG, log_name, {"status": "Failed", "reference_doctype": None, "reference_name": None,
+		"message": "Marked 'Import Anyway' - will be imported on the next sync."})
+	return "ok"
+
+
 # ---------------------------------------------------------------- summary
 @frappe.whitelist()
 def get_summary():
@@ -117,7 +134,7 @@ def get_summary():
 		from `tabTally Sync Log` group by record_type, direction, status""", as_dict=True)
 	table = {}
 	for r in rows:
-		t = table.setdefault(r.record_type, {"Exported": 0, "Imported": 0, "Linked": 0, "Failed": 0, "Deleted": 0})
+		t = table.setdefault(r.record_type, {"Exported": 0, "Imported": 0, "Linked": 0, "Skipped": 0, "Failed": 0, "Deleted": 0})
 		if r.status == "Success":
 			t["Exported" if r.direction == "Export" else "Imported"] += r.n
 		elif r.status in t:

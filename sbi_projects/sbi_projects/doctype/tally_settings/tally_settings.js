@@ -124,7 +124,7 @@ const tally = {
 			</div>`;
 			frm.get_field("agent_status_html").$wrapper.html(status);
 
-			const cols = ["Exported", "Imported", "Linked", "Failed", "Deleted"];
+			const cols = ["Exported", "Imported", "Linked", "Skipped", "Failed", "Deleted"];
 			const types = ["Voucher", "Ledger", "Party", "Stock Item", "Opening Balance"];
 			const table = s.table || {};
 			const total = {};
@@ -151,7 +151,7 @@ const tally = {
 					<tbody>${body}</tbody>
 					<tfoot><tr><th>${__("Total")}</th>${cols.map((c) => `<th class="text-right">${total[c] || 0}</th>`).join("")}</tr></tfoot>
 				</table>
-				<div class="text-muted small">${__("Exported = ERPNext to Tally. Imported = Tally to ERPNext. Linked = already existed on both sides and was matched by name.")}
+				<div class="text-muted small">${__("Exported = ERPNext to Tally. Imported = Tally to ERPNext. Linked = already existed on both sides and was matched by name. Skipped = Tally voucher already entered in ERPNext, not imported again.")}
 				${a.last_sync_on ? " " + __("Last complete sync: {0}", [frappe.datetime.str_to_user(a.last_sync_on)]) : ""}</div>`;
 			frm.get_field("summary_html").$wrapper.html(html);
 		});
@@ -162,6 +162,7 @@ const tally = {
 			Exported: "&direction=Export&status=Success",
 			Imported: "&direction=Import&status=Success",
 			Linked: "&status=Linked",
+			Skipped: "&status=Skipped",
 			Failed: "&status=Failed",
 			Deleted: "&status=Deleted",
 		}[col];

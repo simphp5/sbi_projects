@@ -370,6 +370,13 @@ def process_import_vouchers(results):
 	index = LedgerIndex(s.company)
 	start = getdate(s.start_date)
 	seen = set()
+	dup_check = cint(s.duplicate_check)
+	force = {g.strip() for g in (s.force_import_guids or "").split() if g.strip()}
+	skipped_logs = {r.tally_guid: r for r in frappe.get_all("Tally Sync Log",
+		filters={"direction": "Import", "record_type": "Voucher", "status": "Skipped"},
+		fields=["tally_guid", "reference_doctype", "reference_name"], limit_page_length=0) if r.tally_guid}
+	claimed = {(r.reference_doctype, r.reference_name) for r in skipped_logs.values() if r.reference_name}
+	forced_done = set()
 
 	for i, v in enumerate(vouchers):
 		if not v["guid"] or not v["date"] or getdate(v["date"]) < start:
@@ -390,7 +397,20 @@ def process_import_vouchers(results):
 				continue
 			if je and cint(je.tally_alter_id) == v["alter_id"]:
 				continue
+			if not je and dup_check and v["guid"] not in force:
+				prev = skipped_logs.get(v["guid"])
+				if prev and prev.reference_name and frappe.db.get_value(prev.reference_doctype, prev.reference_name, "docstatus") == 1:
+					continue  # already judged a duplicate and the ERPNext document is still there
+				match = find_duplicate(s, v, index, claimed)
+				if match:
+					claimed.add(match)
+					write_log(key, "Import", "Voucher", "Skipped", match[0], match[1], label, v["guid"], v["date"],
+						_amount(v), "Already in ERPNext as " + match[0] + " " + match[1] +
+						" - not imported. Use 'Import Anyway' on this log if that is wrong.")
+					continue
 			new = _make_je(s, v, index, amend=je.name if je else None)
+			if v["guid"] in force:
+				forced_done.add(v["guid"])
 			write_log(key, "Import", "Voucher", "Success", "Journal Entry", new, label, v["guid"], v["date"],
 				_amount(v), "Updated in Tally - re-posted as " + new if je else "")
 		except Exception as e:
@@ -420,8 +440,64 @@ def process_import_vouchers(results):
 				write_log("V|I|" + guid, "Import", "Voucher", "Failed", "Journal Entry", je.name,
 					message="Deleted in Tally, but cancelling in ERPNext failed: " + short(_err(e), 900))
 
+	if forced_done:
+		set_settings(force_import_guids="\n".join(sorted(force - forced_done)))
 	if complete:
 		set_settings(last_alt_vch_id=cint(s.current_alt_vch_id))
+
+
+# ---------------------------------------------------------------- duplicate check
+# (doctype, party_type, party field, amount field, reference fields)
+DUP_SPECS = {
+	"Customer": [("Sales Invoice", None, "customer", "base_grand_total", ["po_no"]),
+		("Payment Entry", "Customer", "party", "base_paid_amount", ["reference_no"])],
+	"Supplier": [("Purchase Invoice", None, "supplier", "base_grand_total", ["bill_no"]),
+		("Payment Entry", "Supplier", "party", "base_paid_amount", ["reference_no"])],
+}
+
+
+def find_duplicate(s, v, index, claimed):
+	"""An ERPNext document (entered directly in ERPNext) that is the same transaction as this
+	Tally voucher -> (doctype, name), else None."""
+	days = cint(s.duplicate_days)
+	d = getdate(v["date"])
+	window = [add_days(d, -days), add_days(d, days)]
+	refs = {x.strip().lower() for x in (v["number"], v["reference"]) if x and x.strip()}
+	resolved = [(l, index.find(l["ledger"])) for l in v["lines"]]
+	parties = [(t, abs(l["net"])) for l, t in resolved if t and t[0] in DUP_SPECS]
+
+	if parties:
+		(party_type, party), amount = parties[0]
+		best = None
+		for dt, pt, field, amt_field, ref_fields in DUP_SPECS[party_type]:
+			filters = {field: party, "docstatus": 1, "company": s.company, "posting_date": ["between", window]}
+			if pt:
+				filters["party_type"] = pt
+			rows = frappe.get_all(dt, filters=filters, fields=["name", amt_field + " as amt"] + ref_fields,
+				limit_page_length=200)
+			for r in rows:
+				if (dt, r.name) in claimed or abs(abs(flt(r.amt)) - amount) > 1:
+					continue
+				keys = {str(r.get(f) or "").strip().lower() for f in ["name"] + ref_fields} - {""}
+				if refs & keys:
+					return (dt, r.name)  # same amount and same bill / reference number
+				best = best or (dt, r.name)
+		return best
+
+	# no party: same date, same total, exactly the same accounts
+	if any(t is None for _, t in resolved):
+		return None
+	accounts = {t[1] for _, t in resolved}
+	amount = _amount(v)
+	for je in frappe.get_all("Journal Entry", filters={"company": s.company, "docstatus": 1,
+			"posting_date": ["between", window], "tally_guid": ["is", "not set"],
+			"total_debit": ["between", [amount - 1, amount + 1]]}, pluck="name", limit_page_length=200):
+		if ("Journal Entry", je) in claimed:
+			continue
+		je_accounts = set(frappe.get_all("Journal Entry Account", filters={"parent": je}, pluck="account"))
+		if je_accounts == accounts:
+			return ("Journal Entry", je)
+	return None
 
 
 def _is_ours(v, exported):

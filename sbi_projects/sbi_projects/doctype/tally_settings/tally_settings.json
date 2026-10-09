@@ -313,6 +313,21 @@
    "depends_on": "import_vouchers"
   },
   {
+   "fieldname": "duplicate_check",
+   "fieldtype": "Check",
+   "label": "Skip Tally Vouchers Already Entered in ERPNext",
+   "default": "1",
+   "description": "Before creating a Journal Entry, look for the same transaction entered directly in ERPNext (same party, amount and date - or same accounts and amount when there is no party). Matches are logged as Skipped, with an Import Anyway option."
+  },
+  {
+   "fieldname": "duplicate_days",
+   "fieldtype": "Int",
+   "label": "Date Tolerance for Duplicate Check (days)",
+   "default": "0",
+   "depends_on": "duplicate_check",
+   "description": "0 = same date only. 2 = up to 2 days apart still counts as the same transaction."
+  },
+  {
    "fieldname": "cb_import",
    "fieldtype": "Column Break"
   },
@@ -424,6 +439,12 @@
    "fieldname": "cancel_cursor",
    "fieldtype": "Datetime",
    "label": "Cancellations Checked Until",
+   "read_only": 1
+  },
+  {
+   "fieldname": "force_import_guids",
+   "fieldtype": "Small Text",
+   "label": "Import Anyway (Tally GUIDs)",
    "read_only": 1
   }
  ],
