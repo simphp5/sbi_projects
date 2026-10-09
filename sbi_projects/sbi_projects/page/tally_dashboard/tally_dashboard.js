@@ -47,14 +47,14 @@ class TallyDashboard {
 		return frappe.utils.escape_html(v == null ? "" : String(v));
 	}
 	link(route, text) {
-		return `<a href="/app/${route}">${this.esc(text)}</a>`;
+		return `<a href="/app/${route}" target="_blank" rel="noopener">${this.esc(text)}</a>`;
 	}
 	tile(label, value, sub, colour, route) {
 		const inner = `<div class="td-tile ${colour || ""}">
 			<div class="td-label">${label}</div>
 			<div class="td-value">${value}</div>
 			${sub ? `<div class="td-sub">${sub}</div>` : ""}</div>`;
-		return route ? `<a class="td-tile-link" href="/app/${route}">${inner}</a>` : inner;
+		return route ? `<a class="td-tile-link" href="/app/${route}" target="_blank" rel="noopener">${inner}</a>` : inner;
 	}
 	card(title, body, extra) {
 		return `<div class="td-card"><div class="td-card-head"><span>${title}</span>${extra || ""}</div>${body}</div>`;

@@ -361,7 +361,7 @@ def import_vouchers_jobs(s):
 def process_import_vouchers(results):
 	s = settings()
 	complete = all(not r.get("error") for r in results)
-	vouchers, range_end, checked_months = [], None, []
+	vouchers, range_end, checked_months, ignored = [], None, [], 0
 	for r in results:
 		_, frm, to = r["id"].split("|")
 		range_end = max(range_end or to, to)
@@ -373,10 +373,24 @@ def process_import_vouchers(results):
 			complete = False
 			set_settings(last_agent_error=short("Day Book " + frm + " to " + to + ": " + str(e), 500))
 			continue
-		vouchers += month
-		if month:
+		in_range = [v for v in month if v["date"] and frm <= v["date"] <= to]
+		ignored += len(month) - len(in_range)
+		vouchers += in_range
+		if in_range:
 			# an empty month is never trusted as "everything was deleted"
 			checked_months.append((frm, to))
+
+	if ignored and not vouchers:
+		complete = False
+		set_settings(last_agent_error=short("Tally returned vouchers outside the requested dates (" + str(ignored) +
+			" ignored). Its Day Book period may be fixed - check TallyPrime, then Re-check Tally Vouchers.", 500))
+
+	# the same voucher must be handled once per run, latest version wins
+	latest = {}
+	for v in vouchers:
+		if v["guid"] and (v["guid"] not in latest or v["alter_id"] >= latest[v["guid"]]["alter_id"]):
+			latest[v["guid"]] = v
+	vouchers = sorted(latest.values(), key=lambda v: (v["date"] or "", v["number"]))
 
 	exported = {(n or "").strip().lower() for n in frappe.get_all("Tally Sync Log",
 		filters={"direction": "Export", "record_type": "Voucher"}, pluck="tally_name")}
@@ -425,6 +439,8 @@ def process_import_vouchers(results):
 						" - not imported. Use 'Import Anyway' on this log if that is wrong.")
 					continue
 			new = _make_je(s, v, index, amend=je.name if je else None)
+			live[v["guid"]] = frappe._dict(name=new, tally_guid=v["guid"], tally_alter_id=v["alter_id"],
+				docstatus=1, posting_date=v["date"])
 			if v["guid"] in force:
 				forced_done.add(v["guid"])
 			write_log(key, "Import", "Voucher", "Success", "Journal Entry", new, label, v["guid"], v["date"],

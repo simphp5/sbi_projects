@@ -34,6 +34,7 @@ frappe.ui.form.on("Tally Settings", {
 			frm.add_custom_button(__("Import Opening Balances"), () => tally.opening(frm), __("Sync"));
 		}
 		frm.add_custom_button(__("Repair Customer / Supplier Ledgers"), () => tally.repair(frm), __("Sync"));
+		frm.add_custom_button(__("Remove Duplicate Tally Entries"), () => tally.dedupe(frm), __("Sync"));
 		frm.add_custom_button(__("Load Default Group Map"), () => tally.call(frm, "load_default_group_map",
 			null, true), __("Sync"));
 		frm.add_custom_button(__("Sync Log"), () => frappe.set_route("List", "Tally Sync Log"));
@@ -108,6 +109,27 @@ const tally = {
 				html += `<p>${__("Bank / Cash / Tax account types to fill in")}: <b>${s.account_types_to_set}</b></p>`;
 			frappe.confirm(html + `<p><b>${__("Go ahead?")}</b></p>`, () => call(0).then(() => {
 				frappe.msgprint(__("Repaired. The next sync (within 2 minutes) creates the Customers and Suppliers."));
+				frm.reload_doc();
+			}));
+		});
+	},
+
+	dedupe(frm) {
+		const call = (dry_run) => frappe.call({
+			method: TALLY_API + "remove_duplicate_tally_jes", args: { dry_run }, freeze: true });
+		call(1).then((r) => {
+			const s = r.message;
+			if (!s.extra_entries) {
+				frappe.msgprint(__("No duplicate Tally entries found."));
+				return;
+			}
+			const html = `<p>${__("Tally vouchers booked more than once")}: <b>${s.vouchers}</b></p>
+				<p>${__("Extra Journal Entries to cancel and remove")}: <b>${s.extra_entries}</b>
+				(${format_currency(s.amount, "INR", 0)})</p>
+				<p class="small text-muted">${frappe.utils.escape_html(s.sample.join("; "))}</p>
+				<p>${__("The first Journal Entry of each voucher is kept.")}</p><p><b>${__("Go ahead?")}</b></p>`;
+			frappe.confirm(html, () => call(0).then(() => {
+				frappe.msgprint(__("Duplicates removed."));
 				frm.reload_doc();
 			}));
 		});

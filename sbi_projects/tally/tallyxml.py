@@ -139,9 +139,25 @@ def stock_items_request(company):
 	return export_report(company, "List of Accounts", {"ACCOUNTTYPE": "Stock Items"})
 
 
+def tally_date_text(value):
+	"""date / 'YYYY-MM-DD' -> '1-Apr-2026' (the form Tally's report variables accept)."""
+	d = value if isinstance(value, (date, datetime)) else datetime.strptime(str(value)[:10], "%Y-%m-%d")
+	return str(d.day) + "-" + d.strftime("%b-%Y")
+
+
 def daybook_request(company, from_date, to_date):
-	return export_report(company, "Day Book",
-		{"SVFROMDATE": tally_date(from_date), "SVTODATE": tally_date(to_date)})
+	"""Day Book for a period. SVFROMDATE / SVTODATE must carry TYPE="Date", otherwise Tally
+	ignores them and returns only the current day."""
+	return (
+		"<ENVELOPE><HEADER><TALLYREQUEST>Export Data</TALLYREQUEST></HEADER><BODY><EXPORTDATA>"
+		"<REQUESTDESC><REPORTNAME>Day Book</REPORTNAME><STATICVARIABLES>"
+		"<SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT>"
+		"<SVCURRENTCOMPANY>" + x(company) + "</SVCURRENTCOMPANY>"
+		"<SVFROMDATE TYPE=\"Date\">" + tally_date_text(from_date) + "</SVFROMDATE>"
+		"<SVTODATE TYPE=\"Date\">" + tally_date_text(to_date) + "</SVTODATE>"
+		"<EXPLODEFLAG>Yes</EXPLODEFLAG>"
+		"</STATICVARIABLES></REQUESTDESC></EXPORTDATA></BODY></ENVELOPE>"
+	)
 
 
 def import_envelope(company, report, body):

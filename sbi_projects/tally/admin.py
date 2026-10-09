@@ -199,6 +199,42 @@ def repair_party_ledgers(dry_run=1):
 	return summary
 
 
+@frappe.whitelist()
+def remove_duplicate_tally_jes(dry_run=1):
+	"""Keep one Journal Entry per Tally voucher (the first one made); cancel and remove the extra copies."""
+	frappe.only_for("System Manager")
+	dry_run = cint(dry_run)
+	s = settings()
+	groups = frappe.db.sql("""
+		select tally_guid, group_concat(name order by creation separator ',') as names,
+			max(tally_voucher) as voucher, max(total_debit) as amount
+		from `tabJournal Entry`
+		where docstatus = 1 and company = %s and ifnull(tally_guid, '') != ''
+		group by tally_guid having count(*) > 1""", (s.company,), as_dict=True)
+	extras, sample = [], []
+	for g in groups:
+		names = g.names.split(",")
+		extras += [(g.tally_guid, names[0], n) for n in names[1:]]
+		if len(sample) < 10:
+			sample.append((g.voucher or g.tally_guid) + ": keep " + names[0] + ", remove " + str(len(names) - 1))
+	summary = {"vouchers": len(groups), "extra_entries": len(extras), "sample": sample,
+		"amount": sum(float(g.amount or 0) * (len(g.names.split(",")) - 1) for g in groups)}
+	if dry_run:
+		return summary
+	for guid, keep, name in extras:
+		doc = frappe.get_doc("Journal Entry", name)
+		doc.flags.ignore_permissions = True
+		doc.cancel()
+		for dt in ("GL Entry", "Payment Ledger Entry"):
+			frappe.db.delete(dt, {"voucher_type": "Journal Entry", "voucher_no": name})
+		frappe.delete_doc("Journal Entry", name, ignore_permissions=True, force=True)
+		frappe.db.set_value(LOG, {"log_key": "V|I|" + guid}, {"reference_doctype": "Journal Entry",
+			"reference_name": keep}, update_modified=False)
+	frappe.db.commit()
+	summary["done"] = 1
+	return summary
+
+
 # ---------------------------------------------------------------- summary
 @frappe.whitelist()
 def get_summary():
