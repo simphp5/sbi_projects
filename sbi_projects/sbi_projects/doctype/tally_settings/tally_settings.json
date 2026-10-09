@@ -1,0 +1,450 @@
+{
+ "doctype": "DocType",
+ "module": "SBI Projects",
+ "custom": 0,
+ "engine": "InnoDB",
+ "actions": [],
+ "links": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "index_web_pages_for_search": 0,
+ "track_changes": 1,
+ "name": "Tally Settings",
+ "issingle": 1,
+ "istable": 0,
+ "editable_grid": 1,
+ "fields": [
+  {
+   "fieldname": "sb_connection",
+   "fieldtype": "Section Break",
+   "label": "Connection"
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enable Tally Sync",
+   "default": "0",
+   "description": "Turn on after the agent is installed and the Group Map is checked."
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "ERPNext Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "tally_company",
+   "fieldtype": "Data",
+   "label": "Tally Company Name",
+   "reqd": 1,
+   "description": "Exactly as shown in TallyPrime. Companies the agent can see are listed under Agent Status."
+  },
+  {
+   "fieldname": "start_date",
+   "fieldtype": "Date",
+   "label": "Sync From Date",
+   "reqd": 1,
+   "description": "Vouchers dated before this are never sent in either direction. Use Opening Balances for older figures."
+  },
+  {
+   "fieldname": "cb_connection",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "tally_host",
+   "fieldtype": "Data",
+   "label": "Tally Host",
+   "default": "localhost",
+   "description": "Computer running TallyPrime, as seen from the agent PC. Usually localhost."
+  },
+  {
+   "fieldname": "tally_port",
+   "fieldtype": "Int",
+   "label": "Tally Port",
+   "default": "9000",
+   "description": "TallyPrime: F1 Help > Settings > Connectivity > Client/Server configuration."
+  },
+  {
+   "fieldname": "poll_seconds",
+   "fieldtype": "Int",
+   "label": "Sync Every (seconds)",
+   "default": "120"
+  },
+  {
+   "fieldname": "sb_agent",
+   "fieldtype": "Section Break",
+   "label": "Agent Status",
+   "collapsible": 0
+  },
+  {
+   "fieldname": "agent_status_html",
+   "fieldtype": "HTML",
+   "label": "Agent Status"
+  },
+  {
+   "fieldname": "cb_agent",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "agent_user",
+   "fieldtype": "Link",
+   "label": "Agent User",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_heartbeat",
+   "fieldtype": "Datetime",
+   "label": "Last Seen",
+   "read_only": 1
+  },
+  {
+   "fieldname": "agent_version",
+   "fieldtype": "Data",
+   "label": "Agent Version",
+   "read_only": 1
+  },
+  {
+   "fieldname": "agent_host",
+   "fieldtype": "Data",
+   "label": "Agent Computer",
+   "read_only": 1
+  },
+  {
+   "fieldname": "tally_reachable",
+   "fieldtype": "Check",
+   "label": "Tally Reachable",
+   "default": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "tally_companies",
+   "fieldtype": "Small Text",
+   "label": "Companies Open in Tally",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_sync_on",
+   "fieldtype": "Datetime",
+   "label": "Last Completed Sync",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_agent_error",
+   "fieldtype": "Small Text",
+   "label": "Last Problem",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_summary",
+   "fieldtype": "Section Break",
+   "label": "Sync Summary"
+  },
+  {
+   "fieldname": "summary_html",
+   "fieldtype": "HTML",
+   "label": "Summary"
+  },
+  {
+   "fieldname": "sb_export",
+   "fieldtype": "Section Break",
+   "label": "ERPNext to Tally",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "export_enabled",
+   "fieldtype": "Check",
+   "label": "Send ERPNext Vouchers to Tally",
+   "default": "1"
+  },
+  {
+   "fieldname": "export_sales_invoice",
+   "fieldtype": "Check",
+   "label": "Sales Invoice",
+   "default": "1",
+   "depends_on": "export_enabled"
+  },
+  {
+   "fieldname": "export_purchase_invoice",
+   "fieldtype": "Check",
+   "label": "Purchase Invoice",
+   "default": "1",
+   "depends_on": "export_enabled"
+  },
+  {
+   "fieldname": "export_payment_entry",
+   "fieldtype": "Check",
+   "label": "Payment Entry",
+   "default": "1",
+   "depends_on": "export_enabled"
+  },
+  {
+   "fieldname": "export_journal_entry",
+   "fieldtype": "Check",
+   "label": "Journal Entry",
+   "default": "1",
+   "depends_on": "export_enabled",
+   "description": "Journal Entries that came from Tally are never sent back."
+  },
+  {
+   "fieldname": "cb_export1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "export_new_parties",
+   "fieldtype": "Check",
+   "label": "Create New Customers / Suppliers in Tally",
+   "default": "1"
+  },
+  {
+   "fieldname": "sync_cancellations",
+   "fieldtype": "Check",
+   "label": "Delete in Tally When Cancelled in ERPNext",
+   "default": "1"
+  },
+  {
+   "fieldname": "bill_wise",
+   "fieldtype": "Check",
+   "label": "Send Bill-wise References",
+   "default": "1"
+  },
+  {
+   "fieldname": "batch_size",
+   "fieldtype": "Int",
+   "label": "Vouchers per Sync",
+   "default": "25"
+  },
+  {
+   "fieldname": "tally_customer_group",
+   "fieldtype": "Data",
+   "label": "Tally Group for Customers",
+   "default": "Sundry Debtors"
+  },
+  {
+   "fieldname": "tally_supplier_group",
+   "fieldtype": "Data",
+   "label": "Tally Group for Suppliers",
+   "default": "Sundry Creditors"
+  },
+  {
+   "fieldname": "cb_export2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "vt_sales",
+   "fieldtype": "Data",
+   "label": "Tally Voucher Type: Sales",
+   "default": "Sales"
+  },
+  {
+   "fieldname": "vt_sales_return",
+   "fieldtype": "Data",
+   "label": "Tally Voucher Type: Sales Return",
+   "default": "Credit Note"
+  },
+  {
+   "fieldname": "vt_purchase",
+   "fieldtype": "Data",
+   "label": "Tally Voucher Type: Purchase",
+   "default": "Purchase"
+  },
+  {
+   "fieldname": "vt_purchase_return",
+   "fieldtype": "Data",
+   "label": "Tally Voucher Type: Purchase Return",
+   "default": "Debit Note"
+  },
+  {
+   "fieldname": "vt_receipt",
+   "fieldtype": "Data",
+   "label": "Tally Voucher Type: Receipt",
+   "default": "Receipt"
+  },
+  {
+   "fieldname": "vt_payment",
+   "fieldtype": "Data",
+   "label": "Tally Voucher Type: Payment",
+   "default": "Payment"
+  },
+  {
+   "fieldname": "vt_contra",
+   "fieldtype": "Data",
+   "label": "Tally Voucher Type: Contra",
+   "default": "Contra"
+  },
+  {
+   "fieldname": "vt_journal",
+   "fieldtype": "Data",
+   "label": "Tally Voucher Type: Journal",
+   "default": "Journal"
+  },
+  {
+   "fieldname": "sb_import",
+   "fieldtype": "Section Break",
+   "label": "Tally to ERPNext",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "import_masters",
+   "fieldtype": "Check",
+   "label": "Create Accounts, Customers and Suppliers from Tally Ledgers",
+   "default": "1"
+  },
+  {
+   "fieldname": "import_stock_items",
+   "fieldtype": "Check",
+   "label": "Create Items from Tally Stock Items",
+   "default": "1"
+  },
+  {
+   "fieldname": "import_vouchers",
+   "fieldtype": "Check",
+   "label": "Bring Tally Vouchers into ERPNext",
+   "default": "1",
+   "description": "Every Tally voucher (sales, purchase, receipt, payment, contra, journal, notes) becomes a Journal Entry with the same ledgers, parties and bill references. Edits and deletions in Tally are carried across."
+  },
+  {
+   "fieldname": "submit_imported",
+   "fieldtype": "Check",
+   "label": "Submit Imported Journal Entries",
+   "default": "1",
+   "depends_on": "import_vouchers"
+  },
+  {
+   "fieldname": "cb_import",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "default_customer_group",
+   "fieldtype": "Link",
+   "label": "Customer Group for New Customers",
+   "options": "Customer Group"
+  },
+  {
+   "fieldname": "default_supplier_group",
+   "fieldtype": "Link",
+   "label": "Supplier Group for New Suppliers",
+   "options": "Supplier Group"
+  },
+  {
+   "fieldname": "default_territory",
+   "fieldtype": "Link",
+   "label": "Territory for New Customers",
+   "options": "Territory"
+  },
+  {
+   "fieldname": "default_item_group",
+   "fieldtype": "Link",
+   "label": "Item Group for New Items",
+   "options": "Item Group",
+   "description": "Used when the Tally stock group has no matching Item Group."
+  },
+  {
+   "fieldname": "default_cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center for Imported Entries",
+   "options": "Cost Center"
+  },
+  {
+   "fieldname": "sb_group_map",
+   "fieldtype": "Section Break",
+   "label": "Group Map",
+   "collapsible": 1,
+   "description": "Which ERPNext group account each Tally group belongs to. Used both ways: new Tally ledgers are created under the ERPNext account, and new ERPNext accounts go to the Tally group. A Tally sub-group without its own row uses its parent group's row."
+  },
+  {
+   "fieldname": "group_map",
+   "fieldtype": "Table",
+   "label": "Group Map",
+   "options": "Tally Group Map"
+  },
+  {
+   "fieldname": "sb_opening",
+   "fieldtype": "Section Break",
+   "label": "Opening Balances",
+   "collapsible": 1,
+   "description": "Brings Tally ledger opening balances into ERPNext as a DRAFT opening Journal Entry for the accountant to check and submit."
+  },
+  {
+   "fieldname": "opening_date",
+   "fieldtype": "Date",
+   "label": "Opening Entry Date"
+  },
+  {
+   "fieldname": "opening_requested",
+   "fieldtype": "Check",
+   "label": "Opening Import Requested",
+   "default": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_opening",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "opening_status",
+   "fieldtype": "Small Text",
+   "label": "Opening Import Status",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb_internal",
+   "fieldtype": "Section Break",
+   "label": "Internal",
+   "hidden": 1
+  },
+  {
+   "fieldname": "current_alt_mst_id",
+   "fieldtype": "Int",
+   "label": "Tally Master Alter ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_alt_mst_id",
+   "fieldtype": "Int",
+   "label": "Masters Synced up to Alter ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "current_alt_vch_id",
+   "fieldtype": "Int",
+   "label": "Tally Voucher Alter ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_alt_vch_id",
+   "fieldtype": "Int",
+   "label": "Vouchers Synced up to Alter ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cancel_cursor",
+   "fieldtype": "Datetime",
+   "label": "Cancellations Checked Until",
+   "read_only": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  },
+  {
+   "role": "Accounts Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "print": 0,
+   "email": 0,
+   "share": 0
+  }
+ ]
+}
