@@ -37,6 +37,7 @@ frappe.ui.form.on("Tally Settings", {
 		frm.add_custom_button(__("Load Default Group Map"), () => tally.call(frm, "load_default_group_map",
 			null, true), __("Sync"));
 		frm.add_custom_button(__("Sync Log"), () => frappe.set_route("List", "Tally Sync Log"));
+		frm.add_custom_button(__("Dashboard"), () => frappe.set_route("tally-dashboard"));
 
 		if (frm._tally_timer) clearInterval(frm._tally_timer);
 		frm._tally_timer = setInterval(() => {

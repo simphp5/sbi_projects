@@ -4,8 +4,22 @@ from frappe.model.document import Document
 from frappe.utils import cint
 
 
+# Written by the agent / sync buttons, never by the form. Saving the form keeps the stored value,
+# so a Save right after "Retry Failed" or "Re-read Tally Masters" no longer undoes it.
+SYNC_STATE = (
+	"agent_user", "last_heartbeat", "agent_version", "agent_host", "tally_reachable", "tally_companies",
+	"last_sync_on", "last_agent_error", "current_alt_mst_id", "last_alt_mst_id", "current_alt_vch_id",
+	"last_alt_vch_id", "cancel_cursor", "force_import_guids", "opening_requested", "opening_status",
+)
+
+
 class TallySettings(Document):
 	def validate(self):
+		stored = frappe.db.get_singles_dict("Tally Settings")
+		for field in SYNC_STATE:
+			if field in stored:
+				self.set(field, stored.get(field))
+
 		self.tally_company = (self.tally_company or "").strip()
 		self.tally_host = (self.tally_host or "localhost").strip()
 		if not 1 <= cint(self.tally_port) <= 65535:

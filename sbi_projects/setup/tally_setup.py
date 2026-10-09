@@ -160,6 +160,9 @@ def _workspace():
 	doc.is_hidden = 0
 	doc.links, doc.shortcuts, doc.number_cards, doc.charts = [], [], [], []
 
+	if frappe.db.exists("Page", "tally-dashboard"):
+		doc.append("shortcuts", {"type": "Page", "link_to": "tally-dashboard", "label": "Tally Dashboard",
+			"color": "Green"})
 	for label in ("Tally Settings", "Tally Sync Log"):
 		doc.append("shortcuts", {"type": "DocType", "link_to": label, "label": label,
 			"color": "Blue" if label == "Tally Settings" else "Grey", "doc_view": "List" if label == "Tally Sync Log" else ""})
@@ -177,7 +180,9 @@ def _workspace():
 	blocks += [_block("number_card", {"number_card_name": c["label"], "col": 3}) for c in NUMBER_CARDS]
 	blocks += [_block("chart", {"chart_name": c["chart_name"], "col": 6}) for c in CHARTS]
 	blocks += [_block("spacer", {"col": 12})]
-	blocks += [_block("shortcut", {"shortcut_name": s, "col": 3}) for s in ("Tally Settings", "Tally Sync Log")]
+	blocks += [_block("shortcut", {"shortcut_name": s, "col": 3})
+		for s in ("Tally Dashboard", "Tally Settings", "Tally Sync Log")
+		if s != "Tally Dashboard" or frappe.db.exists("Page", "tally-dashboard")]
 	blocks += [_block("spacer", {"col": 12})]
 	blocks += [_block("card", {"card_name": c, "col": 6}) for c, _ in LINK_CARDS]
 	doc.content = json.dumps(blocks)

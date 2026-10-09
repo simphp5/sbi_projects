@@ -221,20 +221,33 @@ def _sync_ledger(s, led, chain, groups, group_map, index):
 		doc.doctype, doc.name, name, led["guid"], amount=None, message="Created from Tally")
 
 
+def _leaf(doctype, value, parent_field):
+	"""A record can't sit in a group node (e.g. 'All Customer Groups'): use its first non-group child."""
+	if value and frappe.db.exists(doctype, value) and not frappe.db.get_value(doctype, value, "is_group"):
+		return value
+	bounds = frappe.db.get_value(doctype, value, ["lft", "rgt"], as_dict=True) if value else None
+	filters = {"is_group": 0}
+	if bounds:
+		filters.update({"lft": [">", bounds.lft], "rgt": ["<", bounds.rgt]})
+	return frappe.db.get_value(doctype, filters, "name", order_by="lft asc") or value
+
+
 def _new_party(s, party_type, name, led):
 	if party_type == "Customer":
 		doc = frappe.get_doc({
 			"doctype": "Customer", "customer_name": name, "customer_type": "Company",
-			"customer_group": s.default_customer_group or frappe.db.get_single_value("Selling Settings", "customer_group")
-				or "All Customer Groups",
+			"customer_group": _leaf("Customer Group", s.default_customer_group
+				or frappe.db.get_single_value("Selling Settings", "customer_group") or "All Customer Groups",
+				"parent_customer_group"),
 			"territory": s.default_territory or frappe.db.get_single_value("Selling Settings", "territory")
 				or "All Territories",
 		})
 	else:
 		doc = frappe.get_doc({
 			"doctype": "Supplier", "supplier_name": name, "supplier_type": "Company",
-			"supplier_group": s.default_supplier_group or frappe.db.get_single_value("Buying Settings", "supplier_group")
-				or "All Supplier Groups",
+			"supplier_group": _leaf("Supplier Group", s.default_supplier_group
+				or frappe.db.get_single_value("Buying Settings", "supplier_group") or "All Supplier Groups",
+				"parent_supplier_group"),
 		})
 	doc.tally_ledger_name = name
 	doc.tally_guid = led["guid"]

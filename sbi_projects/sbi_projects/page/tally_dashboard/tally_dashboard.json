@@ -1,0 +1,21 @@
+{
+ "doctype": "Page",
+ "name": "tally-dashboard",
+ "page_name": "tally-dashboard",
+ "title": "Tally Dashboard",
+ "module": "SBI Projects",
+ "standard": "Yes",
+ "system_page": 0,
+ "icon": "refresh",
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "Accounts Manager"
+  },
+  {
+   "role": "Accounts User"
+  }
+ ]
+}
