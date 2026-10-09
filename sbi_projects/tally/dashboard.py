@@ -60,6 +60,7 @@ def get_dashboard(from_date=None, to_date=None):
 		order by je.posting_date desc, je.creation desc""", (company, from_date, to_date), as_dict=True)
 
 	by_type = {}
+	by_day = {}
 	months = OrderedDict()
 	cur = get_first_day(from_date)
 	while cur <= to_date:
@@ -69,6 +70,10 @@ def get_dashboard(from_date=None, to_date=None):
 		t = by_type.setdefault(_vtype(je.tally_voucher), {"count": 0, "amount": 0.0})
 		t["count"] += 1
 		t["amount"] += flt(je.total_debit)
+		day = (str(je.posting_date), _vtype(je.tally_voucher))
+		b = by_day.setdefault(day, {"count": 0, "amount": 0.0})
+		b["count"] += 1
+		b["amount"] += flt(je.total_debit)
 		key = getdate(je.posting_date).strftime("%Y-%m")
 		if key in months:
 			months[key]["count"] += 1
@@ -79,6 +84,9 @@ def get_dashboard(from_date=None, to_date=None):
 		"amount": sum(flt(j.total_debit) for j in jes),
 		"by_type": sorted([dict(v, vtype=k) for k, v in by_type.items()], key=lambda r: -r["amount"]),
 		"by_month": list(months.values()),
+		# one row per (voucher date, Tally voucher type) - the page groups these by day / week / month
+		"by_day": [{"date": d, "vtype": t, "count": v["count"], "amount": v["amount"]}
+			for (d, t), v in sorted(by_day.items())],
 		"recent": [{
 			"name": j.name, "posting_date": str(j.posting_date), "tally_voucher": j.tally_voucher,
 			"party": j.party, "party_type": j.party_type, "amount": flt(j.total_debit),

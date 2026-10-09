@@ -17,6 +17,9 @@ class TallyDashboard {
 			change: () => this.refresh() });
 		this.to = page.add_field({ fieldname: "to_date", label: __("To"), fieldtype: "Date",
 			default: frappe.datetime.get_today(), change: () => this.refresh() });
+		this.gran = page.add_field({ fieldname: "granularity", label: __("Chart by"), fieldtype: "Select",
+			options: ["Auto", "Daily", "Weekly", "Monthly"].join("\n"), default: "Auto",
+			change: () => this.data && this.draw_chart(this.data) });
 		page.set_primary_action(__("Refresh"), () => this.refresh(), "refresh");
 		page.add_inner_button(__("Tally Settings"), () => frappe.set_route("Form", "Tally Settings"));
 		page.add_inner_button(__("Sync Log"), () => frappe.set_route("List", "Tally Sync Log"));
@@ -31,6 +34,7 @@ class TallyDashboard {
 		}).then((r) => {
 			const d = r.message || {};
 			if (!this.from.get_value() && d.from_date) this.from.set_value(d.from_date);
+			this.data = d;
 			this.render(d);
 		});
 	}
@@ -154,7 +158,7 @@ class TallyDashboard {
 			${health}
 			${tiles}
 			<div class="td-grid">
-				${this.card(__("Tally vouchers by month (amount)"), `<div class="td-chart"></div>`)}
+				${this.card(`<span class="td-chart-title">${__("Tally vouchers by voucher date")}</span>`, `<div class="td-chart"></div>`)}
 				${this.card(__("By Tally voucher type"), byType)}
 			</div>
 			<div class="td-grid">
@@ -175,16 +179,69 @@ class TallyDashboard {
 				${this.card(__("Skipped as already in ERPNext"), dupes, this.link("tally-sync-log?status=Skipped", __("All")))}
 			</div>`);
 
-		const months = v.by_month || [];
+		this.draw_chart(d);
+	}
+
+	// ------------------------------------------------------------ chart by voucher date
+	parse(ds) {
+		const [y, m, dd] = ds.split("-").map(Number);
+		return new Date(Date.UTC(y, m - 1, dd));
+	}
+	iso(dt) {
+		return dt.toISOString().slice(0, 10);
+	}
+
+	draw_chart(d) {
 		const el = this.$body.find(".td-chart")[0];
-		if (el && months.length) {
-			new frappe.Chart(el, {
-				type: "bar", height: 240, colors: ["#2490EF"],
-				data: { labels: months.map((x) => x.label), datasets: [{ name: __("Amount"), values: months.map((x) => x.amount) }] },
-				tooltipOptions: { formatTooltipY: (y) => this.money(y) },
-				axisOptions: { xIsSeries: 1 },
-			});
+		if (!el || !d.from_date || !d.to_date) return;
+		const rows = (d.vouchers && d.vouchers.by_day) || [];
+		const from = this.parse(d.from_date), to = this.parse(d.to_date);
+		const days = Math.round((to - from) / 86400000) + 1;
+		let g = this.gran.get_value() || "Auto";
+		if (g === "Auto") g = days <= 92 ? "Daily" : days <= 400 ? "Weekly" : "Monthly";
+		const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+		const keyOf = (dt) => {
+			if (g === "Daily") return this.iso(dt);
+			if (g === "Weekly") {
+				const w = new Date(dt);
+				w.setUTCDate(w.getUTCDate() - ((w.getUTCDay() + 6) % 7)); // Monday
+				return this.iso(w);
+			}
+			return this.iso(dt).slice(0, 7);
+		};
+		const labelOf = (k) => {
+			if (g === "Monthly") return MON[Number(k.slice(5, 7)) - 1] + " " + k.slice(2, 4);
+			const dt = this.parse(k);
+			return (g === "Weekly" ? __("Wk") + " " : "") + dt.getUTCDate() + " " + MON[dt.getUTCMonth()];
+		};
+
+		const keys = [];
+		for (let dt = new Date(from); dt <= to; dt.setUTCDate(dt.getUTCDate() + 1)) {
+			const k = keyOf(dt);
+			if (keys[keys.length - 1] !== k) keys.push(k);
 		}
+		const totals = {};
+		rows.forEach((r) => (totals[r.vtype] = (totals[r.vtype] || 0) + r.amount));
+		const types = Object.keys(totals).sort((a, b) => totals[b] - totals[a]);
+		const index = {};
+		keys.forEach((k, i) => (index[k] = i));
+		const datasets = (types.length ? types : [__("Amount")]).map((t) => ({ name: t, values: keys.map(() => 0) }));
+		rows.forEach((r) => {
+			const i = index[keyOf(this.parse(r.date))];
+			const ds = datasets[types.indexOf(r.vtype)];
+			if (i !== undefined && ds) ds.values[i] += r.amount;
+		});
+
+		this.$body.find(".td-chart-title").text(__("Tally vouchers by voucher date") + " (" + __(g) + ")");
+		$(el).empty();
+		new frappe.Chart(el, {
+			type: "bar", height: 260,
+			colors: ["#2490EF", "#29CD42", "#ECAD4B", "#E24C4C", "#7575FF", "#16A085", "#8E44AD", "#98A1A9"],
+			data: { labels: keys.map(labelOf), datasets },
+			barOptions: { stacked: 1, spaceRatio: keys.length > 40 ? 0.2 : 0.5 },
+			axisOptions: { xIsSeries: 1, shortenYAxisNumbers: 1, xAxisMode: keys.length > 20 ? "tick" : "span" },
+			tooltipOptions: { formatTooltipY: (y) => this.money(y) },
+		});
 	}
 
 	inject_css() {
