@@ -13,7 +13,7 @@ import frappe
 from frappe.utils import add_days, add_months, cint, flt, get_first_day, get_last_day, getdate, nowdate
 
 from sbi_projects.tally import tallyxml as tx
-from sbi_projects.tally.common import master_key, settings, set_settings, short, write_log
+from sbi_projects.tally.common import imports_on, master_key, settings, set_settings, short, write_log
 
 PARTY_GROUPS = {"sundry debtors": "Customer", "sundry creditors": "Supplier"}
 ACCOUNT_TYPE_BY_GROUP = {
@@ -134,7 +134,7 @@ def masters_jobs(s):
 		{"id": "groups", "xml": tx.groups_request(s.tally_company)},
 		{"id": "ledgers", "xml": tx.ledgers_request(s.tally_company)},
 	]
-	if cint(s.import_stock_items):
+	if cint(s.import_stock_items) and imports_on(s):
 		jobs.append({"id": "items", "xml": tx.stock_items_request(s.tally_company)})
 	return jobs, False
 
@@ -171,7 +171,7 @@ def process_masters(results):
 			frappe.db.commit()
 
 	items = by_id.get("items")
-	if items and not items.get("error") and cint(s.import_stock_items):
+	if items and not items.get("error") and cint(s.import_stock_items) and imports_on(s):
 		_sync_items(s, tx.parse_stock_items(items["response"]))
 
 	set_settings(last_alt_mst_id=cint(s.current_alt_mst_id))
@@ -192,7 +192,7 @@ def _sync_ledger(s, led, primary, groups, group_map, index):
 		write_log(master_key(doctype, docname), "Import", "Party" if party_type else "Ledger", "Linked",
 			doctype, docname, name, led["guid"], message="Matched an existing ERPNext record by name")
 		return
-	if not cint(s.import_masters):
+	if not cint(s.import_masters) or not imports_on(s):
 		return
 
 	if party_type:
@@ -277,7 +277,7 @@ def _sync_items(s, items):
 				write_log(master_key("Item", existing), "Import", "Stock Item", "Linked", "Item", existing,
 					it["name"], it["guid"], message="Matched an existing Item by code")
 				continue
-			if not cint(s.import_masters):
+			if not cint(s.import_masters) or not imports_on(s):
 				continue
 			doc = frappe.get_doc({
 				"doctype": "Item", "item_code": it["name"][:140], "item_name": it["name"][:140],
@@ -332,7 +332,7 @@ def voucher_months(s):
 
 
 def import_vouchers_jobs(s):
-	if not cint(s.import_vouchers):
+	if not cint(s.import_vouchers) or not imports_on(s):
 		return [], False
 	if cint(s.current_alt_vch_id) and cint(s.current_alt_vch_id) == cint(s.last_alt_vch_id):
 		return [], False
@@ -570,7 +570,7 @@ def _make_je(s, v, index, amend=None):
 
 # ================================================================ opening balances
 def opening_jobs(s):
-	if not cint(s.opening_requested):
+	if not cint(s.opening_requested) or not imports_on(s):
 		return [], False
 	return [{"id": "opening", "xml": tx.ledgers_request(s.tally_company)}], False
 

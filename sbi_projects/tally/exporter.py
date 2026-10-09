@@ -12,7 +12,7 @@ from frappe.utils import cint, get_datetime, getdate, now_datetime
 
 from sbi_projects.tally import tallyxml as tx
 from sbi_projects.tally.common import (
-	account_ledger_name, known_in_tally, master_key, party_ledger_name, settings, set_settings,
+	account_ledger_name, exports_on, known_in_tally, master_key, party_ledger_name, settings, set_settings,
 	short, write_log,
 )
 
@@ -40,7 +40,7 @@ ACCOUNT_TYPE_GROUP = {"Bank": "Bank Accounts", "Cash": "Cash-in-Hand", "Tax": "D
 
 
 def enabled_doctypes(s):
-	if not cint(s.export_enabled):
+	if not exports_on(s):
 		return []
 	return [dt for dt, flag in DOCTYPES if cint(s.get(flag))]
 
@@ -153,7 +153,7 @@ def master_job(s, doctype, name, reverse_map):
 
 
 def export_masters_jobs(s):
-	if not enabled_doctypes(s) and not cint(s.export_new_parties):
+	if not exports_on(s):
 		return [], False
 	reverse_map = _reverse_group_map(s)
 	needed, seen = [], set()

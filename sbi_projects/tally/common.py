@@ -21,6 +21,25 @@ def set_settings(**values):
 		frappe.db.set_single_value(SETTINGS, key, val, update_modified=False)
 
 
+TALLY_TO_ERP = "Tally to ERPNext only"
+ERP_TO_TALLY = "ERPNext to Tally only"
+BOTH = "Both ways"
+
+
+def direction(s):
+	return s.get("sync_direction") or TALLY_TO_ERP
+
+
+def imports_on(s):
+	"""Tally -> ERPNext allowed."""
+	return direction(s) in (TALLY_TO_ERP, BOTH)
+
+
+def exports_on(s):
+	"""ERPNext -> Tally allowed."""
+	return direction(s) in (ERP_TO_TALLY, BOTH)
+
+
 def tally_ready(s=None):
 	s = s or settings()
 	return cint(s.enabled) and cint(s.tally_reachable) and s.company and s.tally_company

@@ -48,6 +48,15 @@
    "description": "Vouchers dated before this are never sent in either direction. Use Opening Balances for older figures."
   },
   {
+   "fieldname": "sync_direction",
+   "fieldtype": "Select",
+   "label": "Sync Direction",
+   "options": "Tally to ERPNext only\nERPNext to Tally only\nBoth ways",
+   "default": "Tally to ERPNext only",
+   "reqd": 1,
+   "description": "Tally to ERPNext only: Tally data is copied into ERPNext, nothing is written to Tally. ERPNext to Tally only: ERPNext vouchers are sent to Tally, nothing comes back. Both ways: both, with loop protection."
+  },
+  {
    "fieldname": "cb_connection",
    "fieldtype": "Column Break"
   },
@@ -150,41 +159,32 @@
    "fieldname": "sb_export",
    "fieldtype": "Section Break",
    "label": "ERPNext to Tally",
-   "collapsible": 1
-  },
-  {
-   "fieldname": "export_enabled",
-   "fieldtype": "Check",
-   "label": "Send ERPNext Vouchers to Tally",
-   "default": "1"
+   "collapsible": 1,
+   "depends_on": "eval:doc.sync_direction!=\"Tally to ERPNext only\""
   },
   {
    "fieldname": "export_sales_invoice",
    "fieldtype": "Check",
    "label": "Sales Invoice",
-   "default": "1",
-   "depends_on": "export_enabled"
+   "default": "1"
   },
   {
    "fieldname": "export_purchase_invoice",
    "fieldtype": "Check",
    "label": "Purchase Invoice",
-   "default": "1",
-   "depends_on": "export_enabled"
+   "default": "1"
   },
   {
    "fieldname": "export_payment_entry",
    "fieldtype": "Check",
    "label": "Payment Entry",
-   "default": "1",
-   "depends_on": "export_enabled"
+   "default": "1"
   },
   {
    "fieldname": "export_journal_entry",
    "fieldtype": "Check",
    "label": "Journal Entry",
    "default": "1",
-   "depends_on": "export_enabled",
    "description": "Journal Entries that came from Tally are never sent back."
   },
   {
@@ -283,7 +283,8 @@
    "fieldname": "sb_import",
    "fieldtype": "Section Break",
    "label": "Tally to ERPNext",
-   "collapsible": 1
+   "collapsible": 1,
+   "depends_on": "eval:doc.sync_direction!=\"ERPNext to Tally only\""
   },
   {
    "fieldname": "import_masters",
@@ -364,7 +365,8 @@
    "fieldtype": "Section Break",
    "label": "Opening Balances",
    "collapsible": 1,
-   "description": "Brings Tally ledger opening balances into ERPNext as a DRAFT opening Journal Entry for the accountant to check and submit."
+   "description": "Brings Tally ledger opening balances into ERPNext as a DRAFT opening Journal Entry for the accountant to check and submit.",
+   "depends_on": "eval:doc.sync_direction!=\"ERPNext to Tally only\""
   },
   {
    "fieldname": "opening_date",

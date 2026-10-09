@@ -12,6 +12,10 @@ frappe.ui.form.on("Tally Settings", {
 		}));
 	},
 
+	sync_direction(frm) {
+		frm.refresh();
+	},
+
 	refresh(frm) {
 		tally.render_summary(frm);
 
@@ -26,7 +30,9 @@ frappe.ui.form.on("Tally Settings", {
 			__("Ledgers and stock items will be read again from Tally on the next sync.")), __("Sync"));
 		frm.add_custom_button(__("Re-check Tally Vouchers"), () => tally.call(frm, "reimport_vouchers",
 			__("All Tally vouchers since the Sync From Date will be compared again on the next sync. Nothing already imported is duplicated.")), __("Sync"));
-		frm.add_custom_button(__("Import Opening Balances"), () => tally.opening(frm), __("Sync"));
+		if (frm.doc.sync_direction !== "ERPNext to Tally only") {
+			frm.add_custom_button(__("Import Opening Balances"), () => tally.opening(frm), __("Sync"));
+		}
 		frm.add_custom_button(__("Load Default Group Map"), () => tally.call(frm, "load_default_group_map",
 			null, true), __("Sync"));
 		frm.add_custom_button(__("Sync Log"), () => frappe.set_route("List", "Tally Sync Log"));
@@ -112,6 +118,7 @@ const tally = {
 				${dot(a.online, __("Agent online"), __("Agent offline"))} <span class="text-muted">${__("last seen")} ${ago}</span><br>
 				${dot(a.tally_reachable, __("Tally company open"), __("Tally not ready"))}
 				${a.enabled ? "" : `<span class="indicator-pill orange">${__("Sync disabled")}</span>`}
+				<span class="indicator-pill blue">${esc(frm.doc.sync_direction || "Tally to ERPNext only")}</span>
 				${a.last_error ? `<div class="text-danger small" style="line-height:1.4;margin-top:6px">${esc(a.last_error)}</div>` : ""}
 				${a.user ? "" : `<div class="small" style="margin-top:6px">${__("Step 1: click <b>Agent > Generate Agent Key</b>, then install the agent on the Tally computer.")}</div>`}
 			</div>`;

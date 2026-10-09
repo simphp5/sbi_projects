@@ -5,7 +5,7 @@ import frappe
 from frappe.utils import cint, get_url, now_datetime, time_diff_in_seconds
 
 from sbi_projects.tally import exporter, importer
-from sbi_projects.tally.common import AGENT_ROLE, LOG, SETTINGS, settings, set_settings
+from sbi_projects.tally.common import AGENT_ROLE, LOG, SETTINGS, imports_on, settings, set_settings
 
 MANAGERS = ("System Manager", "Accounts Manager")
 
@@ -68,6 +68,8 @@ def load_default_group_map():
 @frappe.whitelist()
 def request_opening(opening_date=None):
 	frappe.only_for(MANAGERS)
+	if not imports_on(settings()):
+		frappe.throw("Opening balances come from Tally. Set Sync Direction to 'Tally to ERPNext only' or 'Both ways' first.")
 	values = {"opening_requested": 1, "opening_status": "Waiting for the agent's next sync..."}
 	if opening_date:
 		values["opening_date"] = opening_date
