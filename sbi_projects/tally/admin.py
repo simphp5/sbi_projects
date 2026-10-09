@@ -125,6 +125,80 @@ def import_anyway(log_name):
 	return "ok"
 
 
+@frappe.whitelist()
+def repair_party_ledgers(dry_run=1):
+	"""Undo Accounts that an earlier sync wrongly created for Tally customer / supplier ledgers
+	(ledgers under Sundry Debtors / Creditors), so the next sync creates them as Customers and
+	Suppliers. Only Accounts this integration created are touched. Also gives Bank / Cash / Tax
+	ledgers created from Tally the account type of their group."""
+	frappe.only_for("System Manager")
+	dry_run = cint(dry_run)
+	s = settings()
+	roots = [r.erpnext_account for r in s.group_map
+		if (r.tally_group or "").strip().lower() in ("sundry debtors", "sundry creditors") and r.erpnext_account]
+	if not roots:
+		frappe.throw("Group Map has no rows for Sundry Debtors / Sundry Creditors.")
+	bounds = [frappe.db.get_value("Account", r, ["lft", "rgt"], as_dict=True) for r in roots]
+	bounds = [b for b in bounds if b]
+
+	created = frappe.get_all(LOG, filters={"direction": "Import", "record_type": "Ledger", "status": "Success",
+		"reference_doctype": "Account"}, fields=["name", "reference_name"], limit_page_length=0)
+	wrong = []
+	for row in created:
+		acc = frappe.db.get_value("Account", row.reference_name, ["lft", "rgt", "is_group"], as_dict=True)
+		if acc and not acc.is_group and any(b.lft < acc.lft and acc.rgt < b.rgt for b in bounds):
+			wrong.append(row)
+	names = [w.reference_name for w in wrong]
+
+	tally_jes, blocked = set(), {}
+	if names:
+		for je in set(frappe.get_all("Journal Entry Account", filters={"account": ["in", names]}, pluck="parent")):
+			if frappe.db.get_value("Journal Entry", je, "tally_guid"):
+				tally_jes.add(je)
+		for g in frappe.get_all("GL Entry", filters={"account": ["in", names]},
+				fields=["account", "voucher_type", "voucher_no"], limit_page_length=0):
+			if not (g.voucher_type == "Journal Entry" and g.voucher_no in tally_jes):
+				blocked.setdefault(g.account, g.voucher_type + " " + g.voucher_no)
+	fixable = [w for w in wrong if w.reference_name not in blocked]
+
+	typed = []
+	for row in created:
+		acc = frappe.db.get_value("Account", row.reference_name, ["account_type", "parent_account"], as_dict=True)
+		if acc and not acc.account_type and acc.parent_account:
+			ptype = frappe.db.get_value("Account", acc.parent_account, "account_type")
+			if ptype in ("Bank", "Cash", "Tax"):
+				typed.append((row.reference_name, ptype))
+
+	summary = {
+		"wrong_accounts": len(wrong), "will_remove": len(fixable),
+		"blocked": [a + " (used in " + v + ")" for a, v in list(blocked.items())[:20]],
+		"tally_journal_entries": sorted(tally_jes), "account_types_to_set": len(typed),
+		"sample": [w.reference_name for w in fixable[:10]],
+	}
+	if dry_run:
+		return summary
+
+	for je in tally_jes:
+		doc = frappe.get_doc("Journal Entry", je)
+		if doc.docstatus == 1:
+			doc.flags.ignore_permissions = True
+			doc.cancel()
+		for dt in ("GL Entry", "Payment Ledger Entry"):
+			frappe.db.delete(dt, {"voucher_type": "Journal Entry", "voucher_no": je})
+		frappe.delete_doc("Journal Entry", je, ignore_permissions=True, force=True)
+		frappe.db.delete(LOG, {"reference_doctype": "Journal Entry", "reference_name": je, "direction": "Import"})
+	for w in fixable:
+		frappe.delete_doc("Account", w.reference_name, ignore_permissions=True, force=True)
+		frappe.db.delete(LOG, {"name": w.name})
+	for name, ptype in typed:
+		if frappe.db.exists("Account", name):
+			frappe.db.set_value("Account", name, "account_type", ptype)
+	set_settings(last_alt_mst_id=0, last_alt_vch_id=0)
+	frappe.db.commit()
+	summary["done"] = 1
+	return summary
+
+
 # ---------------------------------------------------------------- summary
 @frappe.whitelist()
 def get_summary():

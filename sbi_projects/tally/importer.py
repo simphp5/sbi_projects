@@ -157,12 +157,14 @@ def process_masters(results):
 	for i, led in enumerate(ledgers):
 		if led["guid"] and led["guid"] in done_guids:
 			continue
-		primary = tx.primary_group(groups, led["parent"]) if led["parent"] else ""
-		if not primary or primary.strip().lower() in SKIP_GROUPS:
+		# full path, e.g. [site creditors, sundry creditors, current liabilities]: Sundry Debtors /
+		# Creditors, Bank Accounts, Duties & Taxes etc. are sub-groups in Tally, not primary groups
+		chain = [g.strip().lower() for g in tx.group_chain(groups, led["parent"])] if led["parent"] else []
+		if not chain or any(g in SKIP_GROUPS for g in chain):
 			continue
 		frappe.db.savepoint("tally_ledger")
 		try:
-			_sync_ledger(s, led, primary, groups, group_map, index)
+			_sync_ledger(s, led, chain, groups, group_map, index)
 		except Exception as e:
 			frappe.db.rollback(save_point="tally_ledger")
 			write_log("T|L|" + (led["guid"] or led["name"]), "Import", "Ledger", "Failed",
@@ -177,9 +179,10 @@ def process_masters(results):
 	set_settings(last_alt_mst_id=cint(s.current_alt_mst_id))
 
 
-def _sync_ledger(s, led, primary, groups, group_map, index):
+def _sync_ledger(s, led, chain, groups, group_map, index):
 	name = led["name"]
-	party_type = PARTY_GROUPS.get(primary.strip().lower())
+	party_type = next((PARTY_GROUPS[g] for g in chain if g in PARTY_GROUPS), None)
+	account_type = next((ACCOUNT_TYPE_BY_GROUP[g] for g in chain if g in ACCOUNT_TYPE_BY_GROUP), "")
 	target = index.find(name)
 	if target and (party_type is None) == (target[0] == "Account"):
 		doctype, docname = target
@@ -205,10 +208,10 @@ def _sync_ledger(s, led, primary, groups, group_map, index):
 				break
 		if not parent:
 			raise frappe.ValidationError(
-				"Tally group '" + led["parent"] + "' (under " + primary + ") has no row in Tally Settings > Group Map")
+				"Tally group '" + led["parent"] + "' (path: " + " > ".join(chain) + ") has no row in Tally Settings > Group Map")
 		doc = frappe.get_doc({
 			"doctype": "Account", "account_name": name, "parent_account": parent, "company": s.company,
-			"is_group": 0, "account_type": ACCOUNT_TYPE_BY_GROUP.get(primary.strip().lower(), ""),
+			"is_group": 0, "account_type": account_type,
 			"tally_ledger_name": name, "tally_guid": led["guid"],
 		})
 		doc.flags.ignore_permissions = True

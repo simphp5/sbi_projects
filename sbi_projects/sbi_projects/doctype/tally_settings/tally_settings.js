@@ -33,6 +33,7 @@ frappe.ui.form.on("Tally Settings", {
 		if (frm.doc.sync_direction !== "ERPNext to Tally only") {
 			frm.add_custom_button(__("Import Opening Balances"), () => tally.opening(frm), __("Sync"));
 		}
+		frm.add_custom_button(__("Repair Customer / Supplier Ledgers"), () => tally.repair(frm), __("Sync"));
 		frm.add_custom_button(__("Load Default Group Map"), () => tally.call(frm, "load_default_group_map",
 			null, true), __("Sync"));
 		frm.add_custom_button(__("Sync Log"), () => frappe.set_route("List", "Tally Sync Log"));
@@ -82,6 +83,33 @@ const tally = {
 				frm.reload_doc();
 			})
 		);
+	},
+
+	repair(frm) {
+		const call = (dry_run) => frappe.call({
+			method: TALLY_API + "repair_party_ledgers", args: { dry_run }, freeze: true,
+			freeze_message: dry_run ? __("Checking...") : __("Repairing..."),
+		});
+		call(1).then((r) => {
+			const s = r.message;
+			if (!s.wrong_accounts && !s.account_types_to_set) {
+				frappe.msgprint(__("Nothing to repair."));
+				return;
+			}
+			let html = `<p>${__("Accounts created from Tally customer / supplier ledgers")}: <b>${s.wrong_accounts}</b></p>
+				<p>${__("Will be removed (recreated as Customers / Suppliers on the next sync)")}: <b>${s.will_remove}</b></p>`;
+			if (s.sample.length) html += `<p class="small text-muted">${frappe.utils.escape_html(s.sample.join(", "))}...</p>`;
+			if (s.tally_journal_entries.length)
+				html += `<p>${__("Imported Journal Entries removed and re-imported")}: ${s.tally_journal_entries.join(", ")}</p>`;
+			if (s.blocked.length)
+				html += `<p class="text-danger">${__("Kept because ERPNext transactions use them")}: ${frappe.utils.escape_html(s.blocked.join("; "))}</p>`;
+			if (s.account_types_to_set)
+				html += `<p>${__("Bank / Cash / Tax account types to fill in")}: <b>${s.account_types_to_set}</b></p>`;
+			frappe.confirm(html + `<p><b>${__("Go ahead?")}</b></p>`, () => call(0).then(() => {
+				frappe.msgprint(__("Repaired. The next sync (within 2 minutes) creates the Customers and Suppliers."));
+				frm.reload_doc();
+			}));
+		});
 	},
 
 	opening(frm) {
