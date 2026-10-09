@@ -60,9 +60,21 @@ def status_jobs(s):
 
 
 def process_status(results):
-	s = settings()
+	"""One answer lists every company open in Tally; mark each configured Tally company ready or not."""
+	from sbi_projects.tally.common import contexts
+	ctxs = contexts()
 	res = results[0] if results else {"error": "No answer from agent"}
+
+	def mark(c, **values):
+		frappe.flags.tally_ctx = c
+		try:
+			set_settings(**values)
+		finally:
+			frappe.flags.tally_ctx = None
+
 	if res.get("error"):
+		for c in ctxs:
+			mark(c, tally_reachable=0)
 		set_settings(tally_reachable=0, last_agent_error=short("Cannot reach TallyPrime: " + res["error"], 500))
 		return
 	try:
@@ -72,14 +84,20 @@ def process_status(results):
 		return
 	names = [c["name"] for c in companies]
 	set_settings(tally_companies="\n".join(names) or "(none)")
-	match = next((c for c in companies if c["name"].strip().lower() == (s.tally_company or "").strip().lower()), None)
-	if not match:
-		set_settings(tally_reachable=0, last_agent_error=short(
-			"Company '" + (s.tally_company or "") + "' is not open in TallyPrime. Open companies: " +
-			(", ".join(names) or "none"), 500))
-		return
-	set_settings(tally_reachable=1, last_agent_error="",
-		current_alt_mst_id=match["alt_mst_id"], current_alt_vch_id=match["alt_vch_id"])
+	problems, ready = [], 0
+	for c in ctxs:
+		match = next((x for x in companies if x["name"].strip().lower() == (c.tally_company or "").strip().lower()), None)
+		if not match:
+			msg = "Company '" + (c.tally_company or "") + "' is not open in TallyPrime"
+			problems.append(msg)
+			mark(c, tally_reachable=0, last_agent_error=msg)
+			continue
+		ready += 1
+		mark(c, tally_reachable=1, last_agent_error="",
+			current_alt_mst_id=match["alt_mst_id"], current_alt_vch_id=match["alt_vch_id"])
+	if problems:
+		problems.append("Open companies: " + (", ".join(names) or "none"))
+	set_settings(tally_reachable=1 if ready else 0, last_agent_error=short(". ".join(problems), 500))
 
 
 # ================================================================ lookups
@@ -740,7 +758,7 @@ def process_opening(results):
 		status += "\nSkipped (income/expense or stock): " + ", ".join(skipped[:30])
 	if missing:
 		status += "\nNot found in ERPNext (run a masters sync first): " + ", ".join(missing[:30])
-	set_settings(opening_requested=0, opening_status=short(status, 2000))
+	set_settings(opening_requested=0, opening_status=short(s.tally_company + ": " + status, 2000))
 
 
 def _err(e):

@@ -17,7 +17,7 @@ import frappe
 from frappe.utils import cint, now_datetime
 
 from sbi_projects.tally import exporter, importer
-from sbi_projects.tally.common import AGENT_ROLE, settings, set_settings, short, tally_ready
+from sbi_projects.tally.common import AGENT_ROLE, context_for, contexts, settings, set_settings, short, tally_ready
 
 # stage -> (job builder, result processor, run in background?)
 STAGES = {
@@ -55,20 +55,34 @@ def hello(agent_version=None, hostname=None):
 
 @frappe.whitelist(methods=["POST"])
 def get_jobs(stage):
+	"""Jobs for one stage. Every stage except 'status' runs once per Tally company; each job id is
+	prefixed with that company's row so its answer is processed in the right company."""
 	_auth()
 	if stage not in STAGES:
 		frappe.throw("Unknown stage " + str(stage))
-	s = settings()
-	if stage != "status" and not tally_ready(s):
-		return {"jobs": [], "more": False}
 	builder = STAGES[stage][0]
-	jobs, more = builder(s)
+	out, more = [], False
+	if stage == "status":
+		jobs, _ = builder(settings())
+		out = [_job("", j) for j in jobs]
+	else:
+		for c in contexts():
+			if not tally_ready(c):
+				continue
+			frappe.flags.tally_ctx = c
+			try:
+				jobs, m = builder(c)
+			finally:
+				frappe.flags.tally_ctx = None
+			more = more or m
+			out += [_job(c.rowkey + "~", j) for j in jobs]
 	frappe.db.commit()
-	out = []
-	for job in jobs:
-		meta = {k: v for k, v in job.items() if k not in ("id", "xml")}
-		out.append({"id": job["id"], "xml": job["xml"], "meta": meta})
 	return {"jobs": out, "more": bool(more)}
+
+
+def _job(prefix, job):
+	meta = {k: v for k, v in job.items() if k not in ("id", "xml")}
+	return {"id": prefix + job["id"], "xml": job["xml"], "meta": meta}
 
 
 @frappe.whitelist(methods=["POST"])
@@ -107,16 +121,34 @@ def run_stage(stage, results, token):
 
 
 def _run(stage, processor, results):
-	try:
-		processor(results)
-		frappe.db.commit()
-	except Exception:
-		frappe.db.rollback()
-		tb = frappe.get_traceback()
-		frappe.log_error(tb, "Tally sync: " + stage)
-		set_settings(last_agent_error=short("Stage '" + stage + "' failed: " + tb.strip().splitlines()[-1], 500))
-		frappe.db.commit()
-		raise
+	"""Process answers; each Tally company's answers are processed inside its own context."""
+	if stage == "status":
+		groups = [(None, results)]
+	else:
+		by_key = {}
+		for r in results:
+			key, _, rest = (r.get("id") or "").partition("~")
+			by_key.setdefault(key, []).append(dict(r, id=rest))
+		groups = [(context_for(k), rows) for k, rows in by_key.items()]
+	failed = []
+	for ctx, rows in groups:
+		if stage != "status" and ctx is None:
+			continue  # company removed from settings meanwhile
+		frappe.flags.tally_ctx = ctx
+		try:
+			processor(rows)
+			frappe.db.commit()
+		except Exception:
+			frappe.db.rollback()
+			tb = frappe.get_traceback()
+			frappe.log_error(tb, "Tally sync: " + stage + (" (" + ctx.tally_company + ")" if ctx else ""))
+			set_settings(last_agent_error=short("Stage '" + stage + "' failed: " + tb.strip().splitlines()[-1], 500))
+			frappe.db.commit()
+			failed.append(stage)  # carry on with the other company, report at the end
+		finally:
+			frappe.flags.tally_ctx = None
+	if failed:
+		raise frappe.ValidationError("Tally stage '" + stage + "' failed - see Error Log")
 
 
 @frappe.whitelist(methods=["POST"])
@@ -133,6 +165,10 @@ def cycle_done(error=None):
 		values["last_agent_error"] = short(error, 500)
 	else:
 		values["last_sync_on"] = now_datetime()
+		for c in contexts():
+			if c.row and tally_ready(c):
+				frappe.db.set_value("Tally Company Map", c.row, "last_sync_on", values["last_sync_on"],
+					update_modified=False)
 	set_settings(**values)
 	frappe.db.commit()
 	return "ok"

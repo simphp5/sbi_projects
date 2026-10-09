@@ -13,6 +13,10 @@ frappe.pages["tally-dashboard"].on_page_show = function (wrapper) {
 class TallyDashboard {
 	constructor(page) {
 		this.page = page;
+		this.company = page.add_field({ fieldname: "company", label: __("Company"), fieldtype: "Link",
+			options: "Company", change: () => {
+				if (!this.data || this.company.get_value() !== this.data.company) this.refresh();
+			} });
 		this.from = page.add_field({ fieldname: "from_date", label: __("From"), fieldtype: "Date",
 			change: () => this.refresh() });
 		this.to = page.add_field({ fieldname: "to_date", label: __("To"), fieldtype: "Date",
@@ -30,10 +34,12 @@ class TallyDashboard {
 	refresh() {
 		frappe.call({
 			method: "sbi_projects.tally.dashboard.get_dashboard",
-			args: { from_date: this.from.get_value(), to_date: this.to.get_value() },
+			args: { from_date: this.from.get_value(), to_date: this.to.get_value(), company: this.company.get_value() },
 		}).then((r) => {
 			const d = r.message || {};
 			if (!this.from.get_value() && d.from_date) this.from.set_value(d.from_date);
+			this.data = d;
+			if (!this.company.get_value() && d.company) this.company.set_value(d.company);
 			this.data = d;
 			this.render(d);
 		});
@@ -87,6 +93,7 @@ class TallyDashboard {
 		const health = `<div class="td-health">
 			${pill(h.online, __("Agent online"), __("Agent offline"))}
 			${pill(h.tally_reachable, __("Tally company open"), __("Tally not ready"))}
+			${h.tally_company ? `<span class="indicator-pill blue">${this.esc(h.tally_company)} → ${this.esc(d.company)}</span>` : ""}
 			${h.enabled ? "" : `<span class="indicator-pill orange">${__("Sync disabled")}</span>`}
 			<span class="text-muted">${__("Agent last seen")} ${ago}</span>
 			${h.last_sync_on ? `<span class="text-muted">· ${__("Last complete sync")} ${frappe.datetime.str_to_user(h.last_sync_on)}</span>` : ""}

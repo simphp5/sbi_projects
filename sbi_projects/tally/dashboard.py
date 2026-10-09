@@ -6,7 +6,7 @@ from collections import OrderedDict
 import frappe
 from frappe.utils import add_months, cint, flt, get_first_day, getdate, nowdate
 
-from sbi_projects.tally.admin import get_summary
+from sbi_projects.tally.admin import company_condition, get_summary
 from sbi_projects.tally.common import settings
 
 ROLES = ("System Manager", "Accounts Manager", "Accounts User")
@@ -23,17 +23,22 @@ def _vtype(tally_voucher):
 
 
 @frappe.whitelist()
-def get_dashboard(from_date=None, to_date=None):
+def get_dashboard(from_date=None, to_date=None, company=None):
 	frappe.only_for(ROLES)
 	s = settings()
-	company = s.company
+	company = company or s.company
 	to_date = getdate(to_date or nowdate())
 	from_date = getdate(from_date or s.start_date or get_first_day(add_months(to_date, -11)))
 
-	summary = get_summary()
+	summary = get_summary(company)
+	health = dict(summary["agent"])
+	this = next((c for c in summary["companies"] if c["company"] == company), None)
+	if this:
+		health.update(tally_reachable=this["ready"], last_error=this["error"], tally_company=this["tally_company"])
 	out = {
 		"company": company, "from_date": str(from_date), "to_date": str(to_date),
-		"health": summary["agent"], "sync_table": summary["table"],
+		"companies": summary["companies"],
+		"health": health, "sync_table": summary["table"],
 		"pending_export": summary["pending_export"], "today": summary["today"],
 	}
 	if not company:
@@ -133,12 +138,13 @@ def get_dashboard(from_date=None, to_date=None):
 		(to_date, company), as_dict=True)
 
 	# ---------------- problems
-	out["failed"] = frappe.get_all("Tally Sync Log", filters={"status": "Failed"},
-		fields=["name", "direction", "record_type", "tally_name", "message", "last_attempt"],
-		order_by="last_attempt desc", limit_page_length=10)
-	out["skipped"] = frappe.get_all("Tally Sync Log", filters={"status": "Skipped"},
-		fields=["name", "tally_name", "reference_doctype", "reference_name", "amount", "posting_date"],
-		order_by="last_attempt desc", limit_page_length=10)
+	cond, params = company_condition(company)
+	out["failed"] = frappe.db.sql("""select name, direction, record_type, tally_name, message, last_attempt
+		from `tabTally Sync Log` where status = 'Failed' and """ + cond + """
+		order by last_attempt desc limit 10""", params, as_dict=True)
+	out["skipped"] = frappe.db.sql("""select name, tally_name, reference_doctype, reference_name, amount, posting_date
+		from `tabTally Sync Log` where status = 'Skipped' and """ + cond + """
+		order by last_attempt desc limit 10""", params, as_dict=True)
 	out["draft_jes"] = frappe.db.count("Journal Entry",
 		{"company": company, "docstatus": 0, "tally_guid": ["is", "set"]})
 	return out

@@ -29,23 +29,26 @@
   {
    "fieldname": "company",
    "fieldtype": "Link",
-   "label": "ERPNext Company",
+   "label": "First ERPNext Company",
    "options": "Company",
-   "reqd": 1
+   "reqd": 0,
+   "read_only": 1,
+   "description": "Taken from the first row of Tally Companies."
   },
   {
    "fieldname": "tally_company",
    "fieldtype": "Data",
-   "label": "Tally Company Name",
-   "reqd": 1,
-   "description": "Exactly as shown in TallyPrime. Companies the agent can see are listed under Agent Status."
+   "label": "First Tally Company",
+   "reqd": 0,
+   "description": "Taken from the first row of Tally Companies. Companies the agent can see are listed under Agent Status.",
+   "read_only": 1
   },
   {
    "fieldname": "start_date",
    "fieldtype": "Date",
    "label": "Sync From Date",
    "reqd": 1,
-   "description": "Vouchers dated before this are never sent in either direction. Use Opening Balances for older figures."
+   "description": "Default for every Tally company (a row can have its own). Vouchers before this are never sent in either direction."
   },
   {
    "fieldname": "sync_direction",
@@ -79,6 +82,18 @@
    "fieldtype": "Int",
    "label": "Sync Every (seconds)",
    "default": "120"
+  },
+  {
+   "fieldname": "sb_companies",
+   "fieldtype": "Section Break",
+   "label": "Tally Companies",
+   "description": "One row per Tally company. Each goes into its own ERPNext Company and keeps its own books. TallyPrime must have every enabled company open."
+  },
+  {
+   "fieldname": "companies",
+   "fieldtype": "Table",
+   "label": "Tally Companies",
+   "options": "Tally Company Map"
   },
   {
    "fieldname": "sb_agent",

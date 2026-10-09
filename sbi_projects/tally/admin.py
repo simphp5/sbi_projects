@@ -5,7 +5,7 @@ import frappe
 from frappe.utils import cint, get_url, now_datetime, time_diff_in_seconds
 
 from sbi_projects.tally import exporter, importer
-from sbi_projects.tally.common import AGENT_ROLE, LOG, SETTINGS, imports_on, settings, set_settings
+from sbi_projects.tally.common import AGENT_ROLE, LOG, SETTINGS, contexts, imports_on, reset_state, settings, set_settings
 
 MANAGERS = ("System Manager", "Accounts Manager")
 
@@ -81,14 +81,14 @@ def request_opening(opening_date=None):
 @frappe.whitelist()
 def resync_masters():
 	frappe.only_for(MANAGERS)
-	set_settings(last_alt_mst_id=0)
+	reset_state(last_alt_mst_id=0)
 	return "ok"
 
 
 @frappe.whitelist()
 def reimport_vouchers():
 	frappe.only_for(MANAGERS)
-	set_settings(last_alt_vch_id=0)
+	reset_state(last_alt_vch_id=0)
 	return "ok"
 
 
@@ -100,12 +100,13 @@ def retry_failed():
 	s = settings()
 	vouchers = 0
 	for doctype, _ in exporter.DOCTYPES:
-		names = frappe.get_all(doctype, filters={"tally_sync_status": "Failed", "company": s.company}, pluck="name")
+		names = frappe.get_all(doctype, filters={"tally_sync_status": "Failed",
+			"company": ["in", [c.company for c in contexts()] or [s.company]]}, pluck="name")
 		for n in names:
 			frappe.db.set_value(doctype, n, "tally_sync_status", "Retry", update_modified=False)
 		vouchers += len(names)
 	masters = frappe.db.delete(LOG, {"status": "Failed", "record_type": ["in", ["Ledger", "Party", "Stock Item"]]})
-	set_settings(last_alt_mst_id=0, last_alt_vch_id=0)
+	reset_state(last_alt_mst_id=0, last_alt_vch_id=0)
 	return {"vouchers": vouchers}
 
 
@@ -119,7 +120,8 @@ def import_anyway(log_name):
 	s = settings()
 	guids = {g for g in (s.force_import_guids or "").split() if g}
 	guids.add(log.tally_guid)
-	set_settings(force_import_guids="\n".join(sorted(guids)), last_alt_vch_id=0)
+	set_settings(force_import_guids="\n".join(sorted(guids)))
+	reset_state(last_alt_vch_id=0)
 	frappe.db.set_value(LOG, log_name, {"status": "Failed", "reference_doctype": None, "reference_name": None,
 		"message": "Marked 'Import Anyway' - will be imported on the next sync."})
 	return "ok"
@@ -193,7 +195,7 @@ def repair_party_ledgers(dry_run=1):
 	for name, ptype in typed:
 		if frappe.db.exists("Account", name):
 			frappe.db.set_value("Account", name, "account_type", ptype)
-	set_settings(last_alt_mst_id=0, last_alt_vch_id=0)
+	reset_state(last_alt_mst_id=0, last_alt_vch_id=0)
 	frappe.db.commit()
 	summary["done"] = 1
 	return summary
@@ -209,8 +211,9 @@ def remove_duplicate_tally_jes(dry_run=1):
 		select tally_guid, group_concat(name order by creation separator ',') as names,
 			max(tally_voucher) as voucher, max(total_debit) as amount
 		from `tabJournal Entry`
-		where docstatus = 1 and company = %s and ifnull(tally_guid, '') != ''
-		group by tally_guid having count(*) > 1""", (s.company,), as_dict=True)
+		where docstatus = 1 and company in %s and ifnull(tally_guid, '') != ''
+		group by tally_guid having count(*) > 1""", (tuple({c.company for c in contexts()} or {s.company}),),
+		as_dict=True)
 	extras, sample = [], []
 	for g in groups:
 		names = g.names.split(",")
@@ -236,12 +239,26 @@ def remove_duplicate_tally_jes(dry_run=1):
 
 
 # ---------------------------------------------------------------- summary
+def company_condition(company):
+	"""SQL condition on Tally Sync Log for one ERPNext company. Rows written before the
+	multi-company update carry no company and belong to the first company."""
+	if not company:
+		return "1=1", {}
+	first = contexts(include_disabled=True)
+	first_company = first[0].company if first else None
+	if company == first_company:
+		return "(company = %(company)s or ifnull(company, '') = '')", {"company": company}
+	return "company = %(company)s", {"company": company}
+
+
 @frappe.whitelist()
-def get_summary():
+def get_summary(company=None):
 	s = settings()
+	cond, params = company_condition(company)
 	rows = frappe.db.sql("""
 		select record_type, direction, status, count(*) as n
-		from `tabTally Sync Log` group by record_type, direction, status""", as_dict=True)
+		from `tabTally Sync Log` where """ + cond + """ group by record_type, direction, status""",
+		params, as_dict=True)
 	table = {}
 	for r in rows:
 		t = table.setdefault(r.record_type, {"Exported": 0, "Imported": 0, "Linked": 0, "Skipped": 0, "Failed": 0, "Deleted": 0})
@@ -262,25 +279,31 @@ def get_summary():
 			"companies": s.tally_companies, "last_error": s.last_agent_error,
 			"last_sync_on": s.last_sync_on, "enabled": cint(s.enabled),
 		},
+		"companies": [{"tally_company": c.tally_company, "company": c.company,
+			"ready": cint(c.tally_reachable), "error": frappe.db.get_value("Tally Company Map", c.row, "last_error")
+				if c.row else s.last_agent_error} for c in contexts(include_disabled=True)],
 		"table": table,
-		"pending_export": pending_export_count()["value"],
-		"today": _today_counts(),
+		"pending_export": pending_export_count(company=company)["value"],
+		"today": _today_counts(company),
 	}
 
 
-def _today_counts():
+def _today_counts(company=None):
+	cond, params = company_condition(company)
 	rows = frappe.db.sql("""
 		select direction, count(*) as n from `tabTally Sync Log`
-		where status = 'Success' and date(synced_on) = curdate() group by direction""", as_dict=True)
+		where status = 'Success' and date(synced_on) = curdate() and """ + cond + """ group by direction""",
+		params, as_dict=True)
 	return {r.direction: r.n for r in rows}
 
 
 @frappe.whitelist()
-def pending_export_count(filters=None):
+def pending_export_count(filters=None, company=None):
 	"""Number Card (Custom): ERPNext vouchers waiting to go to Tally."""
-	s = settings()
 	total = 0
-	if s.company and s.start_date:
+	for s in contexts():
+		if company and s.company != company:
+			continue
 		for doctype in exporter.enabled_doctypes(s):
 			cond = [["docstatus", "=", 1], ["company", "=", s.company], ["posting_date", ">=", s.start_date]]
 			if doctype == "Journal Entry":

@@ -170,6 +170,9 @@ const tally = {
 				${dot(a.tally_reachable, __("Tally company open"), __("Tally not ready"))}
 				${a.enabled ? "" : `<span class="indicator-pill orange">${__("Sync disabled")}</span>`}
 				<span class="indicator-pill blue">${esc(frm.doc.sync_direction || "Tally to ERPNext only")}</span>
+				${(s.companies || []).map((c) => `<div class="small" style="line-height:1.6">
+					<span class="indicator ${c.ready ? "green" : "red"}"></span>
+					${esc(c.tally_company)} → ${esc(c.company)} ${c.ready ? "" : `<span class="text-danger">(${esc(c.error || __("not open in Tally"))})</span>`}</div>`).join("")}
 				${a.last_error ? `<div class="text-danger small" style="line-height:1.4;margin-top:6px">${esc(a.last_error)}</div>` : ""}
 				${a.user ? "" : `<div class="small" style="margin-top:6px">${__("Step 1: click <b>Agent > Generate Agent Key</b>, then install the agent on the Tally computer.")}</div>`}
 			</div>`;

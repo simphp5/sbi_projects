@@ -56,6 +56,20 @@
    "read_only": 1
   },
   {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "ERPNext Company",
+   "options": "Company",
+   "in_standard_filter": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "tally_company",
+   "fieldtype": "Data",
+   "label": "Tally Company",
+   "read_only": 1
+  },
+  {
    "fieldname": "cb1",
    "fieldtype": "Column Break"
   },

@@ -1,0 +1,109 @@
+{
+ "doctype": "DocType",
+ "name": "Tally Company Map",
+ "module": "SBI Projects",
+ "custom": 0,
+ "istable": 1,
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "actions": [],
+ "links": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "permissions": [],
+ "fields": [
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Sync",
+   "default": "1",
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "tally_company",
+   "fieldtype": "Data",
+   "label": "Tally Company Name",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 3,
+   "description": "Exactly as shown in TallyPrime"
+  },
+  {
+   "fieldname": "erpnext_company",
+   "fieldtype": "Link",
+   "label": "ERPNext Company",
+   "options": "Company",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 3
+  },
+  {
+   "fieldname": "start_date",
+   "fieldtype": "Date",
+   "label": "Sync From Date",
+   "in_list_view": 1,
+   "columns": 2,
+   "description": "Leave empty to use the Sync From Date above"
+  },
+  {
+   "fieldname": "reachable",
+   "fieldtype": "Check",
+   "label": "Open in Tally",
+   "in_list_view": 1,
+   "columns": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "last_error",
+   "fieldtype": "Small Text",
+   "label": "Last Problem",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_sync_on",
+   "fieldtype": "Datetime",
+   "label": "Last Synced",
+   "read_only": 1
+  },
+  {
+   "fieldname": "current_alt_mst_id",
+   "fieldtype": "Int",
+   "label": "Tally Master Alter ID",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_alt_mst_id",
+   "fieldtype": "Int",
+   "label": "Masters Synced up to",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "current_alt_vch_id",
+   "fieldtype": "Int",
+   "label": "Tally Voucher Alter ID",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_alt_vch_id",
+   "fieldtype": "Int",
+   "label": "Vouchers Synced up to",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "cancel_cursor",
+   "fieldtype": "Datetime",
+   "label": "Cancellations Checked Until",
+   "hidden": 1,
+   "read_only": 1
+  }
+ ]
+}
