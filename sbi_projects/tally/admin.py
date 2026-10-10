@@ -238,6 +238,62 @@ def remove_duplicate_tally_jes(dry_run=1):
 	return summary
 
 
+@frappe.whitelist()
+def remove_company_tally_data(company, dry_run=1):
+	"""Undo what the Tally sync imported into one ERPNext company: Journal Entries from Tally and the
+	Accounts the sync created there. Customers / Suppliers (shared) are kept. Afterwards every Tally
+	company is read again, so data lands in the company its row now points to."""
+	frappe.only_for("System Manager")
+	dry_run = cint(dry_run)
+	jes = frappe.get_all("Journal Entry", filters={"company": company, "tally_guid": ["is", "set"],
+		"docstatus": ["<", 2]}, fields=["name", "tally_guid", "total_debit"], limit_page_length=0)
+	je_names = {j.name for j in jes}
+
+	accounts = frappe.get_all("Account", filters={"company": company, "tally_guid": ["is", "set"], "is_group": 0},
+		fields=["name", "account_name"], limit_page_length=0)
+	created = set(frappe.get_all(LOG, filters={"record_type": "Ledger", "status": "Success",
+		"reference_doctype": "Account", "reference_name": ["in", [a.name for a in accounts] or [""]]},
+		pluck="reference_name"))
+	remove, unlink, blocked = [], [], {}
+	if accounts:
+		for g in frappe.get_all("GL Entry", filters={"account": ["in", [a.name for a in accounts]], "is_cancelled": 0},
+				fields=["account", "voucher_type", "voucher_no"], limit_page_length=0):
+			if not (g.voucher_type == "Journal Entry" and g.voucher_no in je_names):
+				blocked.setdefault(g.account, g.voucher_type + " " + g.voucher_no)
+	for a in accounts:
+		if a.name in created and a.name not in blocked:
+			remove.append(a.name)
+		else:
+			unlink.append(a.name)
+
+	summary = {"company": company, "journal_entries": len(jes), "amount": sum(float(j.total_debit or 0) for j in jes),
+		"accounts_removed": len(remove), "accounts_unlinked": len(unlink),
+		"blocked": [k + " (used in " + v + ")" for k, v in list(blocked.items())[:15]],
+		"sample": [a for a in remove[:10]]}
+	if dry_run:
+		return summary
+
+	for j in jes:
+		doc = frappe.get_doc("Journal Entry", j.name)
+		doc.flags.ignore_permissions = True
+		if doc.docstatus == 1:
+			doc.cancel()
+		for dt in ("GL Entry", "Payment Ledger Entry"):
+			frappe.db.delete(dt, {"voucher_type": "Journal Entry", "voucher_no": j.name})
+		frappe.delete_doc("Journal Entry", j.name, ignore_permissions=True, force=True)
+		frappe.db.delete(LOG, {"tally_guid": j.tally_guid, "record_type": "Voucher", "direction": "Import"})
+	for name in remove:
+		frappe.delete_doc("Account", name, ignore_permissions=True, force=True)
+		frappe.db.delete(LOG, {"reference_doctype": "Account", "reference_name": name})
+	for name in unlink:
+		frappe.db.set_value("Account", name, {"tally_guid": None, "tally_ledger_name": None}, update_modified=False)
+		frappe.db.delete(LOG, {"reference_doctype": "Account", "reference_name": name, "status": "Linked"})
+	reset_state(last_alt_mst_id=0, last_alt_vch_id=0)
+	frappe.db.commit()
+	summary["done"] = 1
+	return summary
+
+
 # ---------------------------------------------------------------- summary
 def company_condition(company):
 	"""SQL condition on Tally Sync Log for one ERPNext company. Rows written before the

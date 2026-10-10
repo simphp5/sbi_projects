@@ -168,9 +168,11 @@ def process_masters(results):
 	ledgers = tx.parse_ledgers(by_id["ledgers"]["response"])
 	index = LedgerIndex(s.company)
 	group_map = _group_account_map(s)
-	done_guids = set(frappe.get_all("Tally Sync Log",
-		filters={"record_type": ["in", ["Ledger", "Party"]], "status": ["in", ["Success", "Linked"]],
-			"tally_guid": ["is", "set"]}, pluck="tally_guid"))
+	# done = this company already has the account, or the (shared) customer / supplier exists
+	done_guids = set(frappe.get_all("Account", filters={"company": s.company, "tally_guid": ["is", "set"]},
+		pluck="tally_guid"))
+	for dt in ("Customer", "Supplier"):
+		done_guids.update(frappe.get_all(dt, filters={"tally_guid": ["is", "set"]}, pluck="tally_guid"))
 
 	for i, led in enumerate(ledgers):
 		if led["guid"] and led["guid"] in done_guids:

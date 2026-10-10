@@ -102,7 +102,7 @@ def contexts(s=None, include_disabled=False):
 			cancel_cursor=r.cancel_cursor, tally_reachable=r.reachable,
 			group_map=_translate_group_map(base.get("group_map"), r.erpnext_company),
 		)
-		if r.erpnext_company != s.company:
+		if c.default_cost_center and frappe.db.get_value("Cost Center", c.default_cost_center, "company") != r.erpnext_company:
 			c.default_cost_center = None
 		out.append(c)
 	return out

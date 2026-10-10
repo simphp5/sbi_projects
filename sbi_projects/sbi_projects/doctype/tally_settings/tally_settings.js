@@ -35,6 +35,7 @@ frappe.ui.form.on("Tally Settings", {
 		}
 		frm.add_custom_button(__("Repair Customer / Supplier Ledgers"), () => tally.repair(frm), __("Sync"));
 		frm.add_custom_button(__("Remove Duplicate Tally Entries"), () => tally.dedupe(frm), __("Sync"));
+		frm.add_custom_button(__("Remove Tally Data from a Company"), () => tally.remove_company(frm), __("Sync"));
 		frm.add_custom_button(__("Load Default Group Map"), () => tally.call(frm, "load_default_group_map",
 			null, true), __("Sync"));
 		frm.add_custom_button(__("Sync Log"), () => frappe.set_route("List", "Tally Sync Log"));
@@ -112,6 +113,41 @@ const tally = {
 				frm.reload_doc();
 			}));
 		});
+	},
+
+	remove_company(frm) {
+		const d = new frappe.ui.Dialog({
+			title: __("Remove Tally Data from a Company"),
+			fields: [
+				{ fieldname: "company", fieldtype: "Link", options: "Company", label: __("ERPNext Company"), reqd: 1 },
+				{ fieldtype: "HTML", options: `<p class="small text-muted">${__("Use this when Tally data went into the wrong ERPNext company. It removes the Journal Entries imported from Tally and the Accounts the sync created in that company. Customers and Suppliers are kept. Every Tally company is then read again into the company set in the Tally Companies table.")}</p>` },
+			],
+			primary_action_label: __("Preview"),
+			primary_action(values) {
+				d.hide();
+				const call = (dry_run) => frappe.call({ method: TALLY_API + "remove_company_tally_data",
+					args: { company: values.company, dry_run }, freeze: true });
+				call(1).then((r) => {
+					const s = r.message;
+					const esc = frappe.utils.escape_html;
+					let html = `<p><b>${esc(s.company)}</b></p>
+						<p>${__("Journal Entries from Tally to remove")}: <b>${s.journal_entries}</b> (${format_currency(s.amount, "INR", 0)})</p>
+						<p>${__("Accounts created by the sync to remove")}: <b>${s.accounts_removed}</b></p>
+						<p>${__("Accounts only unlinked from Tally (kept)")}: <b>${s.accounts_unlinked}</b></p>`;
+					if (s.sample.length) html += `<p class="small text-muted">${esc(s.sample.join(", "))}...</p>`;
+					if (s.blocked.length) html += `<p class="text-danger small">${__("Kept, used by other transactions")}: ${esc(s.blocked.join("; "))}</p>`;
+					if (!s.journal_entries && !s.accounts_removed && !s.accounts_unlinked) {
+						frappe.msgprint(__("No Tally data found in this company."));
+						return;
+					}
+					frappe.confirm(html + `<p><b>${__("This cannot be undone. Go ahead?")}</b></p>`, () => call(0).then(() => {
+						frappe.msgprint(__("Removed. The next sync reads every Tally company again."));
+						frm.reload_doc();
+					}));
+				});
+			},
+		});
+		d.show();
 	},
 
 	dedupe(frm) {

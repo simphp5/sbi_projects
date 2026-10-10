@@ -45,10 +45,29 @@ class TallySettings(Document):
 			from sbi_projects.tally.importer import default_group_rows
 			for row in default_group_rows(self.company):
 				self.append("group_map", row)
+		self._group_map_to_first_company()
+		if self.default_cost_center and frappe.db.get_value("Cost Center", self.default_cost_center, "company") != self.company:
+			self.default_cost_center = None
+
+	def _group_map_to_first_company(self):
+		"""Group Map rows hold accounts of the first company. When that company changes, point each
+		row at the group with the same name in the new company."""
+		missing = []
 		for row in self.group_map:
-			if row.erpnext_account and frappe.db.get_value("Account", row.erpnext_account, "company") != self.company:
-				frappe.throw("Group Map row " + str(row.idx) + ": " + row.erpnext_account + " does not belong to "
-					+ str(self.company) + " (the first company). Other companies use the same groups by name.")
+			if not row.erpnext_account:
+				continue
+			info = frappe.db.get_value("Account", row.erpnext_account, ["company", "account_name"], as_dict=True)
+			if not info or info.company == self.company:
+				continue
+			same = frappe.db.get_value("Account", {"company": self.company, "account_name": info.account_name,
+				"is_group": 1}, "name")
+			if same:
+				row.erpnext_account = same
+			else:
+				missing.append(str(row.idx) + " (" + info.account_name + ")")
+		if missing:
+			frappe.throw("Group Map rows " + ", ".join(missing) + " have no group with the same name in "
+				+ str(self.company) + ". Pick the right group for these rows, or use Sync > Load Default Group Map.")
 
 	def _migrate_single_company(self):
 		"""Settings made before the Tally Companies table: move that company into row 1 with its progress."""
