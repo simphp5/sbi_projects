@@ -63,9 +63,21 @@ def _custom_fields():
 		{"fieldname": "tally_alter_id", "label": "Tally Alter ID", "fieldtype": "Int", "read_only": 1,
 			"allow_on_submit": 1, "no_copy": 1, "hidden": 1, "insert_after": "tally_guid"},
 	]
+	inv_extra = [dict(f) for f in je_extra] + [
+		{"fieldname": "tally_bill_no", "label": "Tally Bill No", "fieldtype": "Data", "read_only": 1,
+			"allow_on_submit": 1, "no_copy": 1, "search_index": 1, "insert_after": "tally_alter_id"},
+		{"fieldname": "tally_company", "label": "Tally Company", "fieldtype": "Data", "read_only": 1,
+			"allow_on_submit": 1, "no_copy": 1, "insert_after": "tally_bill_no"},
+	]
+	inv_extra[0]["in_list_view"] = 1
+	inv_extra[0]["description"] = "Set when this invoice was created from a Tally voucher (imported as draft)."
 	fields = {dt: _sync_fields() for dt in VOUCHER_DOCTYPES if dt != "Journal Entry"}
+	fields["Sales Invoice"] = _sync_fields([dict(f) for f in inv_extra])
+	fields["Purchase Invoice"] = _sync_fields([dict(f) for f in inv_extra])
 	fields["Journal Entry"] = _sync_fields(je_extra)
-	fields["Account"] = _master_fields("account_type")
+	fields["Account"] = _master_fields("account_type") + [
+		{"fieldname": "tally_hsn", "label": "Tally HSN/SAC", "fieldtype": "Data", "read_only": 1, "no_copy": 1,
+			"insert_after": "tally_ledger_name", "description": "HSN/SAC on the Tally ledger, used for invoice lines."}]
 	fields["Customer"] = _master_fields("customer_group")
 	fields["Supplier"] = _master_fields("supplier_group")
 	fields["Item"] = _master_fields("item_group")

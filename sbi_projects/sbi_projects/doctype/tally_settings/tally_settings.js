@@ -131,7 +131,7 @@ const tally = {
 					const s = r.message;
 					const esc = frappe.utils.escape_html;
 					let html = `<p><b>${esc(s.company)}</b></p>
-						<p>${__("Journal Entries from Tally to remove")}: <b>${s.journal_entries}</b> (${format_currency(s.amount, "INR", 0)})</p>
+						<p>${__("Journal Entries and invoices from Tally to remove")}: <b>${s.journal_entries}</b> (${format_currency(s.amount, "INR", 0)})</p>
 						<p>${__("Accounts created by the sync to remove")}: <b>${s.accounts_removed}</b></p>
 						<p>${__("Accounts only unlinked from Tally (kept)")}: <b>${s.accounts_unlinked}</b></p>`;
 					if (s.sample.length) html += `<p class="small text-muted">${esc(s.sample.join(", "))}...</p>`;

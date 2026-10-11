@@ -343,6 +343,33 @@
    "description": "0 = same date only. 2 = up to 2 days apart still counts as the same transaction."
   },
   {
+   "fieldname": "import_sales_invoices",
+   "fieldtype": "Check",
+   "label": "Tally Sales Vouchers as Draft Sales Invoices",
+   "default": "1",
+   "description": "Each Tally Sales voucher becomes a DRAFT Sales Invoice (marked 'Imported from Tally'). Check and submit it. If ERPNext cannot accept it (e.g. missing HSN/SAC), it is booked as a Journal Entry instead and the reason is in the Sync Log."
+  },
+  {
+   "fieldname": "import_purchase_invoices",
+   "fieldtype": "Check",
+   "label": "Tally Purchase Vouchers as Draft Purchase Invoices",
+   "default": "1"
+  },
+  {
+   "fieldname": "default_sales_hsn",
+   "fieldtype": "Data",
+   "label": "HSN/SAC for Sales Lines",
+   "depends_on": "import_sales_invoices",
+   "description": "Used when the Tally sales ledger has no HSN/SAC. Ask your CA (e.g. 9954xx for construction services)."
+  },
+  {
+   "fieldname": "default_purchase_hsn",
+   "fieldtype": "Data",
+   "label": "HSN/SAC for Purchase Lines",
+   "depends_on": "import_purchase_invoices",
+   "description": "Used when the Tally purchase ledger has no HSN/SAC."
+  },
+  {
    "fieldname": "cb_import",
    "fieldtype": "Column Break"
   },

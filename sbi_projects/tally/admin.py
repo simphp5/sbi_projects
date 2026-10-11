@@ -106,6 +106,9 @@ def retry_failed():
 			frappe.db.set_value(doctype, n, "tally_sync_status", "Retry", update_modified=False)
 		vouchers += len(names)
 	masters = frappe.db.delete(LOG, {"status": "Failed", "record_type": ["in", ["Ledger", "Party", "Stock Item"]]})
+	# vouchers kept as Journal Entries because the invoice was refused: try the invoice again
+	frappe.db.sql("""update `tabTally Sync Log` set message = '' where direction = 'Import'
+		and record_type = 'Voucher' and message like 'Kept as Journal Entry%%'""")
 	reset_state(last_alt_mst_id=0, last_alt_vch_id=0)
 	return {"vouchers": vouchers}
 
@@ -245,8 +248,15 @@ def remove_company_tally_data(company, dry_run=1):
 	company is read again, so data lands in the company its row now points to."""
 	frappe.only_for("System Manager")
 	dry_run = cint(dry_run)
-	jes = frappe.get_all("Journal Entry", filters={"company": company, "tally_guid": ["is", "set"],
-		"docstatus": ["<", 2]}, fields=["name", "tally_guid", "total_debit"], limit_page_length=0)
+	jes = []
+	for dt, amount_field in (("Journal Entry", "total_debit"), ("Sales Invoice", "grand_total"),
+			("Purchase Invoice", "grand_total")):
+		if not frappe.get_meta(dt).has_field("tally_guid"):
+			continue
+		for r in frappe.get_all(dt, filters={"company": company, "tally_guid": ["is", "set"], "docstatus": ["<", 2]},
+				fields=["name", "tally_guid", amount_field + " as total_debit"], limit_page_length=0):
+			r.doctype = dt
+			jes.append(r)
 	je_names = {j.name for j in jes}
 
 	accounts = frappe.get_all("Account", filters={"company": company, "tally_guid": ["is", "set"], "is_group": 0},
@@ -258,7 +268,7 @@ def remove_company_tally_data(company, dry_run=1):
 	if accounts:
 		for g in frappe.get_all("GL Entry", filters={"account": ["in", [a.name for a in accounts]], "is_cancelled": 0},
 				fields=["account", "voucher_type", "voucher_no"], limit_page_length=0):
-			if not (g.voucher_type == "Journal Entry" and g.voucher_no in je_names):
+			if not g.voucher_no in je_names:
 				blocked.setdefault(g.account, g.voucher_type + " " + g.voucher_no)
 	for a in accounts:
 		if a.name in created and a.name not in blocked:
@@ -274,13 +284,13 @@ def remove_company_tally_data(company, dry_run=1):
 		return summary
 
 	for j in jes:
-		doc = frappe.get_doc("Journal Entry", j.name)
+		doc = frappe.get_doc(j.doctype, j.name)
 		doc.flags.ignore_permissions = True
 		if doc.docstatus == 1:
 			doc.cancel()
 		for dt in ("GL Entry", "Payment Ledger Entry"):
-			frappe.db.delete(dt, {"voucher_type": "Journal Entry", "voucher_no": j.name})
-		frappe.delete_doc("Journal Entry", j.name, ignore_permissions=True, force=True)
+			frappe.db.delete(dt, {"voucher_type": j.doctype, "voucher_no": j.name})
+		frappe.delete_doc(j.doctype, j.name, ignore_permissions=True, force=True)
 		frappe.db.delete(LOG, {"tally_guid": j.tally_guid, "record_type": "Voucher", "direction": "Import"})
 	for name in remove:
 		frappe.delete_doc("Account", name, ignore_permissions=True, force=True)
@@ -362,7 +372,7 @@ def pending_export_count(filters=None, company=None):
 			continue
 		for doctype in exporter.enabled_doctypes(s):
 			cond = [["docstatus", "=", 1], ["company", "=", s.company], ["posting_date", ">=", s.start_date]]
-			if doctype == "Journal Entry":
+			if frappe.get_meta(doctype).has_field("tally_guid"):
 				cond.append(["tally_guid", "is", "not set"])
 			total += frappe.db.count(doctype, cond + [["tally_sync_status", "is", "not set"]])
 			total += frappe.db.count(doctype, cond + [["tally_sync_status", "=", "Retry"]])

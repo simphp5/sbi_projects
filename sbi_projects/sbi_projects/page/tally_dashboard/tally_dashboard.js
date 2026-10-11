@@ -10,12 +10,30 @@ frappe.pages["tally-dashboard"].on_page_show = function (wrapper) {
 	if (wrapper.tally_dashboard) wrapper.tally_dashboard.refresh();
 };
 
+const ALL_LABEL = __("All companies");
+const ALL = "__all__";
+
 class TallyDashboard {
+	company_value() {
+		const v = this.company.get_value();
+		return !v ? null : v === ALL_LABEL ? ALL : v;
+	}
+
+	fill_companies(d) {
+		const list = [ALL_LABEL].concat(d.company_list || []);
+		const current = d.company === ALL ? ALL_LABEL : d.company;
+		this._filling = true;
+		this.company.df.options = list.join("\n");
+		this.company.refresh();
+		this.company.set_value(current).then(() => (this._filling = false));
+	}
+
 	constructor(page) {
 		this.page = page;
-		this.company = page.add_field({ fieldname: "company", label: __("Company"), fieldtype: "Link",
-			options: "Company", change: () => {
-				if (!this.data || this.company.get_value() !== this.data.company) this.refresh();
+		this.company = page.add_field({ fieldname: "company", label: __("Company"), fieldtype: "Select",
+			options: [ALL_LABEL].join("\n"), change: () => {
+				if (this._filling) return;
+				if (!this.data || this.company_value() !== this.data.company) this.refresh();
 			} });
 		this.from = page.add_field({ fieldname: "from_date", label: __("From"), fieldtype: "Date",
 			change: () => this.refresh() });
@@ -34,13 +52,12 @@ class TallyDashboard {
 	refresh() {
 		frappe.call({
 			method: "sbi_projects.tally.dashboard.get_dashboard",
-			args: { from_date: this.from.get_value(), to_date: this.to.get_value(), company: this.company.get_value() },
+			args: { from_date: this.from.get_value(), to_date: this.to.get_value(), company: this.company_value() },
 		}).then((r) => {
 			const d = r.message || {};
 			if (!this.from.get_value() && d.from_date) this.from.set_value(d.from_date);
 			this.data = d;
-			if (!this.company.get_value() && d.company) this.company.set_value(d.company);
-			this.data = d;
+			if (d.company) this.fill_companies(d);
 			this.render(d);
 		});
 	}
@@ -180,6 +197,7 @@ class TallyDashboard {
 					(d.draft_jes ? `<div class="td-note">${__("{0} imported Journal Entries are still in Draft.", [d.draft_jes])}
 						${this.link('journal-entry?docstatus=0&tally_voucher=["is","set"]', __("Review"))}</div>` : ""))}
 			</div>
+			${this.invoice_section(d)}
 			${this.card(__("Latest Tally vouchers"), recent, this.link('journal-entry?tally_voucher=["is","set"]', __("All")))}
 			<div class="td-grid">
 				${this.card(__("Needs attention"), problems, this.link("tally-sync-log?status=Failed", __("All failures")))}
@@ -187,6 +205,78 @@ class TallyDashboard {
 			</div>`);
 
 		this.draw_chart(d);
+		this.draw_invoice_chart(d);
+	}
+
+	// ------------------------------------------------------------ sales & purchase invoices from Tally
+	invoice_section(d) {
+		const inv = d.invoices;
+		if (!inv) return "";
+		const q = (dt, extra) => encodeURIComponent(dt) + '?tally_voucher=["is","set"]' + (extra || "") +
+			(d.is_all ? "" : "&company=" + encodeURIComponent(d.company));
+		const si = "sales-invoice", pi = "purchase-invoice";
+		const tiles = `<div class="td-tiles">
+			${this.tile(__("Sales from Tally"), this.money(inv.sales.amount), __("{0} invoices", [inv.sales.count]), "green",
+				si + '?tally_voucher=["is","set"]' + (d.is_all ? "" : "&company=" + encodeURIComponent(d.company)))}
+			${this.tile(__("Sales drafts to submit"), inv.sales.draft, this.money(inv.sales.draft_amount),
+				inv.sales.draft ? "orange" : "grey", si + '?docstatus=0&tally_voucher=["is","set"]' + (d.is_all ? "" : "&company=" + encodeURIComponent(d.company)))}
+			${this.tile(__("Purchases from Tally"), this.money(inv.purchase.amount), __("{0} invoices", [inv.purchase.count]), "blue",
+				pi + '?tally_voucher=["is","set"]' + (d.is_all ? "" : "&company=" + encodeURIComponent(d.company)))}
+			${this.tile(__("Purchase drafts to submit"), inv.purchase.draft, this.money(inv.purchase.draft_amount),
+				inv.purchase.draft ? "orange" : "grey", pi + '?docstatus=0&tally_voucher=["is","set"]' + (d.is_all ? "" : "&company=" + encodeURIComponent(d.company)))}
+		</div>`;
+
+		const byCompany = this.table([
+			{ label: __("Company"), get: (r) => this.esc(r.company) },
+			{ label: __("Sales"), num: 1, get: (r) => this.money(r.sales) + ` <span class="text-muted">(${r.sales_count})</span>` },
+			{ label: __("Purchases"), num: 1, get: (r) => this.money(r.purchase) + ` <span class="text-muted">(${r.purchase_count})</span>` },
+			{ label: __("Drafts"), num: 1, get: (r) => r.drafts },
+		], inv.by_company, __("No invoices from Tally in this period"));
+
+		const partyTable = (rows, dt) => this.table([
+			{ label: dt === "Customer" ? __("Customer") : __("Supplier"),
+				get: (r) => this.link(frappe.router.slug(dt) + "/" + encodeURIComponent(r.party), r.display) },
+			{ label: __("Invoices"), num: 1, get: (r) => r.count },
+			{ label: __("Amount"), num: 1, get: (r) => this.money(r.amount) },
+		], rows, __("None"));
+
+		const recent = this.table([
+			{ label: __("Date"), get: (r) => frappe.datetime.str_to_user(r.posting_date) },
+			{ label: __("Type"), get: (r) => r.kind === "sales" ? __("Sales") : __("Purchase") },
+			{ label: __("Tally voucher"), get: (r) => this.esc(r.tally_voucher) },
+			{ label: __("Party"), get: (r) => this.esc(r.party_name || r.party) },
+			{ label: __("Amount"), num: 1, get: (r) => this.money(r.amount) },
+			{ label: __("Invoice"), get: (r) => this.link(frappe.router.slug(r.doctype) + "/" + encodeURIComponent(r.name), r.name) +
+				(r.draft ? ` <span class="indicator-pill orange">${__("Draft")}</span>` : "") },
+		].concat(d.is_all ? [{ label: __("Company"), get: (r) => this.esc(r.company) }] : []), inv.recent, __("No invoices from Tally yet"));
+
+		return `<div class="td-section-title">${__("Sales & Purchase from Tally")}</div>
+			${tiles}
+			<div class="td-grid">
+				${this.card(__("Sales vs purchases by month"), `<div class="td-inv-chart"></div>`)}
+				${this.card(d.is_all ? __("By company") : __("This company"), byCompany)}
+			</div>
+			<div class="td-grid">
+				${this.card(__("Top customers (Tally sales)"), partyTable(inv.top_customers, "Customer"))}
+				${this.card(__("Top suppliers (Tally purchases)"), partyTable(inv.top_suppliers, "Supplier"))}
+			</div>
+			${this.card(__("Latest invoices from Tally"), recent)}`;
+	}
+
+	draw_invoice_chart(d) {
+		const el = this.$body.find(".td-inv-chart")[0];
+		const months = (d.invoices && d.invoices.by_month) || [];
+		if (!el || !months.length) return;
+		$(el).empty();
+		new frappe.Chart(el, {
+			type: "bar", height: 240, colors: ["#29CD42", "#2490EF"],
+			data: { labels: months.map((m) => m.label), datasets: [
+				{ name: __("Sales"), values: months.map((m) => m.sales) },
+				{ name: __("Purchases"), values: months.map((m) => m.purchase) },
+			] },
+			axisOptions: { xIsSeries: 1, shortenYAxisNumbers: 1 },
+			tooltipOptions: { formatTooltipY: (y) => this.money(y) },
+		});
 	}
 
 	// ------------------------------------------------------------ chart by voucher date
@@ -279,6 +369,7 @@ class TallyDashboard {
 			.td-table .num { text-align:right; white-space:nowrap; }
 			.td-msg { font-size:12px; color: var(--text-muted); }
 			.td-empty { color: var(--text-muted); font-size:13px; padding:8px 0; }
+			.td-section-title { font-size:15px; font-weight:600; margin:18px 0 10px; }
 			.td-note { margin-top:10px; font-size:12px; color: var(--orange-600); }
 		</style>`).appendTo("head");
 	}

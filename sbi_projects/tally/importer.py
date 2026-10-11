@@ -13,8 +13,10 @@ import frappe
 from frappe.utils import add_days, add_months, cint, flt, get_first_day, get_last_day, getdate, nowdate
 
 from sbi_projects.tally import tallyxml as tx
+from sbi_projects.tally.invoices import invoice_plan, make_invoice, remove_doc as _remove_doc
 from sbi_projects.tally.common import imports_on, master_key, settings, set_settings, short, write_log
 
+VOUCHER_DOCTYPES = ("Journal Entry", "Sales Invoice", "Purchase Invoice")
 PARTY_GROUPS = {"sundry debtors": "Customer", "sundry creditors": "Supplier"}
 ACCOUNT_TYPE_BY_GROUP = {
 	"bank accounts": "Bank", "bank od a/c": "Bank", "bank occ a/c": "Bank",
@@ -174,8 +176,16 @@ def process_masters(results):
 	for dt in ("Customer", "Supplier"):
 		done_guids.update(frappe.get_all(dt, filters={"tally_guid": ["is", "set"]}, pluck="tally_guid"))
 
+	hsn_by_guid = {}
+	if frappe.get_meta("Account").has_field("tally_hsn"):
+		hsn_by_guid = {r.tally_guid: r for r in frappe.get_all("Account", filters={"company": s.company,
+			"tally_guid": ["is", "set"]}, fields=["name", "tally_guid", "tally_hsn"], limit_page_length=0)}
+
 	for i, led in enumerate(ledgers):
 		if led["guid"] and led["guid"] in done_guids:
+			acc = hsn_by_guid.get(led["guid"])
+			if acc and led.get("hsn") and acc.tally_hsn != led["hsn"]:
+				frappe.db.set_value("Account", acc.name, "tally_hsn", led["hsn"], update_modified=False)
 			continue
 		# full path, e.g. [site creditors, sundry creditors, current liabilities]: Sundry Debtors /
 		# Creditors, Bank Accounts, Duties & Taxes etc. are sub-groups in Tally, not primary groups
@@ -207,6 +217,8 @@ def _sync_ledger(s, led, chain, groups, group_map, index):
 	if target and (party_type is None) == (target[0] == "Account"):
 		doctype, docname = target
 		_set_tally_fields(doctype, docname, name, led["guid"])
+		if doctype == "Account" and led.get("hsn"):
+			frappe.db.set_value("Account", docname, "tally_hsn", led["hsn"], update_modified=False)
 		key = master_key(doctype, docname)
 		if frappe.db.get_value("Tally Sync Log", {"log_key": key}, "status") in ("Success", "Linked"):
 			# created in Tally by an earlier export - keep that history, just remember the GUID
@@ -231,6 +243,7 @@ def _sync_ledger(s, led, chain, groups, group_map, index):
 				"Tally group '" + led["parent"] + "' (path: " + " > ".join(chain) + ") has no row in Tally Settings > Group Map")
 		doc = frappe.get_doc({
 			"doctype": "Account", "account_name": name, "parent_account": parent, "company": s.company,
+			"tally_hsn": led.get("hsn") or None,
 			"is_group": 0, "account_type": account_type,
 			"tally_ledger_name": name, "tally_guid": led["guid"],
 		})
@@ -414,9 +427,16 @@ def process_import_vouchers(results):
 
 	exported = {(n or "").strip().lower() for n in frappe.get_all("Tally Sync Log",
 		filters={"direction": "Export", "record_type": "Voucher"}, pluck="tally_name")}
-	live = {r.tally_guid: r for r in frappe.get_all("Journal Entry",
-		filters={"tally_guid": ["is", "set"], "docstatus": ["<", 2], "company": s.company},
-		fields=["name", "tally_guid", "tally_alter_id", "docstatus", "posting_date"], limit_page_length=0)}
+	live = {}
+	for dt in VOUCHER_DOCTYPES:
+		if not frappe.get_meta(dt).has_field("tally_guid"):
+			continue
+		for r in frappe.get_all(dt, filters={"tally_guid": ["is", "set"], "docstatus": ["<", 2], "company": s.company},
+				fields=["name", "tally_guid", "tally_alter_id", "docstatus", "posting_date"], limit_page_length=0):
+			r.doctype = dt
+			live[r.tally_guid] = r
+	kept_as_je = set(frappe.get_all("Tally Sync Log", filters={"direction": "Import", "record_type": "Voucher",
+		"message": ["like", "Kept as Journal Entry%"]}, pluck="tally_guid"))
 	index = LedgerIndex(s.company)
 	start = getdate(s.start_date)
 	seen = set()
@@ -441,11 +461,13 @@ def process_import_vouchers(results):
 		try:
 			if v["cancelled"] or v["deleted"]:
 				if je:
-					_remove_je(je.name)
-					write_log(key, "Import", "Voucher", "Deleted", "Journal Entry", je.name, label, v["guid"],
-						v["date"], _amount(v), "Cancelled in Tally - Journal Entry cancelled")
+					_remove_doc(je.doctype, je.name)
+					write_log(key, "Import", "Voucher", "Deleted", je.doctype, je.name, label, v["guid"],
+						v["date"], _amount(v), "Cancelled in Tally - " + je.doctype + " cancelled")
 				continue
-			if je and cint(je.tally_alter_id) == v["alter_id"]:
+			plan = invoice_plan(s, v, index)
+			unchanged = je and cint(je.tally_alter_id) == v["alter_id"]
+			if unchanged and (not plan or je.doctype != "Journal Entry" or v["guid"] in kept_as_je):
 				continue
 			if not je and dup_check and v["guid"] not in force:
 				prev = skipped_logs.get(v["guid"])
@@ -458,16 +480,40 @@ def process_import_vouchers(results):
 						_amount(v), "Already in ERPNext as " + match[0] + " " + match[1] +
 						" - not imported. Use 'Import Anyway' on this log if that is wrong.")
 					continue
-			new = _make_je(s, v, index, amend=je.name if je else None)
-			live[v["guid"]] = frappe._dict(name=new, tally_guid=v["guid"], tally_alter_id=v["alter_id"],
-				docstatus=1, posting_date=v["date"])
+
+			new_dt, new, note = None, None, ""
+			if plan:
+				frappe.db.savepoint("tally_inv")
+				try:
+					if je:
+						_remove_doc(je.doctype, je.name)
+					new_dt, new = plan[0], make_invoice(s, v, plan)
+					note = "Draft " + plan[0] + " - check and submit" + (" (replaces " + je.name + ")" if je else "")
+				except Exception as e:
+					frappe.db.rollback(save_point="tally_inv")
+					reason = short(_err(e), 600)
+					if unchanged:
+						# the Journal Entry already in ERPNext stays; don't retry until Tally changes it
+						write_log(key, "Import", "Voucher", "Success", je.doctype, je.name, label, v["guid"], v["date"],
+							_amount(v), "Kept as Journal Entry - " + plan[0] + " not possible: " + reason)
+						continue
+					note = "Imported as Journal Entry - " + plan[0] + " not possible: " + reason
+					new_dt = None
+			if not new_dt:
+				amend_je = je.name if je and je.doctype == "Journal Entry" else None
+				if je and je.doctype != "Journal Entry":
+					_remove_doc(je.doctype, je.name)
+				new_dt, new = "Journal Entry", _make_je(s, v, index, amend=amend_je)
+				if not note and je:
+					note = "Updated in Tally - re-posted as " + new
+			live[v["guid"]] = frappe._dict(name=new, doctype=new_dt, tally_guid=v["guid"], tally_alter_id=v["alter_id"],
+				docstatus=0 if new_dt != "Journal Entry" else 1, posting_date=v["date"])
 			if v["guid"] in force:
 				forced_done.add(v["guid"])
-			write_log(key, "Import", "Voucher", "Success", "Journal Entry", new, label, v["guid"], v["date"],
-				_amount(v), "Updated in Tally - re-posted as " + new if je else "")
+			write_log(key, "Import", "Voucher", "Success", new_dt, new, label, v["guid"], v["date"], _amount(v), note)
 		except Exception as e:
 			frappe.db.rollback(save_point="tally_vch")
-			write_log(key, "Import", "Voucher", "Failed", "Journal Entry", je.name if je else None, label,
+			write_log(key, "Import", "Voucher", "Failed", je.doctype if je else "Journal Entry", je.name if je else None, label,
 				v["guid"], v["date"], _amount(v), short(_err(e), 1500))
 		if i % 25 == 24:
 			frappe.db.commit()
@@ -484,12 +530,12 @@ def process_import_vouchers(results):
 		for guid, je in gone:
 			frappe.db.savepoint("tally_vch")
 			try:
-				_remove_je(je.name)
-				write_log("V|I|" + guid, "Import", "Voucher", "Deleted", "Journal Entry", je.name,
-					message="Deleted in Tally - Journal Entry cancelled")
+				_remove_doc(je.doctype, je.name)
+				write_log("V|I|" + guid, "Import", "Voucher", "Deleted", je.doctype, je.name,
+					message="Deleted in Tally - " + je.doctype + " cancelled")
 			except Exception as e:
 				frappe.db.rollback(save_point="tally_vch")
-				write_log("V|I|" + guid, "Import", "Voucher", "Failed", "Journal Entry", je.name,
+				write_log("V|I|" + guid, "Import", "Voucher", "Failed", je.doctype, je.name,
 					message="Deleted in Tally, but cancelling in ERPNext failed: " + short(_err(e), 900))
 
 	if forced_done:
@@ -525,6 +571,8 @@ def find_duplicate(s, v, index, claimed):
 			filters = {field: party, "docstatus": 1, "company": s.company, "posting_date": ["between", window]}
 			if pt:
 				filters["party_type"] = pt
+			if frappe.get_meta(dt).has_field("tally_guid"):
+				filters["tally_guid"] = ["is", "not set"]
 			rows = frappe.get_all(dt, filters=filters, fields=["name", amt_field + " as amt"] + ref_fields,
 				limit_page_length=200)
 			for r in rows:
@@ -588,7 +636,12 @@ def _bill_reference(row, bill_name):
 		return None
 	field = "customer" if dt == "Sales Invoice" else "supplier"
 	if frappe.db.exists(dt, {"name": bill_name, "docstatus": 1, field: row["party"]}):
-		return dt
+		return dt, bill_name
+	if frappe.get_meta(dt).has_field("tally_bill_no"):
+		# an invoice imported from Tally carries the Tally bill number, not the ERPNext name
+		name = frappe.db.get_value(dt, {"tally_bill_no": bill_name, "docstatus": 1, field: row["party"]}, "name")
+		if name:
+			return dt, name
 	return None
 
 
@@ -610,9 +663,9 @@ def _je_rows(s, v, index, with_refs):
 			used = 0.0
 			for bill_name, bill_type, amt in line["bills"]:
 				extra = {}
-				ref_dt = _bill_reference(base, bill_name) if with_refs and bill_type.lower() == "agst ref" else None
-				if ref_dt:
-					extra = {"reference_type": ref_dt, "reference_name": bill_name}
+				ref = _bill_reference(base, bill_name) if with_refs and bill_type.lower() == "agst ref" else None
+				if ref:
+					extra = {"reference_type": ref[0], "reference_name": ref[1]}
 				elif bill_type.lower() == "advance":
 					extra = {"is_advance": "Yes"}
 				add(base, amt, **extra)

@@ -49,7 +49,7 @@ def enabled_doctypes(s):
 def pending_docs(s, doctype, limit):
 	fields = ["name", "posting_date", "modified"] + HEADER_FIELDS[doctype]
 	base = [["docstatus", "=", 1], ["company", "=", s.company], ["posting_date", ">=", s.start_date]]
-	if doctype == "Journal Entry":
+	if frappe.get_meta(doctype).has_field("tally_guid"):
 		base.append(["tally_guid", "is", "not set"])
 	docs = frappe.get_all(doctype, filters=base + [["tally_sync_status", "=", "Retry"]], fields=fields,
 		order_by="posting_date asc, name asc", limit_page_length=limit)

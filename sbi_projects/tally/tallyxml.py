@@ -342,8 +342,20 @@ def parse_ledgers(text):
 			"alter_id": _int(_t(el, "ALTERID")),
 			"opening_net": -parse_amount(_t(el, "OPENINGBALANCE")),
 			"gstin": _gstin(el), "billwise": yes(_t(el, "ISBILLWISEON")),
+			"hsn": _hsn(el),
 		})
 	return out
+
+
+def _hsn(el):
+	"""HSN/SAC set on a Tally ledger (GST details), latest entry wins."""
+	found = ""
+	for tag in ("HSNCODE", "HSNSACCODE", "HSN"):
+		for sub in el.iter(tag):
+			code = re.sub(r"\s", "", sub.text or "")
+			if code.isdigit() and 4 <= len(code) <= 8:
+				found = code
+	return found
 
 
 def parse_stock_items(text):
