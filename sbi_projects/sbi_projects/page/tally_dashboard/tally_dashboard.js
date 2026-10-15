@@ -72,6 +72,15 @@ class TallyDashboard {
 	link(route, text) {
 		return `<a href="/app/${route}" target="_blank" rel="noopener">${this.esc(text)}</a>`;
 	}
+	synced_line(d) {
+		const when = (v) => v ? `<b>${frappe.datetime.str_to_user(v)}</b> (${frappe.datetime.comment_when(v)})` : `<b>${__("never")}</b>`;
+		const rows = (d.companies || []).filter((c) => d.is_all || c.company === d.company);
+		return rows.map((c) => `<div class="text-muted small" style="flex-basis:100%">
+			<span class="indicator ${c.ready ? "green" : "red"}"></span>
+			${d.is_all ? this.esc(c.company) + ": " : ""}${__("Last synced")} ${when(c.last_sync_on)}
+			· ${__("Last record received")} ${when(c.last_received)}</div>`).join("");
+	}
+
 	tile(label, value, sub, colour, route) {
 		const inner = `<div class="td-tile ${colour || ""}">
 			<div class="td-label">${label}</div>
@@ -113,7 +122,7 @@ class TallyDashboard {
 			${h.tally_company ? `<span class="indicator-pill blue">${this.esc(h.tally_company)} → ${this.esc(d.company)}</span>` : ""}
 			${h.enabled ? "" : `<span class="indicator-pill orange">${__("Sync disabled")}</span>`}
 			<span class="text-muted">${__("Agent last seen")} ${ago}</span>
-			${h.last_sync_on ? `<span class="text-muted">· ${__("Last complete sync")} ${frappe.datetime.str_to_user(h.last_sync_on)}</span>` : ""}
+			${this.synced_line(d)}
 			${h.last_error ? `<div class="td-error">${this.esc(h.last_error)}</div>` : ""}
 		</div>`;
 

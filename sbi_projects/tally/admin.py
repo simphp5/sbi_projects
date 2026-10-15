@@ -345,12 +345,24 @@ def get_summary(company=None):
 			"companies": s.tally_companies, "last_error": s.last_agent_error,
 			"last_sync_on": s.last_sync_on, "enabled": cint(s.enabled),
 		},
-		"companies": [{"tally_company": c.tally_company, "company": c.company,
-			"ready": cint(c.tally_reachable), "error": frappe.db.get_value("Tally Company Map", c.row, "last_error")
-				if c.row else s.last_agent_error} for c in contexts(include_disabled=True)],
+		"companies": [_company_status(s, c) for c in contexts(include_disabled=True)],
 		"table": table,
 		"pending_export": pending_export_count(company=company)["value"],
 		"today": _today_counts(company),
+	}
+
+
+def _company_status(s, c):
+	"""One Tally company row: open in Tally?, last complete sync, last record received."""
+	row = frappe.db.get_value("Tally Company Map", c.row, ["last_error", "last_sync_on"], as_dict=True) \
+		if c.row else None
+	last_received = frappe.db.sql("""select max(synced_on) from `tabTally Sync Log`
+		where direction = 'Import' and status in ('Success', 'Linked') and company = %s""", c.company)[0][0]
+	return {
+		"tally_company": c.tally_company, "company": c.company, "ready": cint(c.tally_reachable),
+		"error": row.last_error if row else s.last_agent_error,
+		"last_sync_on": (row.last_sync_on if row else None) or s.last_sync_on,
+		"last_received": last_received,
 	}
 
 

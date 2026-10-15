@@ -208,7 +208,8 @@ const tally = {
 				<span class="indicator-pill blue">${esc(frm.doc.sync_direction || "Tally to ERPNext only")}</span>
 				${(s.companies || []).map((c) => `<div class="small" style="line-height:1.6">
 					<span class="indicator ${c.ready ? "green" : "red"}"></span>
-					${esc(c.tally_company)} → ${esc(c.company)} ${c.ready ? "" : `<span class="text-danger">(${esc(c.error || __("not open in Tally"))})</span>`}</div>`).join("")}
+					${esc(c.tally_company)} → ${esc(c.company)} ${c.ready ? "" : `<span class="text-danger">(${esc(c.error || __("not open in Tally"))})</span>`}
+					<div class="text-muted" style="margin-left:18px">${tally.when(__("Last synced"), c.last_sync_on)} · ${tally.when(__("Last record received"), c.last_received)}</div></div>`).join("")}
 				${a.last_error ? `<div class="text-danger small" style="line-height:1.4;margin-top:6px">${esc(a.last_error)}</div>` : ""}
 				${a.user ? "" : `<div class="small" style="margin-top:6px">${__("Step 1: click <b>Agent > Generate Agent Key</b>, then install the agent on the Tally computer.")}</div>`}
 			</div>`;
@@ -245,6 +246,11 @@ const tally = {
 				${a.last_sync_on ? " " + __("Last complete sync: {0}", [frappe.datetime.str_to_user(a.last_sync_on)]) : ""}</div>`;
 			frm.get_field("summary_html").$wrapper.html(html);
 		});
+	},
+
+	when(label, value) {
+		if (!value) return label + ": <b>" + __("never") + "</b>";
+		return label + ": <b>" + frappe.datetime.str_to_user(value) + "</b> (" + frappe.datetime.comment_when(value) + ")";
 	},
 
 	filter(col) {

@@ -1,0 +1,15 @@
+{
+ "doctype": "Page",
+ "name": "cash-flow",
+ "page_name": "cash-flow",
+ "title": "Cash Flow",
+ "module": "SBI Projects",
+ "standard": "Yes",
+ "system_page": 0,
+ "icon": "wallet",
+ "roles": [
+  {
+   "role": "Business Owner"
+  }
+ ]
+}

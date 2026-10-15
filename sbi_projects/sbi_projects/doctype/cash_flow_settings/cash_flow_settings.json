@@ -1,0 +1,59 @@
+{
+ "doctype": "DocType",
+ "name": "Cash Flow Settings",
+ "module": "SBI Projects",
+ "custom": 0,
+ "issingle": 1,
+ "engine": "InnoDB",
+ "actions": [],
+ "links": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1,
+ "permissions": [
+  {
+   "role": "Business Owner",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 0,
+   "print": 0,
+   "share": 0
+  },
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 0,
+   "print": 0,
+   "share": 0
+  }
+ ],
+ "fields": [
+  {
+   "fieldname": "help_html",
+   "fieldtype": "HTML",
+   "options": "<p class='text-muted'>Cash Flow splits expenses into Petty Cash, Material, Equipment, Employee, Transport, Subcontracting and Other. Ledgers not listed below are placed by their name (e.g. 'Freight' &rarr; Transport, 'Salary' &rarr; Employee, 'Machinery Hire' &rarr; Equipment). Add a row to correct any ledger or a whole group. Use <b>Check Expense Ledgers</b> to see where every ledger currently goes.</p>"
+  },
+  {
+   "fieldname": "account_map",
+   "fieldtype": "Table",
+   "options": "Cash Flow Account Map",
+   "label": "Account Map"
+  },
+  {
+   "fieldname": "default_period",
+   "fieldtype": "Select",
+   "label": "Dashboard Opens With",
+   "options": "This Financial Year\nThis Half Year\nThis Quarter\nThis Month\nThis Week\nToday",
+   "default": "This Financial Year"
+  }
+ ],
+ "creation": "2026-10-15 12:00:00",
+ "modified": "2026-10-15 12:00:00",
+ "modified_by": "Administrator",
+ "owner": "Administrator"
+}

@@ -1,0 +1,4 @@
+[pre_model_sync]
+sbi_projects.patches.create_business_owner_role
+
+[post_model_sync]

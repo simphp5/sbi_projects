@@ -41,7 +41,8 @@ def get_dashboard(from_date=None, to_date=None, company=None):
 	health = dict(summary["agent"])
 	this = next((c for c in summary["companies"] if c["company"] == company), None)
 	if this:
-		health.update(tally_reachable=this["ready"], last_error=this["error"], tally_company=this["tally_company"])
+		health.update(tally_reachable=this["ready"], last_error=this["error"], tally_company=this["tally_company"],
+			last_sync_on=this["last_sync_on"], last_received=this["last_received"])
 	elif company == ALL:
 		health.update(tally_reachable=int(all(c["ready"] for c in summary["companies"]) and bool(summary["companies"])),
 			tally_company=", ".join(c["tally_company"] for c in summary["companies"]))
