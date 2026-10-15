@@ -266,6 +266,40 @@ def _desktop_icon():
 	doc.flags.ignore_permissions = True
 	doc.flags.ignore_mandatory = True
 	doc.save(ignore_permissions=True)
+	_add_to_saved_layouts(doc)
+
+
+ICON_FIELDS = ("label", "bg_color", "link", "link_type", "app", "icon_type", "parent_icon", "icon", "link_to",
+	"idx", "standard", "logo_url", "hidden", "name", "restrict_removal", "icon_image")
+
+
+def _add_to_saved_layouts(icon):
+	"""A user who once arranged the desktop sees their saved copy (Desktop Layout), not the live
+	icon list, so a new icon never reaches them. Put the Tally icon into each saved copy."""
+	if not frappe.db.exists("DocType", "Desktop Layout"):
+		return
+	row = {f: icon.get(f) for f in ICON_FIELDS if icon.meta.has_field(f) or f == "name"}
+	allowed = set(frappe.get_all("Has Role", filters={"parenttype": "User",
+		"role": ("in", ("System Manager", "Accounts Manager", "Accounts User"))}, pluck="parent"))
+	allowed.add("Administrator")
+	for name in frappe.get_all("Desktop Layout", pluck="name"):
+		if name not in allowed:
+			continue
+		raw = frappe.db.get_value("Desktop Layout", name, "layout")
+		try:
+			layout = json.loads(raw) if raw else None
+		except Exception:
+			continue
+		if not isinstance(layout, list):
+			continue
+		labels = {i.get("label") for i in layout if isinstance(i, dict)}
+		if row["parent_icon"] and row["parent_icon"] not in labels:
+			continue  # folder removed by this user: leave their desktop alone
+		kept = [i for i in layout if not (isinstance(i, dict) and i.get("label") == row["label"])]
+		kept.append(dict(row, child_icons=[]))
+		frappe.db.set_value("Desktop Layout", name, "layout", json.dumps(kept), update_modified=False)
+	frappe.cache.delete_key("desktop_icons")
+	frappe.cache.delete_key("bootinfo")
 
 
 def _tally_sidebar():
