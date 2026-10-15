@@ -19,6 +19,10 @@ def setup_tally():
 	_custom_fields()
 	_cards_and_charts()
 	_workspace()
+	try:
+		_desktop_icon()
+	except Exception:
+		frappe.log_error(title="Tally desktop icon")
 	frappe.db.commit()
 
 
@@ -201,6 +205,42 @@ def _workspace():
 
 	doc.flags.ignore_permissions = True
 	doc.flags.ignore_links = True
+	doc.save(ignore_permissions=True)
+
+
+# ---------------------------------------------------------------- desktop icon
+DESKTOP_ICON = "Tally"
+
+
+def _desktop_icon():
+	"""'Tally' icon inside the Accounting folder of the v16 desktop, next to Invoicing / Payments.
+	Opens the Tally Dashboard. The blue picture is public/icons/desktop_icons/<style>/tally.svg."""
+	if not frappe.db.exists("DocType", "Desktop Icon"):
+		return
+	meta = frappe.get_meta("Desktop Icon")
+	folder = None
+	for name in ("Accounting", "Accounts"):
+		if frappe.db.get_value("Desktop Icon", name, "icon_type") == "Folder":
+			folder = name
+			break
+	if frappe.db.exists("Desktop Icon", DESKTOP_ICON):
+		doc = frappe.get_doc("Desktop Icon", DESKTOP_ICON)
+	else:
+		doc = frappe.new_doc("Desktop Icon")
+		siblings = frappe.get_all("Desktop Icon", filters={"parent_icon": folder or ""}, pluck="idx")
+		doc.idx = max([i or 0 for i in siblings] or [0]) + 1
+	values = {
+		"label": DESKTOP_ICON, "icon_type": "Link", "link_type": "External", "link": "/app/tally-dashboard",
+		# the workspace's module decides who may see the icon (anyone who can open SBI Projects)
+		"link_to": WORKSPACE, "parent_icon": folder, "icon": "refresh-cw", "app": "sbi_projects",
+		"standard": 0, "hidden": 0, "bg_color": "blue",
+	}
+	for field, value in values.items():
+		if meta.has_field(field):
+			doc.set(field, value)
+	doc.flags.ignore_links = True
+	doc.flags.ignore_permissions = True
+	doc.flags.ignore_mandatory = True
 	doc.save(ignore_permissions=True)
 
 
