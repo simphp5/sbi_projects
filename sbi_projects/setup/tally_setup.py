@@ -212,11 +212,33 @@ def _workspace():
 DESKTOP_ICON = "Tally"
 
 
+SIDEBAR_ITEMS = [
+	("Link", "Tally Dashboard", "Page", "tally-dashboard", "chart-column"),
+	("Link", "Tally Integration", "Workspace", WORKSPACE, "layout-grid"),
+	("Section Break", "Tally", None, None, "refresh-cw"),
+	("Link", "Tally Settings", "DocType", "Tally Settings", None),
+	("Link", "Tally Sync Log", "DocType", "Tally Sync Log", None),
+	("Section Break", "From Tally", None, None, "receipt-text"),
+	("Link", "Sales Invoice", "DocType", "Sales Invoice", None),
+	("Link", "Purchase Invoice", "DocType", "Purchase Invoice", None),
+	("Link", "Journal Entry", "DocType", "Journal Entry", None),
+]
+
+
 def _desktop_icon():
 	"""'Tally' icon inside the Accounting folder of the v16 desktop, next to Invoicing / Payments.
-	Opens the Tally Dashboard. The blue picture is public/icons/desktop_icons/<style>/tally.svg."""
+
+	Frappe 16.x (Workspace Sidebar era) shows a Link icon only when a Workspace Sidebar with the
+	same name exists and the user can open at least one item in it; clicking the icon opens the
+	sidebar's first link (the Tally Dashboard). The blue picture is
+	public/icons/desktop_icons/<style>/tally.svg."""
 	if not frappe.db.exists("DocType", "Desktop Icon"):
 		return
+	use_sidebar = frappe.db.exists("DocType", "Workspace Sidebar") and \
+		frappe.get_meta("Workspace Sidebar").has_field("items")
+	if use_sidebar:
+		_tally_sidebar()
+
 	meta = frappe.get_meta("Desktop Icon")
 	folder = None
 	for name in ("Accounting", "Accounts"):
@@ -230,11 +252,13 @@ def _desktop_icon():
 		siblings = frappe.get_all("Desktop Icon", filters={"parent_icon": folder or ""}, pluck="idx")
 		doc.idx = max([i or 0 for i in siblings] or [0]) + 1
 	values = {
-		"label": DESKTOP_ICON, "icon_type": "Link", "link_type": "External", "link": "/app/tally-dashboard",
-		# the workspace's module decides who may see the icon (anyone who can open SBI Projects)
-		"link_to": WORKSPACE, "parent_icon": folder, "icon": "refresh-cw", "app": "sbi_projects",
-		"standard": 0, "hidden": 0, "bg_color": "blue",
+		"label": DESKTOP_ICON, "icon_type": "Link", "parent_icon": folder, "icon": "refresh-cw",
+		"app": "sbi_projects", "standard": 0, "hidden": 0, "bg_color": "blue",
 	}
+	if use_sidebar:
+		values.update(link_type="Workspace Sidebar", link_to=DESKTOP_ICON, link=None)
+	else:
+		values.update(link_type="External", link="/app/tally-dashboard", link_to=WORKSPACE)
 	for field, value in values.items():
 		if meta.has_field(field):
 			doc.set(field, value)
@@ -242,6 +266,35 @@ def _desktop_icon():
 	doc.flags.ignore_permissions = True
 	doc.flags.ignore_mandatory = True
 	doc.save(ignore_permissions=True)
+
+
+def _tally_sidebar():
+	"""Workspace Sidebar 'Tally': what the desktop icon opens and the left menu on Tally pages."""
+	if frappe.db.exists("Workspace Sidebar", DESKTOP_ICON):
+		side = frappe.get_doc("Workspace Sidebar", DESKTOP_ICON)
+	else:
+		side = frappe.new_doc("Workspace Sidebar")
+		side.title = DESKTOP_ICON
+	meta = side.meta
+	for field, value in (("header_icon", "refresh-cw"), ("module", MODULE), ("app", "sbi_projects"),
+			("standard", 0)):
+		if meta.has_field(field):
+			side.set(field, value)
+	side.set("items", [])
+	for row_type, label, link_type, link_to, icon in SIDEBAR_ITEMS:
+		if link_type == "Page" and not frappe.db.exists("Page", link_to):
+			continue
+		if link_type == "Workspace" and not frappe.db.exists("Workspace", link_to):
+			continue
+		row = {"type": row_type, "label": label, "icon": icon, "collapsible": 1,
+			"child": 1 if row_type == "Link" and link_type == "DocType" else 0,
+			"indent": 1 if row_type == "Section Break" else 0}
+		if link_type:
+			row.update(link_type=link_type, link_to=link_to)
+		side.append("items", row)
+	side.flags.ignore_links = True
+	side.flags.ignore_permissions = True
+	side.save(ignore_permissions=True)
 
 
 def _block(block_type, data):
