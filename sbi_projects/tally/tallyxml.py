@@ -29,11 +29,16 @@ def x(value):
 	return _escape("" if value is None else str(value), {'"': "&quot;"})
 
 
+_NS_TAG = re.compile(r"<(/?)([A-Za-z][\w.]*):")
+
+
 def clean(text):
 	"""Tally emits control characters (&#4; etc.) that no XML parser accepts."""
 	text = _BAD_DEC_REF.sub("", text or "")
 	text = _BAD_HEX_REF.sub("", text)
 	text = _BAD_CHARS.sub("", text)
+	# user-defined fields come as <UDF:NAME> - a namespace prefix that is never declared
+	text = _NS_TAG.sub(r"<\1\2_", text)
 	return _AMP.sub("&amp;", text)
 
 
@@ -145,18 +150,32 @@ def tally_date_text(value):
 	return str(d.day) + "-" + d.strftime("%b-%Y")
 
 
+VOUCHER_FETCH = ("Date, Guid, AlterId, VoucherTypeName, VoucherNumber, Narration, Reference, RemoteId, "
+	"PartyLedgerName, IsCancelled, IsDeleted, IsOptional, IsInvoice, AllLedgerEntries.*, "
+	"AllLedgerEntries.BillAllocations.*, AllInventoryEntries.*, AllInventoryEntries.AccountingAllocations.*")
+
+
 def daybook_request(company, from_date, to_date):
-	"""Day Book for a period. SVFROMDATE / SVTODATE must carry TYPE="Date", otherwise Tally
-	ignores them and returns only the current day."""
+	"""Vouchers of one period, as a Voucher collection with an explicit date filter.
+
+	The Day Book report is not used: some TallyPrime setups ignore SVFROMDATE / SVTODATE on it
+	and return only the vouchers of Tally's current date (seen with TallyPrime 7.2, where a
+	whole year came back as the one voucher of 24-Oct). The filter formula below cannot be
+	ignored, so every voucher dated in the period comes back."""
+	frm, to = tally_date_text(from_date), tally_date_text(to_date)
 	return (
-		"<ENVELOPE><HEADER><TALLYREQUEST>Export Data</TALLYREQUEST></HEADER><BODY><EXPORTDATA>"
-		"<REQUESTDESC><REPORTNAME>Day Book</REPORTNAME><STATICVARIABLES>"
+		"<ENVELOPE><HEADER><VERSION>1</VERSION><TALLYREQUEST>Export</TALLYREQUEST><TYPE>Collection</TYPE>"
+		"<ID>ERPVouchers</ID></HEADER><BODY><DESC><STATICVARIABLES>"
 		"<SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT>"
 		"<SVCURRENTCOMPANY>" + x(company) + "</SVCURRENTCOMPANY>"
-		"<SVFROMDATE TYPE=\"Date\">" + tally_date_text(from_date) + "</SVFROMDATE>"
-		"<SVTODATE TYPE=\"Date\">" + tally_date_text(to_date) + "</SVTODATE>"
-		"<EXPLODEFLAG>Yes</EXPLODEFLAG>"
-		"</STATICVARIABLES></REQUESTDESC></EXPORTDATA></BODY></ENVELOPE>"
+		"<SVFROMDATE TYPE=\"Date\">" + frm + "</SVFROMDATE>"
+		"<SVTODATE TYPE=\"Date\">" + to + "</SVTODATE>"
+		"</STATICVARIABLES><TDL><TDLMESSAGE>"
+		"<COLLECTION NAME=\"ERPVouchers\" ISMODIFY=\"No\"><TYPE>Voucher</TYPE>"
+		"<FETCH>" + VOUCHER_FETCH + "</FETCH><FILTER>ERPInRange</FILTER></COLLECTION>"
+		"<SYSTEM TYPE=\"Formulae\" NAME=\"ERPInRange\">$Date &gt;= $$Date:\"" + frm + "\" AND $Date &lt;= $$Date:\""
+		+ to + "\"</SYSTEM>"
+		"</TDLMESSAGE></TDL></DESC></BODY></ENVELOPE>"
 	)
 
 
