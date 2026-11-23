@@ -432,8 +432,10 @@ def process_import_vouchers(results):
 			set_settings(last_agent_error=short("Day Book " + frm + " to " + to + ": " + str(e), 500))
 			continue
 		ok_months.append(frm)
-		in_range = [v for v in month if v["date"] and frm <= v["date"] <= to]
-		ignored += len(month) - len(in_range)
+		# Tally's reply also holds an empty entry with no date: that is not a voucher at all
+		dated = [v for v in month if v["date"]]
+		in_range = [v for v in dated if frm <= v["date"] <= to]
+		ignored += len(dated) - len(in_range)
 		vouchers += in_range
 		if in_range:
 			# an empty month is never trusted as "everything was deleted"
