@@ -76,6 +76,9 @@ def get_jobs(stage):
 				frappe.flags.tally_ctx = None
 			more = more or m
 			out += [_job(c.rowkey + "~", j) for j in jobs]
+			if stage == "import_vouchers" and jobs:
+				more = True  # one company per round keeps each answer small; the next round serves the rest
+				break
 	frappe.db.commit()
 	return {"jobs": out, "more": bool(more)}
 

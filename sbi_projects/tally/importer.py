@@ -380,21 +380,46 @@ def voucher_months(s):
 	return months
 
 
+# One month per request round: a whole year (or several, when old years are imported) in one
+# answer is too big to post to ERPNext (HTTP 413). The months already done in this pass are kept
+# in the cache, so each round asks Tally for the next month only.
+VCH_MONTHS_PER_ROUND = 1
+
+
+def _vch_done_key(s):
+	return "tally_vch_pass|" + str(s.get("rowkey") or "_") + "|" + str(s.start_date)
+
+
+def _vch_pass(s):
+	"""{"alt": AltVchId when the pass started, "done": [month starts already read]}"""
+	return frappe.cache().get_value(_vch_done_key(s)) or {}
+
+
+def _vch_done(s):
+	return set(_vch_pass(s).get("done") or [])
+
+
 def import_vouchers_jobs(s):
 	if not cint(s.import_vouchers) or not imports_on(s):
 		return [], False
 	if cint(s.current_alt_vch_id) and cint(s.current_alt_vch_id) == cint(s.last_alt_vch_id):
 		return [], False
+	months = voucher_months(s)
+	done = _vch_done(s)
+	pending = [m for m in months if str(m[0]) not in done]
+	if not pending:  # a pass that ended with an error: start it again
+		frappe.cache().delete_value(_vch_done_key(s))
+		pending = months
 	jobs = []
-	for frm, to in voucher_months(s):
+	for frm, to in pending[:VCH_MONTHS_PER_ROUND]:
 		jobs.append({"id": "dbk|" + str(frm) + "|" + str(to), "xml": tx.daybook_request(s.tally_company, frm, to)})
-	return jobs, False
+	return jobs, len(pending) > VCH_MONTHS_PER_ROUND
 
 
 def process_import_vouchers(results):
 	s = settings()
 	complete = all(not r.get("error") for r in results)
-	vouchers, range_end, checked_months, ignored = [], None, [], 0
+	vouchers, range_end, checked_months, ignored, ok_months = [], None, [], 0, []
 	for r in results:
 		_, frm, to = r["id"].split("|")
 		range_end = max(range_end or to, to)
@@ -406,6 +431,7 @@ def process_import_vouchers(results):
 			complete = False
 			set_settings(last_agent_error=short("Day Book " + frm + " to " + to + ": " + str(e), 500))
 			continue
+		ok_months.append(frm)
 		in_range = [v for v in month if v["date"] and frm <= v["date"] <= to]
 		ignored += len(month) - len(in_range)
 		vouchers += in_range
@@ -540,8 +566,15 @@ def process_import_vouchers(results):
 
 	if forced_done:
 		set_settings(force_import_guids="\n".join(sorted(force - forced_done)))
-	if complete:
-		set_settings(last_alt_vch_id=cint(s.current_alt_vch_id))
+	state = _vch_pass(s)
+	started_at = cint(state.get("alt")) or cint(s.current_alt_vch_id)
+	done = set(state.get("done") or []) | set(ok_months)
+	if complete and not [m for m in voucher_months(s) if str(m[0]) not in done]:
+		frappe.cache().delete_value(_vch_done_key(s))
+		# vouchers changed in Tally during the pass (AltVchId moved on) trigger another pass
+		set_settings(last_alt_vch_id=started_at)
+	else:
+		frappe.cache().set_value(_vch_done_key(s), {"alt": started_at, "done": sorted(done)}, expires_in_sec=2 * 86400)
 
 
 # ---------------------------------------------------------------- duplicate check

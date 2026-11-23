@@ -56,6 +56,8 @@ def reset_state(**values):
 	if row_values:
 		for name in frappe.get_all(COMPANY_MAP, filters={"parenttype": SETTINGS}, pluck="name"):
 			frappe.db.set_value(COMPANY_MAP, name, row_values, update_modified=False)
+	if "last_alt_vch_id" in values:
+		frappe.cache().delete_keys("tally_vch_pass|")  # a re-check starts the month-by-month read again
 
 
 # ---------------------------------------------------------------- one context per Tally company
