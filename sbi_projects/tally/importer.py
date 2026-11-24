@@ -171,10 +171,16 @@ def process_masters(results):
 	index = LedgerIndex(s.company)
 	group_map = _group_account_map(s)
 	# done = this company already has the account, or the (shared) customer / supplier exists
-	done_guids = set(frappe.get_all("Account", filters={"company": s.company, "tally_guid": ["is", "set"]},
-		pluck="tally_guid"))
+	# guid -> (doctype, name, tally_ledger_name) of records already linked to a Tally ledger
+	known = {}
+	for r in frappe.get_all("Account", filters={"company": s.company, "tally_guid": ["is", "set"]},
+			fields=["name", "tally_guid", "tally_ledger_name"], limit_page_length=0):
+		known[r.tally_guid] = ("Account", r.name, r.tally_ledger_name)
 	for dt in ("Customer", "Supplier"):
-		done_guids.update(frappe.get_all(dt, filters={"tally_guid": ["is", "set"]}, pluck="tally_guid"))
+		for r in frappe.get_all(dt, filters={"tally_guid": ["is", "set"]},
+				fields=["name", "tally_guid", "tally_ledger_name"], limit_page_length=0):
+			known.setdefault(r.tally_guid, (dt, r.name, r.tally_ledger_name))
+	done_guids = set(known)
 
 	hsn_by_guid = {}
 	if frappe.get_meta("Account").has_field("tally_hsn"):
@@ -183,6 +189,11 @@ def process_masters(results):
 
 	for i, led in enumerate(ledgers):
 		if led["guid"] and led["guid"] in done_guids:
+			# renamed in Tally: vouchers now carry the new name, so remember it (the ERPNext
+			# account name is kept, so older years that still use the old name match too)
+			dt, docname, tally_name = known[led["guid"]]
+			if led["name"] and (tally_name or "").strip() != led["name"].strip():
+				frappe.db.set_value(dt, docname, "tally_ledger_name", led["name"].strip(), update_modified=False)
 			acc = hsn_by_guid.get(led["guid"])
 			if acc and led.get("hsn") and acc.tally_hsn != led["hsn"]:
 				frappe.db.set_value("Account", acc.name, "tally_hsn", led["hsn"], update_modified=False)
