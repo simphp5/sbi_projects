@@ -156,9 +156,54 @@ def get_dashboard(from_date=None, to_date=None, company=None):
 	out["skipped"] = frappe.db.sql("""select name, tally_name, reference_doctype, reference_name, amount, posting_date
 		from `tabTally Sync Log` where status = 'Skipped' and """ + cond + """
 		order by last_attempt desc limit 10""", params, as_dict=True)
+	out["failed_count"] = frappe.db.sql("select count(*) from `tabTally Sync Log` where status = 'Failed' and "
+		+ cond, params)[0][0]
+	out["skipped_count"] = frappe.db.sql("select count(*) from `tabTally Sync Log` where status = 'Skipped' and "
+		+ cond, params)[0][0]
+	out["by_fy"] = _by_financial_year(companies)
 	out["draft_jes"] = frappe.db.count("Journal Entry",
 		{"company": ["in", companies], "docstatus": 0, "tally_guid": ["is", "set"]})
 	out["invoices"] = _invoices(companies, from_date, to_date)
+	return out
+
+
+FY_EXPR = "year(date_sub(posting_date, interval 3 month))"  # April-March financial year
+
+
+def _by_financial_year(companies):
+	"""Every year imported from Tally (not limited to the page period): one row per April-March year."""
+	years = {}
+
+	def row(fy):
+		return years.setdefault(cint(fy), {"fy": cint(fy), "je": 0, "si": 0, "pi": 0, "amount": 0.0, "sources": ""})
+
+	for r in frappe.db.sql("select " + FY_EXPR + """, count(*), sum(total_debit) from `tabJournal Entry`
+			where docstatus = 1 and company in %s and ifnull(tally_guid, '') != '' group by 1""", (companies,)):
+		x = row(r[0])
+		x["je"] = cint(r[1])
+		x["amount"] += flt(r[2])
+	for dt, key in (("Sales Invoice", "si"), ("Purchase Invoice", "pi")):
+		if not frappe.get_meta(dt).has_field("tally_guid"):
+			continue
+		for r in frappe.db.sql("select " + FY_EXPR + ", count(*), sum(base_grand_total) from `tab" + dt + """`
+				where docstatus < 2 and company in %s and ifnull(tally_guid, '') != '' group by 1""", (companies,)):
+			x = row(r[0])
+			x[key] = cint(r[1])
+			x["amount"] += flt(r[2])
+	# which Tally company each year was read from (the sync log keeps the Tally company name)
+	for r in frappe.db.sql("select " + FY_EXPR + """, group_concat(distinct tally_company separator ', ')
+			from `tabTally Sync Log` where record_type = 'Voucher' and status in ('Success', 'Linked')
+			and company in %s and posting_date is not null group by 1""", (companies,)):
+		if cint(r[0]) in years:
+			years[cint(r[0])]["sources"] = r[1] or ""
+	out = []
+	for fy in sorted(years, reverse=True):
+		x = years[fy]
+		x["label"] = str(fy) + "-" + str(fy + 1)[2:]
+		x["from_date"] = str(fy) + "-04-01"
+		x["to_date"] = str(fy + 1) + "-03-31"
+		x["total"] = x["je"] + x["si"] + x["pi"]
+		out.append(x)
 	return out
 
 

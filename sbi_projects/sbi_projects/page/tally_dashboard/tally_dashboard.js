@@ -109,6 +109,21 @@ class TallyDashboard {
 		const failed = d.failed || [];
 		const skipped = d.skipped || [];
 		const cbTotal = cb.reduce((a, r) => a + (r.bal || 0), 0);
+		const failedCount = d.failed_count == null ? failed.length : d.failed_count;
+		const skippedCount = d.skipped_count == null ? skipped.length : d.skipped_count;
+		const fys = d.by_fy || [];
+		const fyTotal = fys.reduce((a, r) => a + (r.total || 0), 0);
+		const fyRange = (r) => 'journal-entry?tally_voucher=["is","set"]&posting_date='
+			+ encodeURIComponent(JSON.stringify(["Between", [r.from_date, r.to_date]]));
+		const fyTable = this.table([
+			{ label: __("Financial year"), get: (r) => this.link(fyRange(r), r.label) },
+			{ label: __("Journal Entries"), num: 1, get: (r) => r.je },
+			{ label: __("Sales Inv."), num: 1, get: (r) => r.si },
+			{ label: __("Purchase Inv."), num: 1, get: (r) => r.pi },
+			{ label: __("Total vouchers"), num: 1, get: (r) => `<b>${r.total}</b>` },
+			{ label: __("Amount"), num: 1, get: (r) => this.money(r.amount) },
+			{ label: __("From Tally company"), get: (r) => `<span class="td-msg">${this.esc(r.sources)}</span>` },
+		], fys, __("No vouchers imported from Tally yet"));
 
 		const ago = h.seconds_ago == null ? __("never")
 			: h.seconds_ago < 90 ? __("{0} s ago", [Math.round(h.seconds_ago)])
@@ -134,9 +149,9 @@ class TallyDashboard {
 			${this.tile(__("Payable (Tally suppliers)"), this.money(pay.total), __("as on {0}", [frappe.datetime.str_to_user(d.to_date)]), "orange",
 				"query-report/Accounts Payable")}
 			${this.tile(__("Bank + Cash"), this.money(cbTotal), __("{0} accounts", [cb.length]), "purple")}
-			${this.tile(__("Failed records"), failed.length, failed.length ? __("needs attention") : __("all good"),
-				failed.length ? "red" : "grey", "tally-sync-log?status=Failed")}
-			${this.tile(__("Skipped as duplicates"), skipped.length, __("already in ERPNext"), "grey",
+			${this.tile(__("Failed records"), failedCount, failedCount ? __("needs attention") : __("all good"),
+				failedCount ? "red" : "grey", "tally-sync-log?status=Failed")}
+			${this.tile(__("Skipped as duplicates"), skippedCount, __("already in ERPNext"), "grey",
 				"tally-sync-log?status=Skipped")}
 		</div>`;
 
@@ -190,6 +205,8 @@ class TallyDashboard {
 		this.$body.html(`
 			${health}
 			${tiles}
+			${this.card(__("Vouchers by financial year (all years imported)"), fyTable,
+				`<span class="text-muted">${__("{0} vouchers in {1} years", [fyTotal, fys.length])}</span>`)}
 			<div class="td-grid">
 				${this.card(`<span class="td-chart-title">${__("Tally vouchers by voucher date")}</span>`, `<div class="td-chart"></div>`)}
 				${this.card(__("By Tally voucher type"), byType)}
