@@ -1,12 +1,16 @@
 # Copyright (c) 2026, Velmaska and contributors
-"""Keep the Lite ERP and SBI Office desktop icons and the Lite ERP workspace on every migrate.
+"""Install / update Lite ERP + SBI Office on every deploy, and keep their desktop icons and workspace.
 
-Lite ERP itself (page, API, punch app) is installed from System Console (lite_erp/dist). Those icons
-and the workspace are site records with no file in this app, so a migrate's orphan clean-up removes
-them. This step puts them back after every migrate. It never changes the page or the API scripts.
+1. The installer `lite_erp/dist/lite_erp_console.py` (at the repo root, the same file that can be run
+   from System Console) runs by itself whenever its content changes. So a new Lite ERP version is just:
+   put the new installer in lite_erp/dist, push, deploy (Update Now + Migrate).
+2. The Lite ERP workspace and the Lite ERP / SBI Office desktop icons are site records with no file in
+   this app, so the migrate's orphan clean-up removes them. They are put back after every migrate.
 """
 
+import hashlib
 import json
+import os
 
 import frappe
 
@@ -23,7 +27,43 @@ ICON_FIELDS = ("label", "bg_color", "link", "link_type", "app", "icon_type", "pa
 	"idx", "standard", "logo_url", "hidden", "name", "restrict_removal", "icon_image")
 
 
+INSTALLER_KEY = "sbi_lite_erp_installer_sha1"
+
+
+def installer_path():
+	repo_root = os.path.dirname(frappe.get_app_path("sbi_projects"))
+	return os.path.join(repo_root, "lite_erp", "dist", "lite_erp_console.py")
+
+
+def run_installer(force=False):
+	"""Run the Lite ERP installer when it is new or changed (force=True runs it anyway)."""
+	path = installer_path()
+	if not os.path.exists(path):
+		print("Lite ERP installer not found: " + path)
+		return False
+	with open(path, encoding="utf-8") as f:
+		src = f.read()
+	digest = hashlib.sha1(src.encode("utf-8")).hexdigest()
+	if not force and frappe.db.get_global(INSTALLER_KEY) == digest and frappe.db.exists("Server Script", "SBI Lite ERP"):
+		return False
+	lines = []
+
+	def log(*args):
+		text = " ".join(str(a) for a in args)
+		lines.append(text)
+		print("[Lite ERP] " + text)
+
+	# the installer is written for System Console; it needs only frappe, json and log()
+	exec(compile(src, path, "exec"), {"frappe": frappe, "json": json, "log": log, "__name__": "lite_erp_installer"})
+	frappe.db.commit()
+	frappe.db.set_global(INSTALLER_KEY, digest)
+	frappe.db.set_global("sbi_lite_erp_installer_log", "\n".join(lines)[-60000:])
+	frappe.db.commit()
+	return True
+
+
 def setup_lite_erp():
+	run_installer()
 	# Lite ERP was never installed on this site: nothing to keep
 	if not frappe.db.exists("Server Script", "SBI Lite ERP"):
 		return
