@@ -9,6 +9,8 @@ Stage "import_vouchers": Day Book month by month -> one Journal Entry per Tally
 Stage "opening":        ledger opening balances -> one DRAFT opening Journal Entry.
 """
 
+import re
+
 import frappe
 from frappe.utils import add_days, add_months, cint, flt, get_first_day, get_last_day, getdate, nowdate
 
@@ -103,12 +105,16 @@ def process_status(results):
 
 
 # ================================================================ lookups
+def _squash(name):
+	return re.sub(r"[^a-z0-9]", "", (name or "").lower())
+
+
 class LedgerIndex:
 	"""Tally ledger name -> ERPNext master, built once per run."""
 
 	def __init__(self, company):
 		self.company = company
-		self.exact, self.loose = {}, {}
+		self.exact, self.loose, self.squashed = {}, {}, {}
 		for dt, field in (("Customer", "customer_name"), ("Supplier", "supplier_name")):
 			for r in frappe.get_all(dt, fields=["name", field, "tally_ledger_name"], limit_page_length=0):
 				self._add(r.tally_ledger_name, r.get(field), r.name, (dt, r.name))
@@ -122,10 +128,19 @@ class LedgerIndex:
 		for n in (display, docname):
 			if n:
 				self.loose.setdefault(n.strip().lower(), target)
+		# last resort: letters and digits only, so "CITY UNION BANK -CA" finds "City Union Bank - CA"
+		for n in (tally_name, display, docname):
+			key = _squash(n)
+			if key:
+				self.squashed.setdefault(key, set()).add(target)
 
 	def find(self, ledger):
 		key = (ledger or "").strip().lower()
-		return self.exact.get(key) or self.loose.get(key)
+		hit = self.exact.get(key) or self.loose.get(key)
+		if hit:
+			return hit
+		near = self.squashed.get(_squash(ledger)) or set()
+		return next(iter(near)) if len(near) == 1 else None  # two candidates: don't guess
 
 	def add(self, ledger, target):
 		self.exact[(ledger or "").strip().lower()] = target
