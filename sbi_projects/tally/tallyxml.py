@@ -400,37 +400,53 @@ def _entries(voucher, tags):
 	return []
 
 
+def _net_lines(entries):
+	lines, order = {}, []
+	for e in entries:
+		ledger = _t(e, "LEDGERNAME")
+		key = ledger.lower()
+		if key not in lines:
+			lines[key] = {"ledger": ledger, "net": 0.0, "bills": {}}
+			order.append(key)
+		lines[key]["net"] += -parse_amount(_t(e, "AMOUNT"))
+		for b in e.findall("BILLALLOCATIONS.LIST"):
+			bname = _t(b, "NAME")
+			if not bname:
+				continue
+			bkey = (bname, _t(b, "BILLTYPE") or "Agst Ref")
+			lines[key]["bills"][bkey] = lines[key]["bills"].get(bkey, 0.0) - parse_amount(_t(b, "AMOUNT"))
+	clean_lines = []
+	for k in order:
+		ln = lines[k]
+		ln["net"] = round(ln["net"], 2)
+		ln["bills"] = [(r, t, round(a, 2)) for (r, t), a in ln["bills"].items() if round(a, 2)]
+		if ln["net"]:
+			clean_lines.append(ln)
+	return clean_lines
+
+
+def _imbalance(lines):
+	return round(sum(l["net"] for l in lines), 2)
+
+
 def parse_vouchers(text):
 	"""Day Book / voucher collection -> list of vouchers with lines netted per ledger."""
 	out = []
 	for v in parse_xml(text).iter("VOUCHER"):
 		entries = _entries(v, ("ALLLEDGERENTRIES.LIST", "LEDGERENTRIES.LIST"))
 		inventory = v.findall("ALLINVENTORYENTRIES.LIST") or v.findall("INVENTORYENTRIES.LIST")
+		allocations = []
 		for inv in inventory:
-			entries += [a for a in inv.findall("ACCOUNTINGALLOCATIONS.LIST") if _t(a, "LEDGERNAME")]
+			allocations += [a for a in inv.findall("ACCOUNTINGALLOCATIONS.LIST") if _t(a, "LEDGERNAME")]
 
-		lines, order = {}, []
-		for e in entries:
-			ledger = _t(e, "LEDGERNAME")
-			key = ledger.lower()
-			if key not in lines:
-				lines[key] = {"ledger": ledger, "net": 0.0, "bills": {}}
-				order.append(key)
-			lines[key]["net"] += -parse_amount(_t(e, "AMOUNT"))
-			for b in e.findall("BILLALLOCATIONS.LIST"):
-				bname = _t(b, "NAME")
-				if not bname:
-					continue
-				bkey = (bname, _t(b, "BILLTYPE") or "Agst Ref")
-				lines[key]["bills"][bkey] = lines[key]["bills"].get(bkey, 0.0) - parse_amount(_t(b, "AMOUNT"))
-
-		clean_lines = []
-		for k in order:
-			ln = lines[k]
-			ln["net"] = round(ln["net"], 2)
-			ln["bills"] = [(r, t, round(a, 2)) for (r, t), a in ln["bills"].items() if round(a, 2)]
-			if ln["net"]:
-				clean_lines.append(ln)
+		# Item invoices keep the sales / purchase ledger in the items' accounting allocations. Some
+		# (older) vouchers carry it in the ledger entries as well: then the ledger entries balance on
+		# their own and adding the allocations would count the purchase twice.
+		clean_lines = _net_lines(entries + allocations)
+		if allocations and _imbalance(clean_lines):
+			ledger_only = _net_lines(entries)
+			if ledger_only and not _imbalance(ledger_only):
+				clean_lines = ledger_only
 
 		out.append({
 			"guid": _t(v, "GUID"),
@@ -446,6 +462,6 @@ def parse_vouchers(text):
 			"optional": yes(_t(v, "ISOPTIONAL")),
 			"deleted": yes(_t(v, "ISDELETED")),
 			"lines": clean_lines,
-			"imbalance": round(sum(l["net"] for l in clean_lines), 2),
+			"imbalance": _imbalance(clean_lines),
 		})
 	return out
