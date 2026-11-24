@@ -175,7 +175,8 @@ def _by_financial_year(companies):
 	years = {}
 
 	def row(fy):
-		return years.setdefault(cint(fy), {"fy": cint(fy), "je": 0, "si": 0, "pi": 0, "amount": 0.0, "sources": ""})
+		return years.setdefault(cint(fy), {"fy": cint(fy), "je": 0, "si": 0, "pi": 0, "amount": 0.0, "sources": "",
+			"debit": 0.0, "credit": 0.0, "profit": 0.0, "drafts": 0})
 
 	for r in frappe.db.sql("select " + FY_EXPR + """, count(*), sum(total_debit) from `tabJournal Entry`
 			where docstatus = 1 and company in %s and ifnull(tally_guid, '') != '' group by 1""", (companies,)):
@@ -190,6 +191,23 @@ def _by_financial_year(companies):
 			x = row(r[0])
 			x[key] = cint(r[1])
 			x["amount"] += flt(r[2])
+	# draft invoices are not in the ledger yet, so the profit below leaves them out
+	for dt in ("Sales Invoice", "Purchase Invoice"):
+		if not frappe.get_meta(dt).has_field("tally_guid"):
+			continue
+		for r in frappe.db.sql("select " + FY_EXPR + ", count(*) from `tab" + dt + """`
+				where docstatus = 0 and company in %s and ifnull(tally_guid, '') != '' group by 1""", (companies,)):
+			if cint(r[0]) in years:
+				years[cint(r[0])]["drafts"] += cint(r[1])
+	# ledger totals per year: debit, credit and profit (income - expense; negative = loss)
+	for r in frappe.db.sql("select year(date_sub(gle.posting_date, interval 3 month)), sum(gle.debit), sum(gle.credit),"
+			""" sum(case when acc.root_type in ('Income', 'Expense') then gle.credit - gle.debit else 0 end)
+			from `tabGL Entry` gle join `tabAccount` acc on acc.name = gle.account
+			where gle.company in %s and gle.is_cancelled = 0 and gle.voucher_type != 'Period Closing Voucher'
+			group by 1""", (companies,)):
+		if cint(r[0]) in years:
+			x = years[cint(r[0])]
+			x["debit"], x["credit"], x["profit"] = flt(r[1]), flt(r[2]), flt(r[3])
 	# which Tally company each year was read from (the sync log keeps the Tally company name)
 	for r in frappe.db.sql("select " + FY_EXPR + """, group_concat(distinct tally_company separator ', ')
 			from `tabTally Sync Log` where record_type = 'Voucher' and status in ('Success', 'Linked')

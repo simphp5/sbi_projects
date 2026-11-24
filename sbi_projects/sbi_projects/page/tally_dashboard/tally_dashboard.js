@@ -36,9 +36,9 @@ class TallyDashboard {
 				if (!this.data || this.company_value() !== this.data.company) this.refresh();
 			} });
 		this.from = page.add_field({ fieldname: "from_date", label: __("From"), fieldtype: "Date",
-			change: () => this.refresh() });
+			change: () => !this._fy && this.refresh() });
 		this.to = page.add_field({ fieldname: "to_date", label: __("To"), fieldtype: "Date",
-			default: frappe.datetime.get_today(), change: () => this.refresh() });
+			default: frappe.datetime.get_today(), change: () => !this._fy && this.refresh() });
 		this.gran = page.add_field({ fieldname: "granularity", label: __("Chart by"), fieldtype: "Select",
 			options: ["Auto", "Daily", "Weekly", "Monthly"].join("\n"), default: "Auto",
 			change: () => this.data && this.draw_chart(this.data) });
@@ -47,6 +47,14 @@ class TallyDashboard {
 		page.add_inner_button(__("Sync Log"), () => frappe.set_route("List", "Tally Sync Log"));
 		this.$body = $(`<div class="tally-dash"></div>`).appendTo(page.main);
 		this.inject_css();
+	}
+
+	show_year(from, to) {
+		this._fy = true;
+		Promise.all([this.from.set_value(from), this.to.set_value(to)]).then(() => {
+			this._fy = false;
+			this.refresh();
+		});
 	}
 
 	refresh() {
@@ -116,12 +124,17 @@ class TallyDashboard {
 		const fyRange = (r) => 'journal-entry?tally_voucher=["is","set"]&posting_date='
 			+ encodeURIComponent(JSON.stringify(["Between", [r.from_date, r.to_date]]));
 		const fyTable = this.table([
-			{ label: __("Financial year"), get: (r) => this.link(fyRange(r), r.label) },
-			{ label: __("Journal Entries"), num: 1, get: (r) => r.je },
+			{ label: __("Financial year"), get: (r) => `<a class="td-fy" data-from="${r.from_date}" data-to="${r.to_date}"
+				title="${__("Show this year in the whole dashboard")}">${this.esc(r.label)}</a>` },
+			{ label: __("Journal Entries"), num: 1, get: (r) => this.link(fyRange(r), String(r.je)) },
 			{ label: __("Sales Inv."), num: 1, get: (r) => r.si },
 			{ label: __("Purchase Inv."), num: 1, get: (r) => r.pi },
 			{ label: __("Total vouchers"), num: 1, get: (r) => `<b>${r.total}</b>` },
-			{ label: __("Amount"), num: 1, get: (r) => this.money(r.amount) },
+			{ label: __("Debit"), num: 1, get: (r) => this.money(r.debit) },
+			{ label: __("Credit"), num: 1, get: (r) => this.money(r.credit) },
+			{ label: __("Profit / Loss"), num: 1, get: (r) => `<b style="color:${(r.profit || 0) < 0
+				? "var(--red-600)" : "var(--green-600)"}">${(r.profit || 0) < 0 ? "-" : "+"}${this.money(Math.abs(r.profit || 0))}</b>`
+				+ (r.drafts ? `<div class="td-sub">${__("excl. {0} draft invoices", [r.drafts])}</div>` : "") },
 			{ label: __("From Tally company"), get: (r) => `<span class="td-msg">${this.esc(r.sources)}</span>` },
 		], fys, __("No vouchers imported from Tally yet"));
 
@@ -205,7 +218,7 @@ class TallyDashboard {
 		this.$body.html(`
 			${health}
 			${tiles}
-			${this.card(__("Vouchers by financial year (all years imported)"), fyTable,
+			${this.card(__("Vouchers by financial year (all years imported) - click a year to show it above"), fyTable,
 				`<span class="text-muted">${__("{0} vouchers in {1} years", [fyTotal, fys.length])}</span>`)}
 			<div class="td-grid">
 				${this.card(`<span class="td-chart-title">${__("Tally vouchers by voucher date")}</span>`, `<div class="td-chart"></div>`)}
@@ -230,6 +243,10 @@ class TallyDashboard {
 				${this.card(__("Skipped as already in ERPNext"), dupes, this.link("tally-sync-log?status=Skipped", __("All")))}
 			</div>`);
 
+		this.$body.find(".td-fy").css("cursor", "pointer").on("click", (e) => {
+			const el = $(e.currentTarget);
+			this.show_year(el.attr("data-from"), el.attr("data-to"));
+		});
 		this.draw_chart(d);
 		this.draw_invoice_chart(d);
 	}
