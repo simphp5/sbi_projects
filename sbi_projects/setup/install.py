@@ -22,6 +22,7 @@ from sbi_projects.setup.milestone_status_fields import create_milestone_status_f
 from sbi_projects.setup.si_item_columns import create_si_item_columns
 from sbi_projects.setup.tally_setup import setup_tally
 from sbi_projects.setup.cashflow_setup import setup_cashflow
+from sbi_projects.setup.lite_erp_setup import setup_lite_erp
 
 
 def after_install():
@@ -62,6 +63,7 @@ def after_install():
 		create_si_item_columns,
 		setup_tally,
 		setup_cashflow,
+		setup_lite_erp,
 	)
 	for step in steps:
 		try:
