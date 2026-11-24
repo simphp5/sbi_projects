@@ -28,14 +28,16 @@ def _vtype(tally_voucher):
 def get_dashboard(from_date=None, to_date=None, company=None):
 	frappe.only_for(ROLES)
 	s = settings()
-	company = company or s.company
+	company = company or ALL  # all companies unless one is picked
 	configured = []
 	for c in contexts(include_disabled=True):
 		if c.company and c.company not in configured:
 			configured.append(c.company)
 	companies = tuple(configured) if company == ALL else (company,)
 	to_date = getdate(to_date or nowdate())
-	from_date = getdate(from_date or s.start_date or get_first_day(add_months(to_date, -11)))
+	first = _first_year(companies) if companies and companies[0] else None
+	from_date = getdate(from_date or (str(first) + "-04-01" if first else None) or s.start_date
+		or get_first_day(add_months(to_date, -11)))
 
 	summary = get_summary(None if company == ALL else company)
 	health = dict(summary["agent"])
@@ -46,8 +48,13 @@ def get_dashboard(from_date=None, to_date=None, company=None):
 	elif company == ALL:
 		health.update(tally_reachable=int(all(c["ready"] for c in summary["companies"]) and bool(summary["companies"])),
 			tally_company=", ".join(c["tally_company"] for c in summary["companies"]))
+	today = getdate(nowdate())
+	last = today.year if today.month >= 4 else today.year - 1
 	out = {
 		"company": company, "from_date": str(from_date), "to_date": str(to_date),
+		# financial years for the year picker, newest first: from the first imported year to this year
+		"fy_options": [{"label": str(y) + "-" + str(y + 1)[2:], "from_date": str(y) + "-04-01",
+			"to_date": str(y + 1) + "-03-31"} for y in range(last, (first or last) - 1, -1)],
 		"companies": summary["companies"], "company_list": configured, "is_all": company == ALL,
 		"health": health, "sync_table": summary["table"],
 		"pending_export": summary["pending_export"], "today": summary["today"],
@@ -168,6 +175,17 @@ def get_dashboard(from_date=None, to_date=None, company=None):
 
 
 FY_EXPR = "year(date_sub(posting_date, interval 3 month))"  # April-March financial year
+
+
+def _first_year(companies):
+	"""Financial year (its starting calendar year) of the oldest voucher imported from Tally."""
+	r = frappe.db.sql("select min(posting_date) from `tabJournal Entry` where company in %s"
+		" and ifnull(tally_guid, '') != '' and docstatus < 2", (companies,))
+	d = r and r[0][0]
+	if not d:
+		return None
+	d = getdate(d)
+	return d.year if d.month >= 4 else d.year - 1
 
 
 def _by_financial_year(companies):

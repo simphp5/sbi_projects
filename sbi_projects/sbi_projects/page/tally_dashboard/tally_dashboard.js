@@ -12,6 +12,8 @@ frappe.pages["tally-dashboard"].on_page_show = function (wrapper) {
 
 const ALL_LABEL = __("All companies");
 const ALL = "__all__";
+const ALL_YEARS = __("All years");
+const CUSTOM = __("Custom");
 
 class TallyDashboard {
 	company_value() {
@@ -31,14 +33,16 @@ class TallyDashboard {
 	constructor(page) {
 		this.page = page;
 		this.company = page.add_field({ fieldname: "company", label: __("Company"), fieldtype: "Select",
-			options: [ALL_LABEL].join("\n"), change: () => {
+			options: [ALL_LABEL].join("\n"), default: ALL_LABEL, change: () => {
 				if (this._filling) return;
 				if (!this.data || this.company_value() !== this.data.company) this.refresh();
 			} });
+		this.year = page.add_field({ fieldname: "fy", label: __("Financial Year"), fieldtype: "Select",
+			options: [ALL_YEARS, CUSTOM].join("\n"), default: ALL_YEARS, change: () => this.year_changed() });
 		this.from = page.add_field({ fieldname: "from_date", label: __("From"), fieldtype: "Date",
-			change: () => !this._fy && this.refresh() });
+			change: () => this.dates_changed() });
 		this.to = page.add_field({ fieldname: "to_date", label: __("To"), fieldtype: "Date",
-			default: frappe.datetime.get_today(), change: () => !this._fy && this.refresh() });
+			default: frappe.datetime.get_today(), change: () => this.dates_changed() });
 		this.gran = page.add_field({ fieldname: "granularity", label: __("Chart by"), fieldtype: "Select",
 			options: ["Auto", "Daily", "Weekly", "Monthly"].join("\n"), default: "Auto",
 			change: () => this.data && this.draw_chart(this.data) });
@@ -51,10 +55,48 @@ class TallyDashboard {
 
 	show_year(from, to) {
 		this._fy = true;
-		Promise.all([this.from.set_value(from), this.to.set_value(to)]).then(() => {
+		const fy = (this.data && this.data.fy_options || []).find((o) => o.from_date === from && o.to_date === to);
+		const label = fy ? fy.label : this.year.get_value() === ALL_YEARS ? ALL_YEARS : CUSTOM;
+		Promise.all([this.from.set_value(from), this.to.set_value(to), this.year.set_value(label)]).then(() => {
 			this._fy = false;
 			this.refresh();
 		});
+	}
+
+	// the year picker: "All years", one financial year, or "Custom" (the From / To dates as typed)
+	year_changed() {
+		if (this._filling || this._fy || !this.data) return;
+		const v = this.year.get_value();
+		if (v === CUSTOM) return;
+		const opts = this.data.fy_options || [];
+		if (v === ALL_YEARS) {
+			const oldest = opts.length ? opts[opts.length - 1].from_date : this.from.get_value();
+			this.show_year(oldest, frappe.datetime.get_today());
+			return;
+		}
+		const fy = opts.find((o) => o.label === v);
+		if (fy) this.show_year(fy.from_date, fy.to_date);
+	}
+
+	dates_changed() {
+		if (this._fy) return;
+		const f = this.from.get_value(), t = this.to.get_value();
+		const fy = (this.data && this.data.fy_options || []).find((o) => o.from_date === f && o.to_date === t);
+		this._fy = true;
+		this.year.set_value(fy ? fy.label : CUSTOM).then(() => {
+			this._fy = false;
+			this.refresh();
+		});
+	}
+
+	fill_years(d) {
+		const opts = d.fy_options || [];
+		const list = [ALL_YEARS].concat(opts.map((o) => o.label), [CUSTOM]);
+		if (this.year.df.options === list.join("\n")) return;
+		this._filling = true;
+		this.year.df.options = list.join("\n");
+		this.year.refresh();
+		this.year.set_value(this.year.get_value() || ALL_YEARS).then(() => (this._filling = false));
 	}
 
 	refresh() {
@@ -63,9 +105,17 @@ class TallyDashboard {
 			args: { from_date: this.from.get_value(), to_date: this.to.get_value(), company: this.company_value() },
 		}).then((r) => {
 			const d = r.message || {};
-			if (!this.from.get_value() && d.from_date) this.from.set_value(d.from_date);
+			if (!this.from.get_value() && d.from_date) {
+				this._fy = true;
+				this.from.set_value(d.from_date).then(() => (this._fy = false));
+			}
 			this.data = d;
 			if (d.company) this.fill_companies(d);
+			this.fill_years(d);
+			if (!this.to.get_value() && d.to_date) {
+				this._fy = true;
+				this.to.set_value(d.to_date).then(() => (this._fy = false));
+			}
 			this.render(d);
 		});
 	}

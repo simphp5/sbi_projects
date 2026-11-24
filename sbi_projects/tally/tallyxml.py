@@ -136,8 +136,20 @@ def groups_request(company):
 	return export_report(company, "List of Accounts", {"ACCOUNTTYPE": "Groups"})
 
 
+LEDGER_FETCH = ("Name, Parent, Guid, AlterId, OpeningBalance, IsBillWiseOn, PartyGSTIN, "
+	"LedGSTRegDetails.*, HSNDetails.*")
+
+
 def ledgers_request(company):
-	return export_report(company, "List of Accounts", {"ACCOUNTTYPE": "Ledgers"})
+	"""Ledgers with only the fields the sync uses. The full 'List of Accounts' export carries every
+	ledger detail (addresses, bank, tax settings ...) and for a company with thousands of ledgers it
+	grew too big to post to ERPNext (HTTP 413)."""
+	return (
+		"<ENVELOPE><HEADER><VERSION>1</VERSION><TALLYREQUEST>Export</TALLYREQUEST><TYPE>Collection</TYPE>"
+		"<ID>ERPLedgers</ID></HEADER><BODY><DESC>" + _static(company) +
+		"<TDL><TDLMESSAGE><COLLECTION NAME=\"ERPLedgers\" ISMODIFY=\"No\"><TYPE>Ledger</TYPE>"
+		"<FETCH>" + LEDGER_FETCH + "</FETCH></COLLECTION></TDLMESSAGE></TDL></DESC></BODY></ENVELOPE>"
+	)
 
 
 def stock_items_request(company):
